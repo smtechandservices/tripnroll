@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { FlightCard } from '@/components/FlightCard';
 import { SearchForm } from '@/components/SearchForm';
 import { FlightFilters, FilterState } from '@/components/FlightFilters';
@@ -124,17 +124,39 @@ export default function SearchPage() {
         fetchFlights();
     }, [origin, destination, date, returnDate, currentPage, currentFilters]);
 
+    const router = useRouter();
+
+    // Helper to update URL without page reload
+    const updateUrl = useCallback((newParams: Record<string, string | undefined>) => {
+        const params = new URLSearchParams(searchParams.toString());
+
+        Object.entries(newParams).forEach(([key, value]) => {
+            if (value === undefined || value === null) {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        });
+
+        router.push(`?${params.toString()}`);
+    }, [router, searchParams]);
+
     // Update filters and trigger refetch
     const handleFilterChange = useCallback((filters: FilterState) => {
         setCurrentFilters(filters);
         // Reset to page 1 when filters change
         if (currentPage !== 1) {
-            window.location.href = `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}${returnDate ? `&returnDate=${returnDate}` : ''}&page=1`;
+            updateUrl({ page: '1' });
         }
-    }, [origin, destination, date, returnDate, currentPage]);
+    }, [currentPage, updateUrl]);
+
+    const handlePageChange = (newPage: number) => {
+        updateUrl({ page: newPage.toString() });
+    };
 
     return (
         <div className="min-h-screen bg-slate-50">
+
             {/* Fixed background image */}
             <div className="fixed top-0 left-0 w-full h-[85vh] bg-slate-900 overflow-hidden z-0">
                 <div
@@ -191,6 +213,7 @@ export default function SearchPage() {
                             {/* Filters Sidebar */}
                             <div className="lg:col-span-1">
                                 <FlightFilters
+                                    filters={currentFilters}
                                     onFilterChange={handleFilterChange}
                                     availableAirlines={availableAirlines}
                                 />
@@ -270,21 +293,23 @@ export default function SearchPage() {
                                         {/* Pagination Controls */}
                                         {!loading && !returnDate && totalPages > 1 && (
                                             <div className="flex justify-center gap-4 mt-8">
-                                                <a
-                                                    href={currentPage > 1 ? `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}&page=${currentPage - 1}` : '#'}
+                                                <button
+                                                    onClick={() => handlePageChange(currentPage - 1)}
+                                                    disabled={currentPage <= 1}
                                                     className={`px-4 py-2 rounded-lg font-semibold ${currentPage > 1 ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                                                 >
                                                     Previous
-                                                </a>
+                                                </button>
                                                 <span className="flex items-center text-slate-600">
                                                     Page {currentPage} of {totalPages}
                                                 </span>
-                                                <a
-                                                    href={currentPage < totalPages ? `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}&page=${currentPage + 1}` : '#'}
+                                                <button
+                                                    onClick={() => handlePageChange(currentPage + 1)}
+                                                    disabled={currentPage >= totalPages}
                                                     className={`px-4 py-2 rounded-lg font-semibold ${currentPage < totalPages ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                                                 >
                                                     Next
-                                                </a>
+                                                </button>
                                             </div>
                                         )}
                                     </>

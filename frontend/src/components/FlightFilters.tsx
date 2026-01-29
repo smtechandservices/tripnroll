@@ -28,38 +28,29 @@ const TIME_SLOTS = [
     { value: 'evening', label: 'Evening', time: '6 PM - 12 AM' },
 ];
 
-export function FlightFilters({ onFilterChange, availableAirlines = [] }: FlightFiltersProps) {
-    const [filters, setFilters] = useState<FilterState>({
-        stops: [],
-        airlines: [],
-        departureTime: [],
-        arrivalTime: [],
-    });
-
-    // Call onFilterChange when filters change (after render)
-    useEffect(() => {
-        onFilterChange?.(filters);
-    }, [filters, onFilterChange]);
+export function FlightFilters({ filters, onFilterChange, availableAirlines = [] }: FlightFiltersProps & { filters: FilterState }) {
 
     const handleCheckboxChange = (category: keyof FilterState, value: string) => {
-        setFilters((prev) => {
-            const currentValues = prev[category];
-            const newValues = currentValues.includes(value)
-                ? currentValues.filter((v) => v !== value)
-                : [...currentValues, value];
+        if (!onFilterChange) return;
 
-            return { ...prev, [category]: newValues };
-        });
+        const currentValues = filters[category];
+        const newValues = currentValues.includes(value)
+            ? currentValues.filter((v) => v !== value)
+            : [...currentValues, value];
+
+        onFilterChange({ ...filters, [category]: newValues });
     };
 
     const clearAllFilters = () => {
+        if (!onFilterChange) return;
+
         const emptyFilters: FilterState = {
             stops: [],
             airlines: [],
             departureTime: [],
             arrivalTime: [],
         };
-        setFilters(emptyFilters);
+        onFilterChange(emptyFilters);
     };
 
     const hasActiveFilters = Object.values(filters).some((arr) => arr.length > 0);
@@ -101,7 +92,7 @@ export function FlightFilters({ onFilterChange, availableAirlines = [] }: Flight
                         ))}
                     </div>
                 </div>
-                
+
                 {/* Departure Time Filter */}
                 <div className="pt-4 border-t border-slate-200">
                     <h4 className="font-semibold text-slate-800 mb-3">Departure Time</h4>
