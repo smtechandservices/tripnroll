@@ -1,0 +1,299 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { FlightCard } from '@/components/FlightCard';
+import { SearchForm } from '@/components/SearchForm';
+import { FlightFilters, FilterState } from '@/components/FlightFilters';
+import { Plane } from 'lucide-react';
+
+interface Flight {
+    id: number;
+    airline: string;
+    flight_number: string;
+    origin: string;
+    destination: string;
+    departure_time: string;
+    arrival_time: string;
+    duration: string;
+    price: string;
+    stops: number;
+}
+
+export default function SearchPage() {
+    const searchParams = useSearchParams();
+    const origin = searchParams.get('origin');
+    const destination = searchParams.get('destination');
+    const date = searchParams.get('date');
+    const returnDate = searchParams.get('returnDate');
+    const currentPage = Number(searchParams.get('page')) || 1;
+
+    const [outboundFlights, setOutboundFlights] = useState<Flight[]>([]);
+    const [returnFlights, setReturnFlights] = useState<Flight[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [availableAirlines, setAvailableAirlines] = useState<string[]>([]);
+    const [currentFilters, setCurrentFilters] = useState<FilterState>({
+        stops: [],
+        airlines: [],
+        departureTime: [],
+        arrivalTime: [],
+    });
+
+    // Fetch available airlines when search params change
+    useEffect(() => {
+        const fetchAirlines = async () => {
+            try {
+                const { getAvailableAirlines } = await import('@/lib/api');
+                const data = await getAvailableAirlines(
+                    origin || undefined,
+                    destination || undefined,
+                    date || undefined
+                );
+                setAvailableAirlines(data.airlines);
+            } catch (error) {
+                console.error('Error fetching airlines:', error);
+                setAvailableAirlines([]);
+            }
+        };
+
+        fetchAirlines();
+    }, [origin, destination, date]);
+
+    // Fetch flights whenever search params or filters change
+    useEffect(() => {
+        const fetchFlights = async () => {
+            setLoading(true);
+            try {
+                // Import the API function dynamically
+                const { getFlights } = await import('@/lib/api');
+
+                // Convert filter state to API format
+                const apiFilters = {
+                    stops: currentFilters.stops,
+                    airlines: currentFilters.airlines,
+                    departure_time: currentFilters.departureTime,
+                    arrival_time: currentFilters.arrivalTime,
+                };
+
+                // Fetch outbound flights with filters
+                const outboundData = await getFlights(
+                    origin || undefined,
+                    destination || undefined,
+                    date || undefined,
+                    undefined,
+                    currentPage,
+                    apiFilters
+                ).catch(() => ({ count: 0, results: [], next: null, previous: null }));
+
+                setOutboundFlights(outboundData.results || []);
+
+                let returnCount = 0;
+                let returnPageCount = 0;
+
+                // Fetch return flights if returnDate exists
+                if (returnDate) {
+                    const returnData = await getFlights(
+                        destination || undefined,
+                        origin || undefined,
+                        returnDate || undefined,
+                        undefined,
+                        currentPage,
+                        apiFilters
+                    ).catch(() => ({ count: 0, results: [], next: null, previous: null }));
+
+                    setReturnFlights(returnData.results || []);
+                    returnCount = returnData.count || 0;
+                    returnPageCount = Math.ceil(returnCount / 10);
+                }
+
+                // Set total count and pages
+                const outboundCount = outboundData.count || 0;
+                const outboundPageCount = Math.ceil(outboundCount / 10);
+
+                setTotalCount(outboundCount + returnCount);
+                setTotalPages(Math.max(outboundPageCount, returnPageCount));
+            } catch (error) {
+                console.error('Error fetching flights:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFlights();
+    }, [origin, destination, date, returnDate, currentPage, currentFilters]);
+
+    // Update filters and trigger refetch
+    const handleFilterChange = useCallback((filters: FilterState) => {
+        setCurrentFilters(filters);
+        // Reset to page 1 when filters change
+        if (currentPage !== 1) {
+            window.location.href = `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}${returnDate ? `&returnDate=${returnDate}` : ''}&page=1`;
+        }
+    }, [origin, destination, date, returnDate, currentPage]);
+
+    return (
+        <div className="min-h-screen bg-slate-50">
+            {/* Fixed background image */}
+            <div className="fixed top-0 left-0 w-full h-[85vh] bg-slate-900 overflow-hidden z-0">
+                <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{ backgroundImage: 'url(/hero-search.png)' }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-900/30 via-slate-900/20 to-slate-900/40" />
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10">
+                <div className="pb-32 pt-24 px-4 lg:pt-64">
+                    <div className="max-w-9xl md:px-10 mx-auto w-full flex flex-col justify-end items-center text-left min-h-[50vh]">
+                        <h1 className="max-w-2xl text-5xl md:text-5xl font-extrabold text-white mb-32 tracking-tight text-center">
+                            Find Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Perfect Flight</span>
+                        </h1>
+
+                        <div className="w-full">
+                            <SearchForm
+                                initialOrigin={origin || undefined}
+                                initialDestination={destination || undefined}
+                                initialDate={date || undefined}
+                                initialReturnDate={returnDate || undefined}
+                                initialTripType={returnDate ? 'round-trip' : 'one-way'}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Results section */}
+                <div className="relative bg-white pb-20">
+                    <div className="max-w-9xl mx-auto px-12 pt-12">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Plane className="text-green-600" />
+                                {totalCount} Flights Found
+                            </h2>
+                            <div className="text-sm text-slate-500">
+                                {returnDate ? (
+                                    <span className="flex items-center gap-1">
+                                        Round Trip:
+                                        <span className="font-semibold text-slate-800">{origin}</span>
+                                        <span className="mx-1">↔</span>
+                                        <span className="font-semibold text-slate-800">{destination}</span>
+                                    </span>
+                                ) : (
+                                    <span>Showing results for <span className="font-semibold text-slate-800">{origin || 'Anywhere'}</span> to <span className="font-semibold text-slate-800">{destination || 'Anywhere'}</span></span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Grid layout: Filters on left, Results on right */}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                            {/* Filters Sidebar */}
+                            <div className="lg:col-span-1">
+                                <FlightFilters
+                                    onFilterChange={handleFilterChange}
+                                    availableAirlines={availableAirlines}
+                                />
+                            </div>
+
+                            {/* Flight Results */}
+                            <div className="lg:col-span-3 space-y-12">
+                                {loading ? (
+                                    <div className="text-center py-20">
+                                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                                        <p className="mt-4 text-slate-600">Loading flights...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Outbound Flights */}
+                                        <section>
+                                            {returnDate && (
+                                                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-200">
+                                                    <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                                                        <Plane className="w-5 h-5 rotate-45" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-slate-800">Outbound Flight</h3>
+                                                        <p className="text-sm text-slate-500">
+                                                            {origin} to {destination} • {date ? new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Any Date'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="space-y-6">
+                                                {outboundFlights.length > 0 ? (
+                                                    outboundFlights.map((flight) => (
+                                                        <FlightCard key={flight.id} flight={flight} />
+                                                    ))
+                                                ) : (
+                                                    <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                                                        <div className="flex justify-center mb-2 text-slate-300">
+                                                            <Plane className="w-8 h-8" />
+                                                        </div>
+                                                        <p className="text-slate-500">No flights match your filters.</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </section>
+
+                                        {/* Return Flights */}
+                                        {returnDate && (
+                                            <section>
+                                                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-200">
+                                                    <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                                                        <Plane className="w-5 h-5 -rotate-45" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-slate-800">Return Flight</h3>
+                                                        <p className="text-sm text-slate-500">
+                                                            {destination} to {origin} • {new Date(returnDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-6">
+                                                    {returnFlights.length > 0 ? (
+                                                        returnFlights.map((flight) => (
+                                                            <FlightCard key={flight.id} flight={flight} />
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                                                            <div className="flex justify-center mb-2 text-slate-300">
+                                                                <Plane className="w-8 h-8 rotate-180" />
+                                                            </div>
+                                                            <p className="text-slate-500">No return flights match your filters.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </section>
+                                        )}
+
+                                        {/* Pagination Controls */}
+                                        {!loading && !returnDate && totalPages > 1 && (
+                                            <div className="flex justify-center gap-4 mt-8">
+                                                <a
+                                                    href={currentPage > 1 ? `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}&page=${currentPage - 1}` : '#'}
+                                                    className={`px-4 py-2 rounded-lg font-semibold ${currentPage > 1 ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                                >
+                                                    Previous
+                                                </a>
+                                                <span className="flex items-center text-slate-600">
+                                                    Page {currentPage} of {totalPages}
+                                                </span>
+                                                <a
+                                                    href={currentPage < totalPages ? `?origin=${origin || ''}&destination=${destination || ''}&date=${date || ''}&page=${currentPage + 1}` : '#'}
+                                                    className={`px-4 py-2 rounded-lg font-semibold ${currentPage < totalPages ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                                >
+                                                    Next
+                                                </a>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
