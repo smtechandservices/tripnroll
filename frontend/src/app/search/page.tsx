@@ -34,12 +34,16 @@ export default function SearchPage() {
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [availableAirlines, setAvailableAirlines] = useState<string[]>([]);
-    const [currentFilters, setCurrentFilters] = useState<FilterState>({
-        stops: [],
-        airlines: [],
-        departureTime: [],
-        arrivalTime: [],
-    });
+
+    const router = useRouter();
+
+    // Derived state from URL - Single Source of Truth
+    const currentFilters = useMemo<FilterState>(() => ({
+        stops: searchParams.getAll('stops'),
+        airlines: searchParams.getAll('airlines'),
+        departureTime: searchParams.getAll('departure_time'),
+        arrivalTime: searchParams.getAll('arrival_time'),
+    }), [searchParams]);
 
     // Fetch available airlines when search params change
     useEffect(() => {
@@ -124,15 +128,16 @@ export default function SearchPage() {
         fetchFlights();
     }, [origin, destination, date, returnDate, currentPage, currentFilters]);
 
-    const router = useRouter();
-
     // Helper to update URL without page reload
-    const updateUrl = useCallback((newParams: Record<string, string | undefined>) => {
+    const updateUrl = useCallback((newParams: Record<string, string | string[] | undefined>) => {
         const params = new URLSearchParams(searchParams.toString());
 
         Object.entries(newParams).forEach(([key, value]) => {
             if (value === undefined || value === null) {
                 params.delete(key);
+            } else if (Array.isArray(value)) {
+                params.delete(key);
+                value.forEach(v => params.append(key, v));
             } else {
                 params.set(key, value);
             }
@@ -143,12 +148,14 @@ export default function SearchPage() {
 
     // Update filters and trigger refetch
     const handleFilterChange = useCallback((filters: FilterState) => {
-        setCurrentFilters(filters);
-        // Reset to page 1 when filters change
-        if (currentPage !== 1) {
-            updateUrl({ page: '1' });
-        }
-    }, [currentPage, updateUrl]);
+        updateUrl({
+            stops: filters.stops,
+            airlines: filters.airlines,
+            departure_time: filters.departureTime,
+            arrival_time: filters.arrivalTime,
+            page: '1' // Reset to page 1
+        });
+    }, [updateUrl]);
 
     const handlePageChange = (newPage: number) => {
         updateUrl({ page: newPage.toString() });
