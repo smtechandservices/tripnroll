@@ -8,9 +8,10 @@ from .models import Flight, Booking, ContactMessage, UserProfile
 from .serializers import (
     UserSerializer, RegisterSerializer, FlightSerializer, 
     BookingSerializer, AdminBookingSerializer, ContactMessageSerializer,
-    UserProfileSerializer
+    UserProfileSerializer, AdminUserSerializer
 )
 from .permissions import IsAdminType
+from rest_framework import filters
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -288,6 +289,30 @@ class AdminBookingListView(generics.ListAPIView):
     queryset = Booking.objects.all().order_by('-created_at')
     serializer_class = BookingSerializer
     permission_classes = [IsAdminType]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['first_name', 'last_name', 'passenger_email', 'booking_id']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Calculate total revenue of all CONFIRMED bookings regardless of pagination
+        from django.db.models import Sum
+        total_revenue = Booking.objects.filter(status='CONFIRMED').aggregate(
+            total=Sum('flight__price')
+        )['total'] or 0
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['total_revenue'] = total_revenue
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'total_revenue': total_revenue
+        })
 
 class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
     queryset = Booking.objects.all()
@@ -320,3 +345,16 @@ class AdminDashboardView(generics.GenericAPIView):
             'total_flights': total_flights,
             'recent_bookings': recent_bookings_data
         })
+
+class AdminUserListView(generics.ListCreateAPIView):
+    queryset = User.objects.filter(profile__usertype='user').order_by('-date_joined')
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminType]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all() # Allow managing any user if known by ID, but typically called for listed users
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminType]
+

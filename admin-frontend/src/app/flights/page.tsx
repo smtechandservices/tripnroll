@@ -123,6 +123,18 @@ export default function AdminFlightsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const result = await Swal.fire({
+            title: `Are you sure you want to ${editingFlight ? 'update' : 'create'} this flight?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: editingFlight ? 'Yes, update' : 'Yes, create',
+            confirmButtonColor: '#16a34a',
+            cancelButtonColor: '#64748b',
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             if (editingFlight) {
                 await updateFlight(editingFlight.id, formData);
@@ -238,7 +250,7 @@ export default function AdminFlightsPage() {
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return (
-        <div>
+        <div className='pt-8'>
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold text-slate-800">Flight Management</h2>
                 <div className="flex gap-4">
@@ -327,7 +339,7 @@ export default function AdminFlightsPage() {
                                         {new Date(flight.departure_time).toLocaleString()}
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-900">
-                                        ₹{flight.price}
+                                        ₹{parseFloat(flight.price).toLocaleString('en-IN')}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {flight.available_seats !== undefined ? flight.available_seats : '-'} / {flight.total_seats || 0}

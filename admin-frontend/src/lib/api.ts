@@ -58,7 +58,8 @@ export interface User {
         passport_number: string;
         address: string;
         usertype: 'user' | 'admin' | 'superadmin';
-    }
+    };
+    date_joined?: string;
 }
 
 export interface ContactMessage {
@@ -122,6 +123,7 @@ export interface PaginatedResponse<T> {
     next: string | null;
     previous: string | null;
     results: T[];
+    total_revenue?: number;
 }
 
 export interface FlightFilters {
@@ -290,13 +292,16 @@ export async function deleteFlight(id: number): Promise<void> {
     if (!res.ok) throw new Error('Failed to delete flight');
 }
 
-export async function getAdminBookings(): Promise<Booking[]> {
-    const res = await fetch(`${API_BASE_URL}/admin/bookings/`, {
+export async function getAdminBookings(page: number = 1, search: string = ''): Promise<PaginatedResponse<Booking>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/?${params.toString()}`, {
         headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch bookings');
-    const data: PaginatedResponse<Booking> = await res.json();
-    return data.results;
+    return res.json();
 }
 
 export async function updateBookingStatus(bookingId: string, status: string): Promise<Booking> {
@@ -308,3 +313,44 @@ export async function updateBookingStatus(bookingId: string, status: string): Pr
     if (!res.ok) throw new Error('Failed to update booking status');
     return res.json();
 }
+
+export async function getAdminUsers(page: number = 1, search: string = ''): Promise<PaginatedResponse<User>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+
+    const res = await fetch(`${API_BASE_URL}/admin/users/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+}
+
+export async function createAdminUser(data: any): Promise<User> {
+    const res = await fetch(`${API_BASE_URL}/admin/users/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create user');
+    return res.json();
+}
+
+export async function updateAdminUser(id: number, data: any): Promise<User> {
+    const res = await fetch(`${API_BASE_URL}/admin/users/${id}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update user');
+    return res.json();
+}
+
+export async function deleteAdminUser(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/admin/users/${id}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete user');
+}
+

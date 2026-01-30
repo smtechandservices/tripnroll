@@ -4,7 +4,8 @@ from .views import (
     ContactCreateView, SearchMetaView, RegisterView, UserProfileView,
     AvailableAirlinesView, cleanup_flight_data,
     AdminFlightListCreateView, AdminFlightDetailView, AdminFlightBulkCreateView,
-    AdminBookingListView, AdminBookingDetailView, AdminDashboardView
+    AdminBookingListView, AdminBookingDetailView, AdminDashboardView,
+    AdminUserListView, AdminUserDetailView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -27,4 +28,6 @@ urlpatterns = [
     path('admin/flights/<int:pk>/', AdminFlightDetailView.as_view(), name='admin-flight-detail'),
     path('admin/bookings/', AdminBookingListView.as_view(), name='admin-booking-list'),
     path('admin/bookings/<str:booking_id>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
+    path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
+    path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
 ]

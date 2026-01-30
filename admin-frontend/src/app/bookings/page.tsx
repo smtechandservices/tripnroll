@@ -10,17 +10,33 @@ export default function AdminBookingsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [netRevenue, setNetRevenue] = useState(0);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const pageSize = 10;
     // const router = useRouter();
 
     useEffect(() => {
-        fetchBookings();
-    }, []);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // Reset to page 1 on new search
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-    const fetchBookings = async () => {
+    useEffect(() => {
+        fetchBookings(currentPage, debouncedSearch);
+    }, [currentPage, debouncedSearch]);
+
+    const fetchBookings = async (page: number = 1, search: string = '') => {
+        setLoading(true);
         try {
-            const data = await getAdminBookings();
-            setBookings(data);
+            const data = await getAdminBookings(page, search);
+            setBookings(data.results);
+            setTotalCount(data.count);
+            setNetRevenue(data.total_revenue || 0);
         } catch (error) {
             console.error('Failed to fetch bookings', error);
             // router.push('/login');
@@ -43,7 +59,7 @@ export default function AdminBookingsPage() {
         if (result.isConfirmed) {
             try {
                 await updateBookingStatus(id, newStatus);
-                fetchBookings(); // Refresh list
+                fetchBookings(currentPage, debouncedSearch); // Refresh list with current page/search
                 Swal.fire({
                     icon: 'success',
                     title: 'Status Updated',
@@ -60,26 +76,29 @@ export default function AdminBookingsPage() {
         }
     };
 
-    const filteredBookings = bookings.filter(b =>
-        b.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.passenger_email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const totalPages = Math.ceil(totalCount / pageSize);
 
-    if (loading) return <div>Loading bookings...</div>;
+    if (loading && bookings.length === 0) return <div>Loading bookings...</div>;
 
     return (
-        <div>
+        <div className='pt-8'>
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold text-slate-800">Booking Management</h2>
-                <div className="relative">
-                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search bookings..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase tracking-wider text-green-600 font-bold">Net Revenue</span>
+                        <span className="text-xl font-bold text-green-700">₹{netRevenue.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="relative">
+                        <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search bookings..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="text-slate-700 pl-10 pr-12 py-4 border border-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -93,81 +112,131 @@ export default function AdminBookingsPage() {
                             <th className="px-6 py-4 font-medium text-slate-500">Origin</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Destination</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Travel Date</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Booked On</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Price</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Status</th>
                             <th className="px-6 py-4 font-medium text-slate-500 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {filteredBookings.map((booking) => (
-                            <tr key={booking.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 font-mono text-slate-600">{booking.booking_id}</td>
-                                <td className="px-6 py-4">
-                                    <button
-                                        onClick={() => setSelectedBooking(booking)}
-                                        className="text-left group w-full"
-                                    >
-                                        <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors cursor-pointer">
-                                            {booking.first_name} {booking.last_name}
-                                        </div>
-                                        <div className="text-slate-500 text-xs cursor-pointer">{booking.passenger_email}</div>
-                                    </button>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="font-medium text-slate-900">{booking.flight_details.airline}</div>
-                                    <div className="text-slate-500 text-xs">{booking.flight_details.flight_number}</div>
-                                </td>
-                                <td className="px-6 py-4 text-slate-600">
-                                    {booking.flight_details.origin}
-                                </td>
-                                <td className="px-6 py-4 text-slate-600">
-                                    {booking.flight_details.destination}
-                                </td>
-                                <td className="px-6 py-4 text-slate-600">
-                                    {new Date(booking.travel_date).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                                        booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-red-100 text-red-800'
-                                        }`}>
-                                        {booking.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                        {booking.status === 'PENDING' && (
-                                            <>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(booking.booking_id, 'CONFIRMED')}
-                                                    className="p-1 rounded text-green-600 hover:bg-green-50"
-                                                    title="Approve"
-                                                >
-                                                    <Check className="cursor-pointer w-5 h-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(booking.booking_id, 'CANCELLED')}
-                                                    className="p-1 rounded text-red-600 hover:bg-red-50"
-                                                    title="Reject"
-                                                >
-                                                    <X className="cursor-pointer w-5 h-5" />
-                                                </button>
-                                            </>
-                                        )}
-                                        {booking.status === 'CONFIRMED' && (
-                                            <button
-                                                onClick={() => handleStatusUpdate(booking.booking_id, 'CANCELLED')}
-                                                className="p-1 rounded text-red-600 hover:bg-red-50"
-                                                title="Cancel"
-                                            >
-                                                <X className="cursor-pointer w-5 h-5" />
-                                            </button>
-                                        )}
+                        {loading ? (
+                            <tr>
+                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <span>Searching bookings...</span>
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        ) : bookings.length === 0 ? (
+                            <tr>
+                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                    No bookings found matching your search.
+                                </td>
+                            </tr>
+                        ) : (
+                            bookings.map((booking) => (
+                                <tr key={booking.id} className="hover:bg-slate-50">
+                                    {/* ... table row content (same as before) ... */}
+                                    <td className="px-6 py-4 font-mono text-slate-600">{booking.booking_id}</td>
+                                    <td className="px-6 py-4">
+                                        <button
+                                            onClick={() => setSelectedBooking(booking)}
+                                            className="text-left group w-full"
+                                        >
+                                            <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors cursor-pointer">
+                                                {booking.first_name} {booking.last_name}
+                                            </div>
+                                            <div className="text-slate-500 text-xs cursor-pointer">{booking.passenger_email}</div>
+                                        </button>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-medium text-slate-900">{booking.flight_details.airline}</div>
+                                        <div className="text-slate-500 text-xs">{booking.flight_details.flight_number}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {booking.flight_details.origin}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {booking.flight_details.destination}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {new Date(booking.travel_date).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {new Date(booking.created_at).toLocaleDateString()}
+                                    </td>
+                                    <td className={`px-6 py-4 font-medium ${booking.status === 'CONFIRMED' ? 'text-green-600' : 'text-slate-900'}`}>
+                                        ₹{parseFloat(booking.flight_details.price).toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
+                                            booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>
+                                            {booking.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            {booking.status === 'PENDING' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(booking.booking_id, 'CONFIRMED')}
+                                                        className="p-1 rounded text-green-600 hover:bg-green-50"
+                                                        title="Approve"
+                                                    >
+                                                        <Check className="cursor-pointer w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(booking.booking_id, 'CANCELLED')}
+                                                        className="p-1 rounded text-red-600 hover:bg-red-50"
+                                                        title="Reject"
+                                                    >
+                                                        <X className="cursor-pointer w-5 h-5" />
+                                                    </button>
+                                                </>
+                                            )}
+                                            {booking.status === 'CONFIRMED' && (
+                                                <button
+                                                    onClick={() => handleStatusUpdate(booking.booking_id, 'CANCELLED')}
+                                                    className="p-1 rounded text-red-600 hover:bg-red-50"
+                                                    title="Cancel"
+                                                >
+                                                    <X className="cursor-pointer w-5 h-5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
+                {/* Pagination */}
+                {!loading && (
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-sm text-slate-500">
+                            Page {currentPage} of {Math.max(1, totalPages)} ({totalCount} bookings)
+                        </span>
+                        <div className="text-slate-700 flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage >= totalPages}
+                                className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Passenger Details Modal */}

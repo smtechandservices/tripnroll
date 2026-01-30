@@ -67,7 +67,7 @@ export function FlightCard({ flight }: FlightCardProps) {
             </div>
 
             <div className="border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 w-full md:w-48 flex flex-col items-center justify-center gap-3">
-                <div className="text-2xl font-bold text-green-600">{`₹${flight.price}`}</div>
+                <div className="text-2xl font-bold text-green-600">{`₹${parseFloat(flight.price).toLocaleString('en-IN')}`}</div>
                 <Link
                     href={`/booking/${flight.id}`}
                     onClick={handleBookNow}

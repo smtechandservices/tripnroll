@@ -79,3 +79,38 @@ class ContactMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactMessage
         fields = '__all__'
+        
+class AdminUserSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'profile', 'is_staff', 'is_superuser', 'date_joined')
+        read_only_fields = ('id', 'date_joined')
+
+    def create(self, validated_data):
+        profile_data = validated_data.pop('profile', {})
+        password = validated_data.pop('password', 'tripnroll123') # Default password if not provided
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        
+        # UserProfile is created via signal or manually. 
+        # Since RegisterSerializer does it manually, we'll do it here too just in case.
+        UserProfile.objects.update_or_create(user=user, defaults=profile_data)
+        return user
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if profile_data:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+            
+        return instance
