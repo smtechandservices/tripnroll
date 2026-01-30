@@ -1,11 +1,16 @@
 import uuid
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
 from .models import Flight, Booking, ContactMessage, UserProfile
-from .serializers import FlightSerializer, BookingSerializer, ContactMessageSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    UserSerializer, RegisterSerializer, FlightSerializer, 
+    BookingSerializer, AdminBookingSerializer, ContactMessageSerializer,
+    UserProfileSerializer
+)
+from .permissions import IsAdminType
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -125,7 +130,7 @@ class BookingCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         # Generate a unique booking ID
         booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
-        serializer.save(booking_id=booking_id)
+        serializer.save(booking_id=booking_id, status='PENDING')
 
 class BookingHistoryView(generics.ListAPIView):
     serializer_class = BookingSerializer
@@ -231,3 +236,87 @@ def cleanup_flight_data(request):
     
     message = f'Cleanup complete. Deleted {unbooked_count} unbooked flights and {booked_count} old booked flights (>90 days).'
     return Response({'message': message, 'count': total_deleted}, status=status.HTTP_200_OK)
+
+# Admin Views
+class AdminFlightListCreateView(generics.ListCreateAPIView):
+    serializer_class = FlightSerializer
+    permission_classes = [IsAdminType]
+
+    def get_queryset(self):
+        queryset = Flight.objects.all().order_by('-departure_time')
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(airline__icontains=search) |
+                Q(flight_number__icontains=search) |
+                Q(origin__icontains=search) |
+                Q(destination__icontains=search)
+            )
+        return queryset
+
+class AdminFlightDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Flight.objects.all()
+    serializer_class = FlightSerializer
+    permission_classes = [IsAdminType]
+
+class AdminFlightBulkCreateView(generics.CreateAPIView):
+    queryset = Flight.objects.all()
+    serializer_class = FlightSerializer
+    permission_classes = [IsAdminType]
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        if isinstance(data, list):
+            for item in data:
+                # Map yyyy-mm-dd/hh:mm:ss to ISO format
+                for field in ['departure_time', 'arrival_time']:
+                    val = item.get(field)
+                    if val and isinstance(val, str) and '/' in val:
+                        date_part, time_part = val.split('/')
+                        # Replace dashes with colons in time if necessary (handles both 14:30:00 and 14-30-00)
+                        time_part = time_part.replace('-', ':')
+                        item[field] = f"{date_part}T{time_part}"
+        
+        serializer = self.get_serializer(data=data, many=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+class AdminBookingListView(generics.ListAPIView):
+    queryset = Booking.objects.all().order_by('-created_at')
+    serializer_class = BookingSerializer
+    permission_classes = [IsAdminType]
+
+class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
+    queryset = Booking.objects.all()
+    serializer_class = AdminBookingSerializer
+    permission_classes = [IsAdminType]
+    lookup_field = 'booking_id'
+
+class AdminDashboardView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+
+    def get(self, request):
+        from django.db.models import Sum, Count
+        from django.utils import timezone
+        
+        total_revenue = Booking.objects.filter(status='CONFIRMED').aggregate(
+            total=Sum('flight__price')
+        )['total'] or 0
+        
+        total_bookings = Booking.objects.count()
+        active_bookings = Booking.objects.filter(status='CONFIRMED').count()
+        total_flights = Flight.objects.count()
+        
+        recent_bookings = Booking.objects.order_by('-created_at')[:5]
+        recent_bookings_data = BookingSerializer(recent_bookings, many=True).data
+
+        return Response({
+            'total_revenue': total_revenue,
+            'total_bookings': total_bookings,
+            'active_bookings': active_bookings,
+            'total_flights': total_flights,
+            'recent_bookings': recent_bookings_data
+        })

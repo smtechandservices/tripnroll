@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { updateProfile } from '@/lib/api';
 import { X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import Swal from 'sweetalert2';
 
 interface EditProfileModalProps {
     isOpen: boolean;
@@ -53,11 +54,22 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
             // But user wants to see changes. 
             // We can assume success.
             onClose();
-            alert('Profile updated successfully!');
-            // Reload page to reflect changes in context
-            window.location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Profile Updated',
+                text: 'Your profile has been updated successfully!',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
         } catch (error) {
-            alert('Failed to update profile');
+            Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                text: 'Failed to update profile. Please try again.',
+                confirmButtonColor: '#ef4444'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -69,7 +81,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                 <h2 className="text-xl font-bold text-slate-800">Edit Profile</h2>
                 <button
                     onClick={onClose}
-                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                    className="cursor-pointer text-slate-400 hover:text-slate-600 transition-colors"
                 >
                     <X size={20} />
                 </button>

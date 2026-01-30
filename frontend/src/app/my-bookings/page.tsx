@@ -88,25 +88,32 @@ export default function MyBookingsPage() {
                                         {/* Main Ticket Body */}
                                         <div className="relative">
                                             {/* Header with Airline and Status */}
-                                            <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white px-6 py-4 flex justify-between items-center`}>
+                                            <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' :
+                                                booking.status === 'CANCELLED' ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                                                booking.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
+                                                'bg-gradient-to-r from-green-600 to-emerald-600'
+                                                } text-white px-6 py-4 flex justify-between items-center`}>
                                                 <div>
                                                     <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
                                                     <div className="text-2xl font-bold">{booking.flight_details.airline}</div>
                                                 </div>
-                                                <div className={`${isExpired ? 'bg-red-500/90' : 'bg-white/20'} backdrop-blur-sm px-4 py-2 rounded-lg`}>
+                                                <div className={`${isExpired ? 'bg-red-500/90' :
+                                                        booking.status === 'PENDING' ? 'bg-yellow-700/30' :
+                                                            'bg-white/20'
+                                                    } backdrop-blur-sm px-4 py-2 rounded-lg`}>
                                                     <div className="text-xs opacity-90">Status</div>
                                                     <div className="font-bold">{displayStatus}</div>
                                                 </div>
                                             </div>
 
                                             {/* Flight Route Section */}
-                                            <div className="px-2 py-12 bg-gradient-to-b from-slate-50 to-white">
+                                            <div className="px-2 pt-14 bg-gradient-to-b from-slate-50 to-white">
                                                 <div className="grid grid-cols-3 gap-8 items-center">
                                                     {/* Origin */}
                                                     <div className="text-center">
                                                         <div className="text-4xl font-bold text-slate-800">{booking.flight_details.origin}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Origin</div>
-                                                        <div className="text-xs text-slate-400 mt-1">
+                                                        <div className="text-sm text-slate-400 mt-1">
                                                             {new Date(booking.flight_details.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </div>
                                                     </div>
@@ -121,14 +128,14 @@ export default function MyBookingsPage() {
                                                             </svg>
                                                             <div className="h-px bg-slate-300 flex-1"></div>
                                                         </div>
-                                                        <div className="text-xs text-slate-500 mt-2">{booking.flight_details.duration}</div>
+                                                        <div className="text-md text-slate-500 mt-2">{booking.flight_details.duration}</div>
                                                     </div>
 
                                                     {/* Destination */}
                                                     <div className="text-center">
                                                         <div className="text-4xl font-bold text-slate-800">{booking.flight_details.destination}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Destination</div>
-                                                        <div className="text-xs text-slate-400 mt-1">
+                                                        <div className="text-sm text-slate-400 mt-1">
                                                             {new Date(booking.flight_details.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </div>
                                                     </div>
@@ -145,7 +152,7 @@ export default function MyBookingsPage() {
                                             </div>
 
                                             {/* Flight Info Section */}
-                                            <div className="px-6 pb-10 bg-white text-center">
+                                            <div className="px-6 pt-4 pb-12 bg-white text-center">
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div>
                                                         <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Travel Date</div>

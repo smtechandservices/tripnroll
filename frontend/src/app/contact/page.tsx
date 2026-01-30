@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { submitContactMessage } from '@/lib/api';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 export default function ContactPage() {
     const [loading, setLoading] = useState(false);
@@ -22,55 +23,21 @@ export default function ContactPage() {
             setSuccess(true);
             e.currentTarget.reset();
         } catch (err) {
-            alert('Failed to send message');
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Failed to send message. Please try again later.',
+                confirmButtonColor: '#10b981' // green-500
+            });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4">
-            <div className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div>
-                        <h1 className="text-4xl font-bold text-slate-800 mb-6">Get in Touch</h1>
-                        <p className="text-xl text-slate-500 mb-10 leading-relaxed">
-                            Have questions about your flight? Need assistance with booking? Our team is here to help you 24/7.
-                        </p>
-
-                        <div className="space-y-8">
-                            <div className="flex items-start gap-4">
-                                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 shrink-0">
-                                    <Mail />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Email Us</h3>
-                                    <p className="text-slate-500">support@tripnroll.com</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-4">
-                                <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 shrink-0">
-                                    <Phone />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Call Us</h3>
-                                    <p className="text-slate-500">+1 (555) 123-4567</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-4">
-                                <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
-                                    <MapPin />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Visit Us</h3>
-                                    <p className="text-slate-500">123 Travel Lane, Sky City, NY 10001</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+        <div className="min-h-screen bg-slate-50 pt-42 px-12">
+            <div className="max-w-9xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">               
                     <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
                         <h2 className="text-2xl font-bold text-slate-800 mb-6">Send a Message</h2>
                         {success ? (
@@ -99,6 +66,52 @@ export default function ContactPage() {
                                 </button>
                             </form>
                         )}
+                    </div>
+
+                    <div className='mt-4'>
+                        <h1 className="text-4xl font-bold text-slate-800 mb-6">Get in Touch</h1>
+                        <p className="text-xl text-slate-500 mb-10 leading-relaxed max-w-2xl">
+                            Have questions about your flight? Need assistance with booking? Our team is here to help you 24/7.
+                        </p>
+
+                        <div className="space-y-8">
+                            <div className="flex items-start gap-4">
+                                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 shrink-0">
+                                    <Mail />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Email Us</h3>
+                                    <p className="text-slate-500">Info@tripnrolltravel.com</p>
+                                    <p className="text-slate-500">Tripnrolltravel@gmail.com</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-4">
+                                <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 shrink-0">
+                                    <Phone />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Call Us</h3>
+                                    <p className="text-slate-500">+91 8368282440</p>
+                                    <p className="text-slate-500">+91 8700701646</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-4">
+                                <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
+                                    <MapPin />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Visit Us</h3>
+                                    <p className="text-slate-500">
+                                        Shop no-15, MMTC STC Shopping Complex, <br />
+                                        Near Shri Aurobindo College, Shivalik Enclave, <br /> 
+                                        Navjeewan Vihar, Malviya Nagar, <br />
+                                        New Delhi - 110017 <br />
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "admin-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,21 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@types/react-datepicker": "^6.2.0",
-    "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
-    "react-water-wave": "^2.0.1",
     "sweetalert2": "^11.26.17",
     "sweetalert2-react-content": "^5.1.1",
-    "tailwind-merge": "^3.4.0"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/jquery": "^3.5.33",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

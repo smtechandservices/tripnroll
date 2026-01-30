@@ -150,25 +150,6 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                     required={isInternational}
                 />
                 <FormInput
-                    label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
-                    name="passport_issue_date"
-                    type="date"
-                    value={formData.passport_issue_date}
-                    onChange={handleChange}
-                    required={isInternational}
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                    label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
-                    name="passport_expiry_date"
-                    type="date"
-                    value={formData.passport_expiry_date}
-                    onChange={handleChange}
-                    required={isInternational}
-                />
-                <FormInput
                     label="Frequent Flyer Number (Optional)"
                     name="frequent_flyer_number"
                     value={formData.frequent_flyer_number}
@@ -177,10 +158,29 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 />
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormInput
+                    label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
+                    name="passport_issue_date"
+                    type="date"
+                    value={formData.passport_issue_date}
+                    onChange={handleChange}
+                    required={isInternational}
+                />
+                <FormInput
+                    label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
+                    name="passport_expiry_date"
+                    type="date"
+                    value={formData.passport_expiry_date}
+                    onChange={handleChange}
+                    required={isInternational}
+                />
+            </div>
+
             <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                className="cursor-pointer w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
             >
                 {loading ? <Loader2 className="animate-spin" /> : 'Confirm Booking'}
             </button>

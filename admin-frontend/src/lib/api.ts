@@ -12,6 +12,7 @@ export interface Flight {
     price: string;
     stops: number;
     available_seats?: number;
+    total_seats?: number;
 }
 
 export interface Booking {
@@ -56,6 +57,7 @@ export interface User {
         phone_number: string;
         passport_number: string;
         address: string;
+        usertype: 'user' | 'admin' | 'superadmin';
     }
 }
 
@@ -223,4 +225,86 @@ export async function submitContactMessage(data: ContactMessage): Promise<void> 
     if (!res.ok) throw new Error('Failed to submit message');
 }
 
+export interface AdminStats {
+    total_revenue: number;
+    total_bookings: number;
+    active_bookings: number;
+    total_flights: number;
+    recent_bookings: Booking[];
+}
 
+export async function getAdminStats(): Promise<AdminStats> {
+    const res = await fetch(`${API_BASE_URL}/admin/dashboard/`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch admin stats');
+    return res.json();
+}
+
+export async function getAdminFlights(page: number = 1, search: string = ''): Promise<PaginatedResponse<Flight>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+
+    const res = await fetch(`${API_BASE_URL}/admin/flights/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch flights');
+    return res.json();
+}
+
+export async function bulkCreateFlights(flights: Partial<Flight>[]): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/admin/flights/bulk/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(flights)
+    });
+    if (!res.ok) throw new Error('Failed to bulk upload flights');
+}
+
+export async function createFlight(data: Partial<Flight>): Promise<Flight> {
+    const res = await fetch(`${API_BASE_URL}/admin/flights/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create flight');
+    return res.json();
+}
+
+export async function updateFlight(id: number, data: Partial<Flight>): Promise<Flight> {
+    const res = await fetch(`${API_BASE_URL}/admin/flights/${id}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update flight');
+    return res.json();
+}
+
+export async function deleteFlight(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/admin/flights/${id}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete flight');
+}
+
+export async function getAdminBookings(): Promise<Booking[]> {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch bookings');
+    const data: PaginatedResponse<Booking> = await res.json();
+    return data.results;
+}
+
+export async function updateBookingStatus(bookingId: string, status: string): Promise<Booking> {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/${bookingId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error('Failed to update booking status');
+    return res.json();
+}

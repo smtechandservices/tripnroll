@@ -5,14 +5,14 @@ from .models import Flight, Booking, ContactMessage, UserProfile
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'passport_number', 'address')
+        fields = ('phone_number', 'passport_number', 'address', 'usertype')
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'profile')
+        fields = ('id', 'username', 'email', 'profile', 'is_staff', 'is_superuser')
 
 class RegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True)
@@ -66,6 +66,14 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = '__all__'
         read_only_fields = ('booking_id', 'status', 'created_at')
+
+class AdminBookingSerializer(serializers.ModelSerializer):
+    flight_details = FlightSerializer(source='flight', read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = '__all__'
+        read_only_fields = ('booking_id', 'created_at')
 
 class ContactMessageSerializer(serializers.ModelSerializer):
     class Meta:

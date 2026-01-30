@@ -74,13 +74,14 @@ class ContactMessageAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone_number', 'passport_number')
+    list_display = ('user', 'usertype', 'phone_number', 'passport_number')
+    list_filter = ('usertype',)
     search_fields = ('user__username', 'user__email', 'phone_number', 'passport_number')
     ordering = ('user__username',)
     
     fieldsets = (
         ('User', {
-            'fields': ('user',)
+            'fields': ('user', 'usertype')
         }),
         ('Contact Information', {
             'fields': ('phone_number', 'address')

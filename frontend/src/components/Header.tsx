@@ -45,7 +45,7 @@ export function Header() {
                             <div className="relative">
                                 <button
                                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                    className={`text-white font-medium flex items-center gap-2 hover:text-green-200 transition-colors ${isProfileOpen ? 'text-green-200' : ''}`}
+                                    className={`cursor-pointer text-white font-medium flex items-center gap-2 hover:text-green-200 transition-colors ${isProfileOpen ? 'text-green-200' : ''}`}
                                 >
                                     <User size={18} />
                                     {user?.username}
