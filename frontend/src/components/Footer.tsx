@@ -1,19 +1,31 @@
 import Link from 'next/link';
-import { Github, Twitter, Facebook } from 'lucide-react';
+import { Github, X as XIcon, Facebook } from 'lucide-react';
 
 export function Footer() {
     return (
         <footer className="bg-slate-900 border-t border-slate-800 pt-16 pb-8 z-10">
             <div className="mx-auto px-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-                    <div className="col-span-1 md:col-span-1">
-                        <h3 className="text-xl font-bold text-white mb-4">TripNRoll</h3>
-                        <p className="text-gray-400 leading-relaxed">
-                            Making your journey as memorable as the destination. Premium flight booking experience.
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
+                    <div className="col-span-1 md:col-span-2">
+                        <h3 className="text-xl font-bold text-white mb-2 underline decoration-green-500 underline-offset-8">TripNRoll</h3>
+                        <p className="text-gray-400 leading-relaxed text-sm mb-4">
+                            Shop no-15, MMTC STC Shopping Complex, Malviya Nagar, New Delhi - 110017
                         </p>
+                        <div className="bg-slate-800 rounded-2xl overflow-hidden shadow-2xl mb-6">
+                            <iframe
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3505.5135246755497!2d77.2146914!3d28.5242512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390ce379f0ec15eb%3A0xc397444747b2c58e!2sMMTC-STC%20Market!5e0!3m2!1sen!2sin!4v1711612345678!5m2!1sen!2sin"
+                                width="100%"
+                                height="200"
+                                style={{ border: 0 }}
+                                allowFullScreen
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                                className="rounded-xl grayscale hover:grayscale-0 transition-all duration-500"
+                            ></iframe>
+                        </div>
                     </div>
 
-                    <div>
+                    <div className='mt-4'>
                         <h4 className="text-lg font-semibold text-white mb-4">Explore</h4>
                         <ul className="space-y-2">
                             <FooterLink href="/">Destinations</FooterLink>
@@ -22,7 +34,7 @@ export function Footer() {
                         </ul>
                     </div>
 
-                    <div>
+                    <div className='mt-4'>
                         <h4 className="text-lg font-semibold text-white mb-4">Support</h4>
                         <ul className="space-y-2">
                             <FooterLink href="/contact">Contact Us</FooterLink>
@@ -31,10 +43,10 @@ export function Footer() {
                         </ul>
                     </div>
 
-                    <div>
+                    <div className='mt-4'>
                         <h4 className="text-lg font-semibold text-white mb-4">Connect</h4>
                         <div className="flex space-x-4">
-                            <SocialIcon icon={<Twitter size={20} />} />
+                            <SocialIcon icon={<XIcon size={20} />} />
                             <SocialIcon icon={<Facebook size={20} />} />
                             <SocialIcon icon={<Github size={20} />} />
                         </div>

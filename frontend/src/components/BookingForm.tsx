@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { CreateBookingData, createBooking } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import Swal from 'sweetalert2';
 
 interface BookingFormProps {
     flightId: number;
@@ -57,6 +58,25 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const result = await Swal.fire({
+            title: 'Confirm Your Booking',
+            text: 'Are you sure you want to request this booking?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Confirm',
+            cancelButtonText: 'No, Cancel',
+            confirmButtonColor: '#2563eb', // blue-600
+            cancelButtonColor: '#64748b', // slate-500
+            customClass: {
+                popup: 'rounded-3xl',
+                confirmButton: 'rounded-xl px-6 py-3 font-bold',
+                cancelButton: 'rounded-xl px-6 py-3 font-bold'
+            }
+        });
+
+        if (!result.isConfirmed) return;
+
         setLoading(true);
         setError(null);
 

@@ -26,7 +26,7 @@ export function Header() {
             <div className="mx-auto px-12 h-20 flex items-center justify-between">
                 <Link href="/" className="flex items-center space-x-3 font-semibold" style={{ fontFamily: "sans-serif" }}>
                     <Image src="/logo.png" alt="Trip N Roll Logo" width={40} height={40} className="object-contain" />
-                    <span className={`bg-gradient-to-r ${isScrolled ? 'from-green-200 to-yellow-200' : 'from-green-600 to-yellow-600'} text-transparent text-3xl bg-clip-text`}>
+                    <span className={`bg-gradient-to-r ${isScrolled ? 'from-green-200 to-yellow-200' : 'from-green-500 to-yellow-500'} text-transparent text-3xl bg-clip-text`}>
                         Trip N Roll
                     </span>
                 </Link>
@@ -54,7 +54,7 @@ export function Header() {
                             </div>
                             <button
                                 onClick={logout}
-                                className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors"
+                                className="cursor-pointer bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors"
                                 title="Logout"
                             >
                                 <LogOut size={18} />

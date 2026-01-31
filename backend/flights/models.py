@@ -10,6 +10,7 @@ class Flight(models.Model):
     duration = models.DurationField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stops = models.IntegerField(default=0)
+    stop_details = models.CharField(max_length=255, blank=True, null=True)
     total_seats = models.IntegerField(default=10)
 
     def __str__(self):

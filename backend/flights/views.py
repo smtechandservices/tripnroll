@@ -12,6 +12,8 @@ from .serializers import (
 )
 from .permissions import IsAdminType
 from rest_framework import filters
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -357,4 +359,19 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all() # Allow managing any user if known by ID, but typically called for listed users
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminType]
+
+class LoginView(ObtainAuthToken):
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        
+        username = request.data.get('username')
+        if username and not User.objects.filter(username=username).exists():
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not serializer.is_valid():
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key})
 

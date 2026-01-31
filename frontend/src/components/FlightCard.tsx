@@ -55,7 +55,16 @@ export function FlightCard({ flight }: FlightCardProps) {
                             <Plane className="h-4 w-4 text-green-500 transform rotate-90" />
                             <div className="h-[2px] bg-slate-200 flex-1"></div>
                         </div>
-                        <div className="text-xs text-slate-400 mt-1">{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</div>
+                        <div className="text-xs text-slate-400 mt-1">
+                            <div className="flex flex-col items-center">
+                                <span>{flight.stops === 0 && !flight.stop_details ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
+                                {flight.stop_details && (
+                                    <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                        via {flight.stop_details}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="text-center">

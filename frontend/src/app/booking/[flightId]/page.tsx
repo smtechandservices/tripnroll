@@ -31,7 +31,11 @@ export default function BookingPage() {
             const fetchFlight = async () => {
                 try {
                     const flightData = await getFlightById(flightId);
-                    setFlight(flightData);
+                    if (flightData) {
+                        setFlight(flightData);
+                    } else {
+                        setFlight(null);
+                    }
                 } catch (error) {
                     console.error('Error fetching flight:', error);
                     setFlight(null);
@@ -91,6 +95,12 @@ export default function BookingPage() {
                                 <div>
                                     <div className="text-xs text-slate-400 uppercase mb-1">Route</div>
                                     <div className="font-semibold text-slate-700">{flight.origin} → {flight.destination}</div>
+                                    <div className="text-xs mt-1">
+                                        <span className="text-slate-500">{flight.stops === 0 && !flight.stop_details ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
+                                        {flight.stop_details && (
+                                            <span className="text-slate-400 ml-1">via {flight.stop_details}</span>
+                                        )}
+                                    </div>
                                     {isInternational && (
                                         <div className="text-xs text-blue-600 mt-1 font-medium">International Flight</div>
                                     )}
@@ -120,8 +130,7 @@ export default function BookingPage() {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                             <h2 className="text-xl font-bold text-slate-800 mb-6">Passenger Details</h2>
                             <BookingSuccessWrapper
-                                flightId={flight.id}
-                                departureDate={flight.departure_time}
+                                flight={flight}
                                 isInternational={isInternational}
                             />
                         </div>

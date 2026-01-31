@@ -158,7 +158,10 @@ export default function AdminBookingsPage() {
                                         {booking.flight_details.origin}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        {booking.flight_details.destination}
+                                        <div>{booking.flight_details.destination}</div>
+                                        {booking.flight_details.stops > 0 && booking.flight_details.stop_details && (
+                                            <div className="text-[10px] text-slate-400">via {booking.flight_details.stop_details}</div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {new Date(booking.travel_date).toLocaleDateString()}

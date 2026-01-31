@@ -11,6 +11,7 @@ export interface Flight {
     duration: string;
     price: string;
     stops: number;
+    stop_details?: string;
     available_seats?: number;
 }
 
@@ -82,7 +83,10 @@ export async function login(username: string, password: string): Promise<{ token
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) throw new Error('Invalid credentials');
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Invalid credentials');
+    }
     return res.json();
 }
 

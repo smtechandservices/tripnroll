@@ -96,6 +96,7 @@ export default function AdminFlightsPage() {
                 destination: '',
                 price: '',
                 stops: 0,
+                stop_details: '',
                 total_seats: 150,
                 available_seats: 150
             });
@@ -171,6 +172,7 @@ export default function AdminFlightsPage() {
                 duration: '02:15:00',
                 price: 5500,
                 stops: 0,
+                stop_details: '',
                 total_seats: 180
             },
             {
@@ -182,7 +184,8 @@ export default function AdminFlightsPage() {
                 arrival_time: '2026-10-26/07:30:00',
                 duration: '09:00:00',
                 price: 45000,
-                stops: 0,
+                stops: 1,
+                stop_details: 'DXB',
                 total_seats: 250
             }
         ];
@@ -221,6 +224,7 @@ export default function AdminFlightsPage() {
                     duration: item.duration || '',
                     price: item.price || 0,
                     stops: item.stops || 0,
+                    stop_details: item.stop_details || '',
                     total_seats: item.total_seats || 150
                 }));
 
@@ -261,13 +265,13 @@ export default function AdminFlightsPage() {
                             placeholder="Search flights..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="text-slate-700 pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="text-slate-700 pl-10 pr-4 py-2 border border-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                     </div>
                     <div className="flex gap-2">
                         <button
                             onClick={downloadSampleExcel}
-                            className="cursor-pointer flex items-center gap-2 border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition"
+                            className="cursor-pointer flex items-center gap-2 border border-slate-400 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition"
                         >
                             <Download className="w-5 h-5" />
                             Download Sample
@@ -281,14 +285,14 @@ export default function AdminFlightsPage() {
                         />
                         <button
                             onClick={() => document.getElementById('excel-upload')?.click()}
-                            className="cursor-pointer flex items-center gap-2 border border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition"
+                            className="cursor-pointer flex items-center gap-2 border border-slate-400 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition"
                         >
                             <FileDigit className="w-5 h-5" />
                             Upload Excel
                         </button>
                         <button
                             onClick={() => openModal()}
-                            className="cursor-pointer flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                            className="cursor-pointer flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition border border-slate-400"
                         >
                             <Plus className="w-5 h-5" />
                             Add Flight
@@ -333,7 +337,13 @@ export default function AdminFlightsPage() {
                                         <div className="text-slate-500 text-xs">{flight.flight_number}</div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        {flight.origin} → {flight.destination}
+                                        <div className="flex flex-col">
+                                            <span>{flight.origin} → {flight.destination}</span>
+                                            <div className="text-[10px] text-slate-500">
+                                                {flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}
+                                                {flight.stop_details && <span className="ml-1">via {flight.stop_details}</span>}
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {new Date(flight.departure_time).toLocaleString()}
@@ -486,6 +496,29 @@ export default function AdminFlightsPage() {
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
                                         value={formData.duration || ''}
                                         onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Stops</label>
+                                    <input
+                                        type="number"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.stops || 0}
+                                        onChange={e => setFormData({ ...formData, stops: parseInt(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Stop Details (Airports)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="DXB, AUH"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.stop_details || ''}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            const newStops = (val && formData.stops === 0) ? 1 : formData.stops;
+                                            setFormData({ ...formData, stop_details: val, stops: newStops });
+                                        }}
                                     />
                                 </div>
                                 <div>

@@ -90,16 +90,16 @@ export default function MyBookingsPage() {
                                             {/* Header with Airline and Status */}
                                             <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' :
                                                 booking.status === 'CANCELLED' ? 'bg-gradient-to-r from-red-500 to-red-600' :
-                                                booking.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
-                                                'bg-gradient-to-r from-green-600 to-emerald-600'
+                                                    booking.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
+                                                        'bg-gradient-to-r from-green-600 to-emerald-600'
                                                 } text-white px-6 py-4 flex justify-between items-center`}>
                                                 <div>
                                                     <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
                                                     <div className="text-2xl font-bold">{booking.flight_details.airline}</div>
                                                 </div>
                                                 <div className={`${isExpired ? 'bg-red-500/90' :
-                                                        booking.status === 'PENDING' ? 'bg-yellow-700/30' :
-                                                            'bg-white/20'
+                                                    booking.status === 'PENDING' ? 'bg-yellow-700/30' :
+                                                        'bg-white/20'
                                                     } backdrop-blur-sm px-4 py-2 rounded-lg`}>
                                                     <div className="text-xs opacity-90">Status</div>
                                                     <div className="font-bold">{displayStatus}</div>
@@ -128,7 +128,17 @@ export default function MyBookingsPage() {
                                                             </svg>
                                                             <div className="h-px bg-slate-300 flex-1"></div>
                                                         </div>
-                                                        <div className="text-md text-slate-500 mt-2">{booking.flight_details.duration}</div>
+                                                        <div className="flex flex-col items-center mt-2">
+                                                            <div className="text-md text-slate-500">{booking.flight_details.duration}</div>
+                                                            <div className="text-xs mt-1">
+                                                                <span className="text-slate-400 font-medium">
+                                                                    {booking.flight_details.stops === 0 && !booking.flight_details.stop_details ? 'Non-stop' : `${booking.flight_details.stops} Stop(s)`}
+                                                                </span>
+                                                                {booking.flight_details.stop_details && (
+                                                                    <span className="text-slate-400 ml-1">via {booking.flight_details.stop_details}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     {/* Destination */}

@@ -166,12 +166,12 @@ export default function UserManagementPage() {
                             placeholder="Search users..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="text-slate-700 pl-10 pr-12 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
+                            className="text-slate-700 pl-10 pr-12 py-3 border border-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
                         />
                     </div>
                     <button
                         onClick={() => openModal()}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-bold flex items-center gap-2 transition-all shadow-md active:scale-95"
+                        className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 transition-all border border-slate-400"
                     >
                         <UserPlus className="w-5 h-5" />
                         Add User
