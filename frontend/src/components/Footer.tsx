@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Github, X as XIcon, Facebook } from 'lucide-react';
+import { Github, X as XIcon, Facebook, Instagram, Mail, Phone, MapPin, Youtube, Linkedin } from 'lucide-react';
 
 export function Footer() {
     return (
@@ -20,41 +20,78 @@ export function Footer() {
                                 allowFullScreen
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
-                                className="rounded-xl grayscale hover:grayscale-0 transition-all duration-500"
+                                className="grayscale hover:grayscale-0 transition-all duration-500 opacity-80 hover:opacity-100"
                             ></iframe>
                         </div>
                     </div>
 
-                    <div className='mt-4'>
-                        <h4 className="text-lg font-semibold text-white mb-4">Explore</h4>
-                        <ul className="space-y-2">
-                            <FooterLink href="/">Destinations</FooterLink>
-                            <FooterLink href="/">Flights</FooterLink>
-                            <FooterLink href="/">Deals</FooterLink>
+                    {/* Links */}
+                    <div className='lg:mt-2'>
+                        <h4 className="text-lg font-semibold text-white mb-6">Explore</h4>
+                        <ul className="space-y-3">
+                            <FooterLink href="/flights">Flights</FooterLink>
+                            <FooterLink href="/my-bookings">My Bookings</FooterLink>
+                            <FooterLink href="/wallet">Wallet</FooterLink>
                         </ul>
                     </div>
 
-                    <div className='mt-4'>
-                        <h4 className="text-lg font-semibold text-white mb-4">Support</h4>
-                        <ul className="space-y-2">
+                    <div className='lg:mt-2'>
+                        <h4 className="text-lg font-semibold text-white mb-6">Support</h4>
+                        <ul className="space-y-3">
                             <FooterLink href="/contact">Contact Us</FooterLink>
-                            <FooterLink href="/">FAQ</FooterLink>
-                            <FooterLink href="/">Privacy Policy</FooterLink>
+                            <FooterLink href="/about">Privacy Policy</FooterLink>
+                            <FooterLink href="/about">Terms of Service</FooterLink>
                         </ul>
                     </div>
 
-                    <div className='mt-4'>
-                        <h4 className="text-lg font-semibold text-white mb-4">Connect</h4>
-                        <div className="flex space-x-4">
-                            <SocialIcon icon={<XIcon size={20} />} />
-                            <SocialIcon icon={<Facebook size={20} />} />
-                            <SocialIcon icon={<Github size={20} />} />
+                    {/* Contact & Socials */}
+                    <div className='lg:mt-2 space-y-6'>
+                        <div>
+                            <h4 className="text-lg font-semibold text-white mb-6">Get in Touch</h4>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-green-500/10 transition-colors">
+                                        <Mail size={16} />
+                                    </div>
+                                    <div>
+                                        <a href="mailto:Info@tripnrolltravel.com" className="flex items-center gap-3 text-gray-400 hover:text-green-400 transition-colors group">
+                                            <span className="text-sm">Info@tripnrolltravel.com</span>
+                                        </a>
+                                        <a href="mailto:Tripnrolltravel@gmail.com" className="flex items-center gap-3 text-gray-400 hover:text-green-400 transition-colors group">
+                                            <span className="text-sm">Tripnrolltravel@gmail.com</span>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-green-500/10 transition-colors">
+                                        <Phone size={16} />
+                                    </div>
+                                    <div>
+                                        <a href="tel:+918368282440" className="flex items-center gap-3 text-gray-400 hover:text-green-400 transition-colors group">
+                                            <span className="text-sm">+91 8368282440</span>
+                                        </a>
+                                        <a href="tel:+918700701646" className="flex items-center gap-3 text-gray-400 hover:text-green-400 transition-colors group">
+                                            <span className="text-sm">+91 8700701646</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Follow Us</h4>
+                            <div className="flex space-x-3">
+                                <SocialIcon href="https://www.facebook.com/TripNRollindia/" icon={<Facebook size={18} />} label="Facebook" color="hover:bg-blue-600" />
+                                <SocialIcon href="https://www.instagram.com/tripnrolltravel/" icon={<Instagram size={18} />} label="Instagram" color="hover:bg-pink-600" />
+                                <SocialIcon href="https://www.youtube.com/@tripnrolltravels" icon={<Youtube size={18} />} label="YouTube" color="hover:bg-red-600" />
+                                <SocialIcon href="https://www.linkedin.com/company/tripnroll-travel-and-consultancy/" icon={<Linkedin size={18} />} label="LinkedIn" color="hover:bg-blue-700" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="border-t border-slate-800 pt-8 text-center text-gray-500 text-sm">
-                    © {new Date().getFullYear()} TripNRoll. All rights reserved.
+                <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-center items-center gap-4 text-gray-600 text-sm">
+                    <p>© {new Date().getFullYear()} TripNRoll. All rights reserved.</p>
                 </div>
             </div>
         </footer>
@@ -64,16 +101,20 @@ export function Footer() {
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
     return (
         <li>
-            <Link href={href} className="text-gray-400 hover:text-blue-400 transition-colors">
+            <Link href={href} className="text-gray-400 hover:text-green-400 transition-colors marker:text-green-500">
                 {children}
             </Link>
         </li>
     );
 }
 
-function SocialIcon({ icon }: { icon: React.ReactNode }) {
+function SocialIcon({ icon, href, label, color }: { icon: React.ReactNode, href: string, label: string, color: string }) {
     return (
-        <a href="#" className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400 hover:bg-blue-500 hover:text-white transition-all duration-300">
+        <a
+            href={href}
+            aria-label={label}
+            className={`h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-gray-400 ${color} hover:text-white transition-all duration-300 transform hover:-translate-y-1`}
+        >
             {icon}
         </a>
     );

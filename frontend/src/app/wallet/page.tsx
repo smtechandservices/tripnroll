@@ -76,7 +76,16 @@ export default function WalletPage() {
         }
     };
 
-    if (!isAuthenticated) return null; // Or redirect
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-slate-50 py-12 px-4">
+                <div className="max-w-4xl mx-auto text-center pt-24">
+                    <h1 className="text-3xl font-bold text-slate-800 mb-4">My Wallet</h1>
+                    <p className="text-slate-600">Please log in to view your wallet.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">

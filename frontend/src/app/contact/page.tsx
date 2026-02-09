@@ -1,28 +1,38 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { submitContactMessage } from '@/lib/api';
-import { Mail, Phone, MapPin, Send, Instagram, Facebook, X as XIcon, Clock, MessageSquare, HelpCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Mail, Phone, MapPin, Send, Instagram, Facebook, X as XIcon, Clock, MessageSquare, HelpCircle, Youtube, Linkedin } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function ContactPage() {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+
+    // Form states
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        if (user) {
+            setName(user.username);
+            setEmail(user.email);
+        }
+    }, [user]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            name: formData.get('name') as string,
-            email: formData.get('email') as string,
-            message: formData.get('message') as string,
-        };
 
         try {
-            await submitContactMessage(data);
+            await submitContactMessage({ name, email, message });
             setSuccess(true);
-            e.currentTarget.reset();
+            setMessage(''); // Clear message only
+            // Keep name/email if logged in, or clear if not? 
+            // Better to keep them if user wants to send another.
         } catch (err) {
             Swal.fire({
                 icon: 'error',
@@ -65,23 +75,46 @@ export default function ContactPage() {
                                 <div className="text-4xl mb-4">🎉</div>
                                 <h3 className="font-bold text-xl mb-2">Message Sent!</h3>
                                 <p>We'll get back to you shortly.</p>
-                                <button onClick={() => setSuccess(false)} className="mt-4 text-green-700 font-semibold hover:underline">Send another</button>
+                                <button onClick={() => setSuccess(false)} className="cursor-pointer mt-4 text-green-700 font-semibold hover:underline">Send another</button>
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Name</label>
-                                    <input name="name" required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none bg-slate-50" placeholder="John Doe" />
+                                    <input
+                                        name="name"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        required
+                                        className="text-slate-600 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none bg-slate-50"
+                                        placeholder="John Doe"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none bg-slate-50" placeholder="john@example.com" />
+                                    <input
+                                        name="email"
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                        className="text-slate-600 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none bg-slate-50"
+                                        placeholder="john@example.com"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Message</label>
-                                    <textarea name="message" required rows={4} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none bg-slate-50" placeholder="How can we help?"></textarea>
+                                    <textarea
+                                        name="message"
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        required
+                                        rows={4}
+                                        className="text-slate-600 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none bg-slate-50"
+                                        placeholder="How can we help?"
+                                    ></textarea>
                                 </div>
-                                <button disabled={loading} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
+                                <button disabled={loading} className="cursor-pointer w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
                                     {loading ? 'Sending...' : <><Send size={18} /> Send Message</>}
                                 </button>
                             </form>
@@ -152,14 +185,17 @@ export default function ContactPage() {
                                     <h3 className="font-bold">Follow Us</h3>
                                 </div>
                                 <div className="flex gap-4">
-                                    <a href="#" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-pink-100 hover:text-pink-600 transition-colors cursor-pointer">
+                                    <a href="https://www.instagram.com/tripnrolltravel/" target="_blank" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-pink-100 hover:text-pink-600 transition-colors cursor-pointer">
                                         <Instagram size={20} />
                                     </a>
-                                    <a href="#" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer">
+                                    <a href="https://www.facebook.com/TripNRollindia/" target="_blank" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors cursor-pointer">
                                         <Facebook size={20} />
                                     </a>
-                                    <a href="#" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-sky-100 hover:text-sky-600 transition-colors cursor-pointer">
-                                        <XIcon size={20} />
+                                    <a href="https://www.youtube.com/@tripnrolltravels" target="_blank" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-red-100 hover:text-red-600 transition-colors cursor-pointer">
+                                        <Youtube size={20} />
+                                    </a>
+                                    <a href="https://www.linkedin.com/company/tripnroll-travel-and-consultancy/" target="_blank" className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-blue-100 hover:text-blue-700 transition-colors cursor-pointer">
+                                        <Linkedin size={20} />
                                     </a>
                                 </div>
                             </div>

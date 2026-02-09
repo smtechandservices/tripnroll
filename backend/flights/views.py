@@ -687,3 +687,10 @@ class RefundProcessView(generics.GenericAPIView):
             'new_status': booking.status
         })
 
+
+class AdminContactMessageListView(generics.ListAPIView):
+    queryset = ContactMessage.objects.all().order_by('-created_at')
+    serializer_class = ContactMessageSerializer
+    permission_classes = [IsAdminType]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'email', 'message']

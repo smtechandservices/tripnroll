@@ -88,9 +88,11 @@ export interface User {
 }
 
 export interface ContactMessage {
+    id: number;
     name: string;
     email: string;
     message: string;
+    created_at: string;
 }
 
 
@@ -403,5 +405,17 @@ export async function deleteAdminUser(id: number): Promise<void> {
         headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error('Failed to delete user');
+}
+
+export async function getAdminContactMessages(page: number = 1, search: string = ''): Promise<PaginatedResponse<ContactMessage>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+
+    const res = await fetch(`${API_BASE_URL}/admin/messages/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch messages');
+    return res.json();
 }
 

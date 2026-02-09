@@ -7,7 +7,8 @@ from .views import (
     AdminBookingListView, AdminBookingDetailView, AdminDashboardView,
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
-    RefundRequestView, RefundProcessView
+    RefundRequestView, RefundProcessView,
+    AdminContactMessageListView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -39,4 +40,5 @@ urlpatterns = [
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/users/<int:pk>/wallet/', AdminWalletUpdateView.as_view(), name='admin-user-wallet-update'),
+    path('admin/messages/', AdminContactMessageListView.as_view(), name='admin-message-list'),
 ]
