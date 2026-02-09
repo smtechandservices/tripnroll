@@ -11,13 +11,14 @@ import { isInternationalFlight } from '@/lib/flightUtils';
 
 
 export default function BookingPage() {
-    const { isAuthenticated, loading: authLoading } = useAuth();
+    const { isAuthenticated, loading: authLoading } = useAuth() as any;
     const router = useRouter();
     const params = useParams();
     const flightId = params.flightId as string;
 
     const [flight, setFlight] = useState<Flight | null>(null);
     const [loading, setLoading] = useState(true);
+    const [passengerCount, setPassengerCount] = useState(1);
 
     useEffect(() => {
         // Redirect to login if not authenticated
@@ -72,6 +73,9 @@ export default function BookingPage() {
     // Check if flight is international
     const isInternational = isInternationalFlight(flight.origin, flight.destination);
 
+    const unitPrice = parseFloat(flight.price);
+    const totalPrice = unitPrice * passengerCount;
+
     return (
         <div className="min-h-screen bg-slate-50 px-4">
             <div className="max-w-9xl px-12 mx-auto pt-24">
@@ -120,7 +124,12 @@ export default function BookingPage() {
                                 </div>
                                 <div className="pt-4 border-t">
                                     <div className="text-xs text-slate-400 uppercase">Total Price</div>
-                                    <div className="text-2xl font-bold text-green-600">{`₹${flight.price}`}</div>
+                                    <div className="text-2xl font-bold text-green-600">{`₹${totalPrice.toLocaleString('en-IN')}`}</div>
+                                    {passengerCount > 1 && (
+                                        <div className="text-[10px] text-slate-400 font-medium">
+                                            {`₹${unitPrice.toLocaleString('en-IN')} x ${passengerCount} passengers`}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -132,6 +141,7 @@ export default function BookingPage() {
                             <BookingSuccessWrapper
                                 flight={flight}
                                 isInternational={isInternational}
+                                onPassengersChange={(count) => setPassengerCount(count)}
                             />
                         </div>
                     </div>

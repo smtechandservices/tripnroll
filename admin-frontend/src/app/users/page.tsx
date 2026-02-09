@@ -23,7 +23,6 @@ export default function UserManagementPage() {
         password: '',
         profile: {
             phone_number: '',
-            passport_number: '',
             address: '',
             usertype: 'user'
         }
@@ -63,7 +62,6 @@ export default function UserManagementPage() {
                 password: '', // Don't show password
                 profile: {
                     phone_number: user.profile?.phone_number || '',
-                    passport_number: user.profile?.passport_number || '',
                     address: user.profile?.address || '',
                     usertype: user.profile?.usertype || 'user'
                 }
@@ -76,7 +74,6 @@ export default function UserManagementPage() {
                 password: '',
                 profile: {
                     phone_number: '',
-                    passport_number: '',
                     address: '',
                     usertype: 'user'
                 }
@@ -186,7 +183,6 @@ export default function UserManagementPage() {
                             <th className="px-6 py-4 font-medium text-slate-500">Username</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Email</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Phone</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Passport</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Joined</th>
                             <th className="px-6 py-4 font-medium text-slate-500 text-right">Actions</th>
                         </tr>
@@ -194,7 +190,7 @@ export default function UserManagementPage() {
                     <tbody className="divide-y divide-slate-100">
                         {loading && users.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                                         <span>Loading users...</span>
@@ -203,7 +199,7 @@ export default function UserManagementPage() {
                             </tr>
                         ) : users.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                                     No users found.
                                 </td>
                             </tr>
@@ -213,7 +209,6 @@ export default function UserManagementPage() {
                                     <td className="px-6 py-4 font-medium text-slate-900">{user.username}</td>
                                     <td className="px-6 py-4 text-slate-600">{user.email}</td>
                                     <td className="px-6 py-4 text-slate-600">{user.profile?.phone_number || '-'}</td>
-                                    <td className="px-6 py-4 text-slate-600 font-mono text-xs">{user.profile?.passport_number || '-'}</td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {user.date_joined ? new Date(user.date_joined).toLocaleDateString() : '-'}
                                     </td>
@@ -313,31 +308,17 @@ export default function UserManagementPage() {
                                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                                    <input
-                                        type="text"
-                                        value={formData.profile.phone_number}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            profile: { ...formData.profile, phone_number: e.target.value }
-                                        })}
-                                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Passport Number</label>
-                                    <input
-                                        type="text"
-                                        value={formData.profile.passport_number}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            profile: { ...formData.profile, passport_number: e.target.value }
-                                        })}
-                                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                                <input
+                                    type="text"
+                                    value={formData.profile.phone_number}
+                                    onChange={(e) => setFormData({
+                                        ...formData,
+                                        profile: { ...formData.profile, phone_number: e.target.value }
+                                    })}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>

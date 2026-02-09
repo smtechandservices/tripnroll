@@ -29,8 +29,10 @@ export interface Booking {
     frequent_flyer_number?: string;
     travel_date: string;
     booking_id: string;
+    booking_group?: string;
     status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
     created_at: string;
+    pnr?: string | null;
 }
 
 export interface CreateBookingData {
@@ -45,6 +47,12 @@ export interface CreateBookingData {
     passport_expiry_date?: string;
     frequent_flyer_number?: string;
     travel_date: string;
+}
+
+export interface CreateMultiBookingData {
+    flight: number;
+    travel_date: string;
+    passengers: Omit<CreateBookingData, 'flight' | 'travel_date'>[];
 }
 
 export interface User {
@@ -107,11 +115,11 @@ export async function updateProfile(data: { phone_number?: string; passport_numb
     if (!res.ok) throw new Error('Failed to update profile');
 }
 
-export async function register(username: string, email: string, password: string, phone_number: string, passport_number: string): Promise<void> {
+export async function register(username: string, email: string, password: string, phone_number: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, phone_number, passport_number }),
+        body: JSON.stringify({ username, email, password, phone_number }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -139,28 +147,32 @@ export async function getFlights(
     date?: string,
     returnDate?: string,
     page: number = 1,
-    filters?: FlightFilters
+    filters: any = {},
+    passengers?: number
 ): Promise<PaginatedResponse<Flight>> {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({
+        page: page.toString(),
+    });
+
     if (origin) params.append('origin', origin);
     if (destination) params.append('destination', destination);
     if (date) params.append('date', date);
     if (returnDate) params.append('returnDate', returnDate);
-    params.append('page', page.toString());
+    if (passengers) params.append('passengers', passengers.toString());
 
     // Add filter parameters
     if (filters) {
         if (filters.stops && filters.stops.length > 0) {
-            filters.stops.forEach(stop => params.append('stops', stop));
+            filters.stops.forEach((stop: string) => params.append('stops', stop));
         }
         if (filters.airlines && filters.airlines.length > 0) {
-            filters.airlines.forEach(airline => params.append('airlines', airline));
+            filters.airlines.forEach((airline: string) => params.append('airlines', airline));
         }
         if (filters.departure_time && filters.departure_time.length > 0) {
-            filters.departure_time.forEach(time => params.append('departure_time', time));
+            filters.departure_time.forEach((time: string) => params.append('departure_time', time));
         }
         if (filters.arrival_time && filters.arrival_time.length > 0) {
-            filters.arrival_time.forEach(time => params.append('arrival_time', time));
+            filters.arrival_time.forEach((time: string) => params.append('arrival_time', time));
         }
     }
 
@@ -198,7 +210,7 @@ export async function getFlightById(id: number | string): Promise<Flight | undef
     return data.results[0];
 }
 
-export async function createBooking(data: CreateBookingData): Promise<Booking> {
+export async function createBooking(data: CreateBookingData | CreateMultiBookingData): Promise<any> {
     const res = await fetch(`${API_BASE_URL}/bookings/`, {
         method: 'POST',
         headers: getAuthHeaders(), // Use auth headers
@@ -208,8 +220,12 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
     return res.json();
 }
 
-export async function getBookingHistory(email: string): Promise<Booking[]> {
-    const res = await fetch(`${API_BASE_URL}/bookings/history/?email=${encodeURIComponent(email)}`, {
+export async function getBookingHistory(email?: string): Promise<Booking[]> {
+    const url = email
+        ? `${API_BASE_URL}/bookings/history/?email=${encodeURIComponent(email)}`
+        : `${API_BASE_URL}/bookings/history/`;
+
+    const res = await fetch(url, {
         cache: 'no-store',
         headers: getAuthHeaders()
     });

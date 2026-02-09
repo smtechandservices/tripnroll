@@ -26,6 +26,7 @@ export default function SearchPage() {
     const destination = searchParams.get('destination');
     const date = searchParams.get('date');
     const returnDate = searchParams.get('returnDate');
+    const passengers = Number(searchParams.get('passengers')) || 1;
     const currentPage = Number(searchParams.get('page')) || 1;
 
     const [outboundFlights, setOutboundFlights] = useState<Flight[]>([]);
@@ -88,7 +89,8 @@ export default function SearchPage() {
                     date || undefined,
                     undefined,
                     currentPage,
-                    apiFilters
+                    apiFilters,
+                    passengers
                 ).catch(() => ({ count: 0, results: [], next: null, previous: null }));
 
                 setOutboundFlights(outboundData.results || []);
@@ -104,7 +106,8 @@ export default function SearchPage() {
                         returnDate || undefined,
                         undefined,
                         currentPage,
-                        apiFilters
+                        apiFilters,
+                        passengers
                     ).catch(() => ({ count: 0, results: [], next: null, previous: null }));
 
                     setReturnFlights(returnData.results || []);
@@ -126,7 +129,7 @@ export default function SearchPage() {
         };
 
         fetchFlights();
-    }, [origin, destination, date, returnDate, currentPage, currentFilters]);
+    }, [origin, destination, date, returnDate, currentPage, currentFilters, passengers]);
 
     // Helper to update URL without page reload
     const updateUrl = useCallback((newParams: Record<string, string | string[] | undefined>) => {
@@ -188,6 +191,7 @@ export default function SearchPage() {
                                 initialDate={date || undefined}
                                 initialReturnDate={returnDate || undefined}
                                 initialTripType={returnDate ? 'round-trip' : 'one-way'}
+                                initialPassengers={passengers}
                             />
                         </div>
                     </div>
@@ -253,7 +257,7 @@ export default function SearchPage() {
                                             <div className="space-y-6">
                                                 {outboundFlights.length > 0 ? (
                                                     outboundFlights.map((flight) => (
-                                                        <FlightCard key={flight.id} flight={flight} />
+                                                        <FlightCard key={flight.id} flight={flight} passengers={passengers} />
                                                     ))
                                                 ) : (
                                                     <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm">
@@ -283,7 +287,7 @@ export default function SearchPage() {
                                                 <div className="space-y-6">
                                                     {returnFlights.length > 0 ? (
                                                         returnFlights.map((flight) => (
-                                                            <FlightCard key={flight.id} flight={flight} />
+                                                            <FlightCard key={flight.id} flight={flight} passengers={passengers} />
                                                         ))
                                                     ) : (
                                                         <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm">

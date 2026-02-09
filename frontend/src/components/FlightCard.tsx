@@ -7,9 +7,10 @@ import { useRouter } from 'next/navigation';
 
 interface FlightCardProps {
     flight: Flight;
+    passengers?: number;
 }
 
-export function FlightCard({ flight }: FlightCardProps) {
+export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
     const { isAuthenticated } = useAuth();
     const router = useRouter();
 
@@ -27,6 +28,9 @@ export function FlightCard({ flight }: FlightCardProps) {
             router.push('/login');
         }
     };
+
+    const unitPrice = parseFloat(flight.price);
+    const totalPrice = unitPrice * passengers;
 
     return (
         <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -75,10 +79,19 @@ export function FlightCard({ flight }: FlightCardProps) {
                 </div>
             </div>
 
-            <div className="border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 w-full md:w-48 flex flex-col items-center justify-center gap-3">
-                <div className="text-2xl font-bold text-green-600">{`₹${parseFloat(flight.price).toLocaleString('en-IN')}`}</div>
+            <div className="border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 w-full md:w-56 flex flex-col items-center justify-center gap-3">
+                <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                        {`₹${totalPrice.toLocaleString('en-IN')}`}
+                    </div>
+                    {passengers > 1 && (
+                        <div className="text-[10px] text-slate-400 font-medium">
+                            {`₹${unitPrice.toLocaleString('en-IN')} x ${passengers} passengers`}
+                        </div>
+                    )}
+                </div>
                 <Link
-                    href={`/booking/${flight.id}`}
+                    href={`/booking/${flight.id}?passengers=${passengers}`}
                     onClick={handleBookNow}
                     className="w-full bg-green-600 text-center text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"
                 >

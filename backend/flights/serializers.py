@@ -5,7 +5,7 @@ from .models import Flight, Booking, ContactMessage, UserProfile
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'passport_number', 'address', 'usertype')
+        fields = ('phone_number', 'address', 'usertype')
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -16,18 +16,16 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True)
-    passport_number = serializers.CharField(required=False, allow_blank=True)
     address = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password', 'phone_number', 'passport_number', 'address')
+        fields = ('username', 'email', 'password', 'phone_number', 'address')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         profile_data = {
             'phone_number': validated_data.pop('phone_number', ''),
-            'passport_number': validated_data.pop('passport_number', ''),
             'address': validated_data.pop('address', '')
         }
         user = User.objects.create_user(
@@ -65,15 +63,16 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
-        read_only_fields = ('booking_id', 'status', 'created_at')
+        read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr')
 
 class AdminBookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)
+    booked_by = UserSerializer(read_only=True)
 
     class Meta:
         model = Booking
         fields = '__all__'
-        read_only_fields = ('booking_id', 'created_at')
+        read_only_fields = ('booking_id', 'created_at', 'booked_by', 'booking_group')
 
 class ContactMessageSerializer(serializers.ModelSerializer):
     class Meta:

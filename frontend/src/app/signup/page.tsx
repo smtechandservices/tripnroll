@@ -11,7 +11,6 @@ export default function SignupPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [phone, setPhone] = useState('');
-    const [passport, setPassport] = useState('');
     const [error, setError] = useState('');
     const router = useRouter();
 
@@ -19,7 +18,7 @@ export default function SignupPage() {
         e.preventDefault();
         setError('');
         try {
-            await register(username, email, password, phone, passport);
+            await register(username, email, password, phone);
             router.push('/login');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Registration failed');
@@ -101,16 +100,6 @@ export default function SignupPage() {
                                 onChange={(e) => setPhone(e.target.value)}
                                 className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
                                 placeholder="+91 9876543210"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Passport Number</label>
-                            <input
-                                type="text"
-                                value={passport}
-                                onChange={(e) => setPassport(e.target.value)}
-                                className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
-                                placeholder="Optional"
                             />
                         </div>
 

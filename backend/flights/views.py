@@ -32,22 +32,37 @@ class FlightListView(generics.ListAPIView):
 
     def get_queryset(self):
         from django.db.models import Count, F, Q
+        
+        origin = self.request.query_params.get('origin')
+        destination = self.request.query_params.get('destination')
+        date = self.request.query_params.get('date')
+        flight_id = self.request.query_params.get('id')
+        passengers = self.request.query_params.get('passengers')
+
         # Annotate with number of bookings to calculate available seats
         # We count CONFIRMED and PENDING bookings as taking up a seat
         booked_filter = Q(bookings__status='CONFIRMED') | Q(bookings__status='PENDING')
 
         queryset = Flight.objects.annotate(
             booked_seats_count=Count('bookings', filter=booked_filter)
-        ).filter(
-            # Filter where total_seats > booked_seats_count
-            total_seats__gt=F('booked_seats_count')
         )
-        
-        origin = self.request.query_params.get('origin')
-        destination = self.request.query_params.get('destination')
-        date = self.request.query_params.get('date')
-        flight_id = self.request.query_params.get('id')
 
+        # Filter by passenger capacity if specified
+        if passengers:
+            try:
+                passengers_count = int(passengers)
+                queryset = queryset.filter(
+                    total_seats__gte=F('booked_seats_count') + passengers_count
+                )
+            except (ValueError, TypeError):
+                queryset = queryset.filter(
+                    total_seats__gt=F('booked_seats_count')
+                )
+        else:
+            queryset = queryset.filter(
+                total_seats__gt=F('booked_seats_count')
+            )
+        
         # Get filter parameters (can have multiple values)
         stops_filters = self.request.query_params.getlist('stops')
         airlines_filters = self.request.query_params.getlist('airlines')
@@ -129,20 +144,53 @@ class FlightListView(generics.ListAPIView):
 
 class BookingCreateView(generics.CreateAPIView):
     serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        passengers = request.data.get('passengers', [])
+        if not passengers:
+            # Fallback for single passenger data direct in request root
+            return super().create(request, *args, **kwargs)
+        
+        booking_group = f"GRP-{uuid.uuid4().hex[:8].upper()}"
+        response_data = []
+        
+        flight_id = request.data.get('flight')
+        travel_date = request.data.get('travel_date')
+
+        for p_data in passengers:
+            # Mix in group level data
+            p_data['flight'] = flight_id
+            p_data['travel_date'] = travel_date
+            
+            serializer = self.get_serializer(data=p_data)
+            serializer.is_valid(raise_exception=True)
+            
+            booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
+            serializer.save(
+                booking_id=booking_id, 
+                status='CONFIRMED',
+                booked_by=request.user,
+                booking_group=booking_group
+            )
+            response_data.append(serializer.data)
+            
+        return Response(response_data[0] if len(response_data) == 1 else response_data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
-        # Generate a unique booking ID
         booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
-        serializer.save(booking_id=booking_id, status='PENDING')
+        serializer.save(
+            booking_id=booking_id, 
+            status='CONFIRMED',
+            booked_by=self.request.user
+        )
 
 class BookingHistoryView(generics.ListAPIView):
     serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        email = self.request.query_params.get('email')
-        if email:
-            return Booking.objects.filter(passenger_email=email).order_by('-created_at')
-        return Booking.objects.none()
+        return Booking.objects.filter(booked_by=self.request.user).order_by('-created_at')
 
 class ContactCreateView(generics.CreateAPIView):
     serializer_class = ContactMessageSerializer
@@ -289,7 +337,7 @@ class AdminFlightBulkCreateView(generics.CreateAPIView):
 
 class AdminBookingListView(generics.ListAPIView):
     queryset = Booking.objects.all().order_by('-created_at')
-    serializer_class = BookingSerializer
+    serializer_class = AdminBookingSerializer
     permission_classes = [IsAdminType]
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name', 'last_name', 'passenger_email', 'booking_id']

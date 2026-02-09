@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Calendar, ChevronDown, X } from 'lucide-react';
+import { Search, MapPin, Calendar, ChevronDown, X, Users } from 'lucide-react';
 import airports from '@/assets/airports.json';
 import DatePicker from 'react-datepicker';
 import { getSearchMeta } from '@/lib/api';
@@ -12,6 +12,7 @@ interface SearchFormProps {
     initialDate?: string;
     initialReturnDate?: string;
     initialTripType?: 'one-way' | 'round-trip';
+    initialPassengers?: number;
 }
 
 export function SearchForm({
@@ -19,7 +20,8 @@ export function SearchForm({
     initialDestination = '',
     initialDate,
     initialReturnDate,
-    initialTripType = 'one-way'
+    initialTripType = 'one-way',
+    initialPassengers = 1
 }: SearchFormProps) {
     const router = useRouter();
     const [originQuery, setOriginQuery] = useState(initialOrigin);
@@ -29,6 +31,7 @@ export function SearchForm({
     const [showDepartureOptions, setShowDepartureOptions] = useState(false);
     const [showReturnOptions, setShowReturnOptions] = useState(false);
     const [tripType, setTripType] = useState<'one-way' | 'round-trip'>(initialTripType);
+    const [passengers, setPassengers] = useState<number | string>(initialPassengers);
 
     // Parse initial dates
     const parseDate = (d?: string) => {
@@ -104,6 +107,7 @@ export function SearchForm({
         const params = new URLSearchParams();
         if (originQuery) params.append('origin', originQuery);
         if (destQuery) params.append('destination', destQuery);
+        params.append('passengers', (parseInt(passengers as string) || 1).toString());
 
         if (departureDate) {
             // Format as YYYY-MM-DD manually to avoid timezone issues with toISOString
@@ -366,6 +370,29 @@ export function SearchForm({
                         )}
                     </div>
                 )}
+            </div>
+
+            {/* Passengers Input */}
+            <div className="w-full md:w-48 relative">
+                <div className="bg-slate-50 p-6 rounded-2xl flex items-center space-x-3 border border-slate-200 focus-within:border-green-400 transition-colors">
+                    <Users className="text-slate-400" />
+                    <div className="flex-1">
+                        <label className="block text-base font-semibold text-slate-400 uppercase tracking-wider">Passengers</label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="9"
+                            className="w-full bg-transparent outline-none text-slate-800 font-medium text-xl"
+                            value={passengers}
+                            onChange={(e) => setPassengers(e.target.value)}
+                            onBlur={() => {
+                                if (passengers === '' || parseInt(passengers as string) < 1) {
+                                    setPassengers(1);
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
             </div>
 
             <button type="submit" className="cursor-pointer w-full md:w-auto h-24 px-12 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-2xl hover:shadow-lg hover:shadow-green-600/30 transition-all flex items-center justify-center space-x-2">

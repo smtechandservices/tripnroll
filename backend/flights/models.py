@@ -35,6 +35,9 @@ class Booking(models.Model):
     frequent_flyer_number = models.CharField(max_length=50, blank=True, null=True)
     travel_date = models.DateField()
     booking_id = models.CharField(max_length=20, unique=True)
+    booked_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings_made')
+    booking_group = models.CharField(max_length=50, blank=True, null=True)
+    pnr = models.CharField(max_length=20, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -32,7 +32,27 @@ export interface Booking {
     booking_id: string;
     status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
     created_at: string;
+    booked_by: {
+        id: number;
+        username: string;
+        email: string;
+    } | null;
+    booking_group: string | null;
+    pnr?: string | null;
 }
+
+// ... existing code ...
+
+export async function updateBooking(bookingId: string, data: Partial<Booking>): Promise<Booking> {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/${bookingId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update booking');
+    return res.json();
+}
+
 
 export interface CreateBookingData {
     flight: number;

@@ -5,7 +5,15 @@ import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 import { Flight } from '@/lib/api';
 
-export function BookingSuccessWrapper({ flight, isInternational }: { flight: Flight; isInternational: boolean }) {
+export function BookingSuccessWrapper({
+    flight,
+    isInternational,
+    onPassengersChange
+}: {
+    flight: Flight;
+    isInternational: boolean;
+    onPassengersChange?: (count: number) => void;
+}) {
     const router = useRouter();
 
     return (
@@ -13,10 +21,11 @@ export function BookingSuccessWrapper({ flight, isInternational }: { flight: Fli
             flightId={flight.id}
             departureDate={flight.departure_time}
             isInternational={isInternational}
+            onPassengersChange={onPassengersChange}
             onSuccess={(bookingId) => {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Booking Request Sent!',
+                    title: 'Booking Confirmed!',
                     html: `
                         <div class="space-y-4 font-sans text-left">
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -34,12 +43,12 @@ export function BookingSuccessWrapper({ flight, isInternational }: { flight: Fli
                                 </div>
                             </div>
 
-                            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-yellow-800 text-sm">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <div class="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></div>
-                                    <strong class="font-bold">Status: Pending Approval</strong>
+                            <div class="bg-green-50 p-4 rounded-xl border border-green-100 text-green-800 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <div class="h-2 w-2 rounded-full bg-green-500"></div>
+                                    <strong class="font-bold">Status: Confirmed</strong>
                                 </div>
-                                <p class="opacity-80">Our team will review your request and send a confirmation email shortly.</p>
+                                <p class="opacity-80 mt-1">Your flight has been successfully booked. You can view your ticket details in your history.</p>
                             </div>
                         </div>
                     `,

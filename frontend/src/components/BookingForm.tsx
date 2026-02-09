@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CreateBookingData, createBooking } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -10,61 +11,99 @@ interface BookingFormProps {
     departureDate: string; // ISO date string from flight
     isInternational: boolean; // Whether the flight is international
     onSuccess: (bookingId: string) => void;
+    onPassengersChange?: (count: number) => void;
 }
 
-export function BookingForm({ flightId, departureDate, isInternational, onSuccess }: BookingFormProps) {
+export function BookingForm({ flightId, departureDate, isInternational, onSuccess, onPassengersChange }: BookingFormProps) {
     const { user } = useAuth();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Format departure date to YYYY-MM-DD for input field
     const formattedDate = new Date(departureDate).toISOString().split('T')[0];
 
-    const [formData, setFormData] = useState({
-        first_name: '',
-        last_name: '',
-        passenger_email: '',
-        passenger_phone: '',
-        date_of_birth: '',
-        passport_number: '',
-        passport_issue_date: '',
-        passport_expiry_date: '',
-        frequent_flyer_number: '',
-        travel_date: formattedDate,
+    const [passengers, setPassengers] = useState(() => {
+        const count = Number(searchParams.get('passengers')) || 1;
+        const p = [];
+        for (let i = 0; i < count; i++) {
+            p.push({
+                first_name: '',
+                last_name: '',
+                passenger_email: '',
+                passenger_phone: '',
+                date_of_birth: '',
+                passport_number: '',
+                passport_issue_date: '',
+                passport_expiry_date: '',
+                frequent_flyer_number: '',
+            });
+        }
+        return p;
     });
 
     useEffect(() => {
-        if (user) {
+        if (onPassengersChange) {
+            onPassengersChange(passengers.length);
+        }
+    }, [passengers.length, onPassengersChange]);
+
+    useEffect(() => {
+        if (user && passengers.length >= 1 && !passengers[0].first_name) {
             // Split username into first and last name if possible
             const nameParts = (user.username || '').split(' ');
             const firstName = nameParts[0] || '';
             const lastName = nameParts.slice(1).join(' ') || '';
 
-            setFormData(prev => ({
-                ...prev,
+            const newPassengers = [...passengers];
+            newPassengers[0] = {
+                ...newPassengers[0],
                 first_name: firstName,
                 last_name: lastName,
                 passenger_email: user.email || '',
                 passenger_phone: user.profile?.phone_number || '',
                 passport_number: user.profile?.passport_number || '',
-                travel_date: formattedDate, // Ensure travel_date is set
-            }));
+            };
+            setPassengers(newPassengers);
         }
-    }, [user, formattedDate]);
+    }, [user]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleAddPassenger = () => {
+        setPassengers([...passengers, {
+            first_name: '',
+            last_name: '',
+            passenger_email: '',
+            passenger_phone: '',
+            date_of_birth: '',
+            passport_number: '',
+            passport_issue_date: '',
+            passport_expiry_date: '',
+            frequent_flyer_number: '',
+        }]);
+    };
+
+    const handleRemovePassenger = (index: number) => {
+        if (passengers.length > 1) {
+            setPassengers(passengers.filter((_, i) => i !== index));
+        }
+    };
+
+    const handlePassengerChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        const newPassengers = [...passengers];
+        (newPassengers[index] as any)[name] = value;
+        setPassengers(newPassengers);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const result = await Swal.fire({
-            title: 'Confirm Your Booking',
-            text: 'Are you sure you want to request this booking?',
+            title: 'Complete Your Booking',
+            text: `Are you sure you want to book for ${passengers.length} passenger(s)?`,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Yes, Confirm',
+            confirmButtonText: 'Yes, Book Now',
             cancelButtonText: 'No, Cancel',
             confirmButtonColor: '#2563eb', // blue-600
             cancelButtonColor: '#64748b', // slate-500
@@ -81,18 +120,22 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         setError(null);
 
         try {
-            const data: CreateBookingData = {
+            const data = {
                 flight: flightId,
-                ...formData,
-                // Sanitize optional fields: send undefined if empty string
-                passport_number: formData.passport_number || undefined,
-                passport_issue_date: formData.passport_issue_date || undefined,
-                passport_expiry_date: formData.passport_expiry_date || undefined,
-                frequent_flyer_number: formData.frequent_flyer_number || undefined,
-                date_of_birth: formData.date_of_birth || undefined,
+                travel_date: formattedDate,
+                passengers: passengers.map(p => ({
+                    ...p,
+                    passport_number: p.passport_number || undefined,
+                    passport_issue_date: p.passport_issue_date || undefined,
+                    passport_expiry_date: p.passport_expiry_date || undefined,
+                    frequent_flyer_number: p.frequent_flyer_number || undefined,
+                    date_of_birth: p.date_of_birth || undefined,
+                }))
             };
-            const booking = await createBooking(data);
-            onSuccess(booking.booking_id);
+            const response = await createBooking(data);
+            // If response is an array (multiple bookings), use the first one's group or ID for success message
+            const firstBooking = Array.isArray(response) ? response[0] : response;
+            onSuccess(firstBooking.booking_group || firstBooking.booking_id);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {
@@ -101,108 +144,139 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
                 <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
                     {error}
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                    label="First Name"
-                    name="first_name"
-                    value={formData.first_name}
-                    onChange={handleChange}
-                    required
-                />
-                <FormInput
-                    label="Last Name"
-                    name="last_name"
-                    value={formData.last_name}
-                    onChange={handleChange}
-                    required
-                />
+            <div className="space-y-12">
+                {passengers.map((passenger, index) => (
+                    <div key={index} className="relative p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                                    {index + 1}
+                                </span>
+                                Passenger Information
+                            </h3>
+                            {passengers.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemovePassenger(index)}
+                                    className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1 transition-colors"
+                                >
+                                    Remove
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormInput
+                                label="First Name"
+                                name="first_name"
+                                value={passenger.first_name}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required
+                            />
+                            <FormInput
+                                label="Last Name"
+                                name="last_name"
+                                value={passenger.last_name}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                            <FormInput
+                                label="Email Address"
+                                name="passenger_email"
+                                type="email"
+                                value={passenger.passenger_email}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required
+                            />
+                            <FormInput
+                                label="Phone Number"
+                                name="passenger_phone"
+                                type="tel"
+                                value={passenger.passenger_phone}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required
+                            />
+                            <FormInput
+                                label="Date of Birth"
+                                name="date_of_birth"
+                                type="date"
+                                value={passenger.date_of_birth}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required
+                            />
+                            <FormInput
+                                label="Travel Date"
+                                name="travel_date"
+                                type="date"
+                                value={formattedDate}
+                                readOnly
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                            <FormInput
+                                label={isInternational ? "Passport Number" : "Passport Number (Optional)"}
+                                name="passport_number"
+                                value={passenger.passport_number}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required={isInternational}
+                            />
+                            <FormInput
+                                label="Frequent Flyer Number (Optional)"
+                                name="frequent_flyer_number"
+                                value={passenger.frequent_flyer_number}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                placeholder="Enter if you have one"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                            <FormInput
+                                label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
+                                name="passport_issue_date"
+                                type="date"
+                                value={passenger.passport_issue_date}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required={isInternational}
+                            />
+                            <FormInput
+                                label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
+                                name="passport_expiry_date"
+                                type="date"
+                                value={passenger.passport_expiry_date}
+                                onChange={(e) => handlePassengerChange(index, e)}
+                                required={isInternational}
+                            />
+                        </div>
+                    </div>
+                ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                    label="Email Address"
-                    name="passenger_email"
-                    type="email"
-                    value={formData.passenger_email}
-                    onChange={handleChange}
-                    required
-                />
-                <FormInput
-                    label="Phone Number"
-                    name="passenger_phone"
-                    type="tel"
-                    value={formData.passenger_phone}
-                    onChange={handleChange}
-                    required
-                />
-                <FormInput
-                    label="Date of Birth"
-                    name="date_of_birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={handleChange}
-                    required
-                />
-                <FormInput
-                    label="Travel Date"
-                    name="travel_date"
-                    type="date"
-                    value={formData.travel_date}
-                    onChange={handleChange}
-                    readOnly
-                    required
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                    label={isInternational ? "Passport Number" : "Passport Number (Optional)"}
-                    name="passport_number"
-                    value={formData.passport_number}
-                    onChange={handleChange}
-                    required={isInternational}
-                />
-                <FormInput
-                    label="Frequent Flyer Number (Optional)"
-                    name="frequent_flyer_number"
-                    value={formData.frequent_flyer_number}
-                    onChange={handleChange}
-                    placeholder="Enter if you have one"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                    label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
-                    name="passport_issue_date"
-                    type="date"
-                    value={formData.passport_issue_date}
-                    onChange={handleChange}
-                    required={isInternational}
-                />
-                <FormInput
-                    label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
-                    name="passport_expiry_date"
-                    type="date"
-                    value={formData.passport_expiry_date}
-                    onChange={handleChange}
-                    required={isInternational}
-                />
-            </div>
+            <button
+                type="button"
+                onClick={handleAddPassenger}
+                className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
+            >
+                + Add Another Passenger
+            </button>
 
             <button
                 type="submit"
                 disabled={loading}
                 className="cursor-pointer w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
             >
-                {loading ? <Loader2 className="animate-spin" /> : 'Confirm Booking'}
+                {loading ? <Loader2 className="animate-spin" /> : `Confirm Booking for ${passengers.length} Passenger${passengers.length !== 1 ? 's' : ''}`}
             </button>
         </form>
     );
