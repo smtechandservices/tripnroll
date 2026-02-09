@@ -2,20 +2,9 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUserProfile } from '@/lib/api';
+import { getUserProfile, User } from '@/lib/api';
 
-interface UserProfile {
-    phone_number: string;
-    passport_number: string;
-    address: string;
-}
 
-interface User {
-    id: number;
-    username: string;
-    email: string;
-    profile?: UserProfile;
-}
 
 interface AuthContextType {
     user: User | null;
@@ -47,14 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setToken(storedToken);
             setUser(JSON.parse(storedUser));
 
-            // Validate token
-            getUserProfile().catch(() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                setToken(null);
-                setUser(null);
-                router.push('/login');
-            });
+            // Validate token and refresh user data
+            getUserProfile()
+                .then((userData) => {
+                    setUser(userData);
+                    localStorage.setItem('user', JSON.stringify(userData));
+                })
+                .catch(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setToken(null);
+                    setUser(null);
+                    router.push('/login');
+                });
         }
     }, []);
 

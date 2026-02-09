@@ -30,7 +30,7 @@ export interface Booking {
     frequent_flyer_number?: string;
     travel_date: string;
     booking_id: string;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUND_REQUESTED' | 'REFUNDED';
     created_at: string;
     booked_by: {
         id: number;
@@ -39,6 +39,7 @@ export interface Booking {
     } | null;
     booking_group: string | null;
     pnr?: string | null;
+    payment_mode?: 'WALLET' | 'DIRECT';
 }
 
 // ... existing code ...
@@ -79,6 +80,9 @@ export interface User {
         passport_number: string;
         address: string;
         usertype: 'user' | 'admin' | 'superadmin';
+        wallet_balance?: number;
+        credit_limit?: number;
+        total_dues?: number;
     };
     date_joined?: string;
 }
@@ -316,15 +320,29 @@ export async function deleteFlight(id: number): Promise<void> {
     if (!res.ok) throw new Error('Failed to delete flight');
 }
 
-export async function getAdminBookings(page: number = 1, search: string = ''): Promise<PaginatedResponse<Booking>> {
+export async function getAdminBookings(page: number = 1, search: string = '', status?: string): Promise<PaginatedResponse<Booking>> {
     const params = new URLSearchParams();
     params.append('page', page.toString());
     if (search) params.append('search', search);
+    if (status) params.append('status', status);
 
     const res = await fetch(`${API_BASE_URL}/admin/bookings/?${params.toString()}`, {
         headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch bookings');
+    return res.json();
+}
+
+export async function processRefund(bookingId: string, amount: number): Promise<{ message: string; refunded_amount: number; new_status: string }> {
+    const res = await fetch(`${API_BASE_URL}/admin/refund/process/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ booking_id: bookingId, amount })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to process refund');
+    }
     return res.json();
 }
 
@@ -368,6 +386,15 @@ export async function updateAdminUser(id: number, data: any): Promise<User> {
     });
     if (!res.ok) throw new Error('Failed to update user');
     return res.json();
+}
+
+export async function updateAdminUserWallet(id: number, data: { credit_limit?: number; wallet_balance?: number; total_dues?: number }): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/admin/users/${id}/wallet/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update user wallet');
 }
 
 export async function deleteAdminUser(id: number): Promise<void> {

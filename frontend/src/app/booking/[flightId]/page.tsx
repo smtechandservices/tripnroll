@@ -77,8 +77,11 @@ export default function BookingPage() {
     const totalPrice = unitPrice * passengerCount;
 
     return (
-        <div className="min-h-screen bg-slate-50 px-4">
-            <div className="max-w-9xl px-12 mx-auto pt-24">
+        <div className="min-h-screen bg-slate-50">
+            <div className="bg-slate-900 py-10 text-center"></div>
+            
+            <div className="max-w-9xl px-12 mx-auto pt-14">
+
                 <BackButton />
                 <h1 className="text-3xl font-bold text-slate-800 mb-8">Complete Your Booking</h1>
 

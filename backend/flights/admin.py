@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Flight, Booking, ContactMessage, UserProfile
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
 
 @admin.register(Flight)
 class FlightAdmin(admin.ModelAdmin):
@@ -36,6 +36,9 @@ class BookingAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Booking Information', {
             'fields': ('booking_id', 'flight', 'status', 'created_at')
+        }),
+        ('Payment & Group Info', {
+            'fields': ('payment_mode', 'booking_group', 'pnr')
         }),
         ('Passenger Details', {
             'fields': ('first_name', 'last_name', 'passenger_email', 'passenger_phone', 'date_of_birth')
@@ -74,7 +77,7 @@ class ContactMessageAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'usertype', 'phone_number', 'passport_number')
+    list_display = ('user', 'usertype', 'phone_number', 'wallet_balance', 'credit_limit', 'total_dues')
     list_filter = ('usertype',)
     search_fields = ('user__username', 'user__email', 'phone_number', 'passport_number')
     ordering = ('user__username',)
@@ -83,6 +86,9 @@ class UserProfileAdmin(admin.ModelAdmin):
         ('User', {
             'fields': ('user', 'usertype')
         }),
+        ('Wallet and Financials', {
+            'fields': ('wallet_balance', 'credit_limit', 'total_dues')
+        }),
         ('Contact Information', {
             'fields': ('phone_number', 'address')
         }),
@@ -90,3 +96,12 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('passport_number',)
         }),
     )
+
+@admin.register(WalletTransaction)
+class WalletTransactionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'transaction_type', 'amount', 'balance_after', 'timestamp')
+    list_filter = ('transaction_type', 'timestamp')
+    search_fields = ('user__username', 'user__email', 'description')
+    ordering = ('-timestamp',)
+    date_hierarchy = 'timestamp'
+    readonly_fields = ('timestamp',)

@@ -1,11 +1,17 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Flight, Booking, ContactMessage, UserProfile
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'address', 'usertype')
+        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues')
+        read_only_fields = ('wallet_balance', 'credit_limit', 'total_dues')
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -108,6 +114,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
         if profile_data:
             profile = instance.profile
+            # Handle wallet fields separately if needed, but for now allow direct update
+            # Note: UserProfileSerializer marks them read_only, so we might need a specific serializer for updates
+            # OR we can just iterate and set. Since AdminUserSerializer uses UserProfileSerializer as a nested field,
+            # and UserProfileSerializer has them as read_only, they might be stripped from validated_data.
+            # Let's fix this by using a writable serializer for the profile in AdminUserSerializer 
+            # OR extracting them manually from initial_data if DRF strips them.
+            # Better approach: Create a WritableUserProfileSerializer for Admin use.
+             
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
             profile.save()

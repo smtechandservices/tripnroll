@@ -30,9 +30,10 @@ export interface Booking {
     travel_date: string;
     booking_id: string;
     booking_group?: string;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUND_REQUESTED' | 'REFUNDED';
     created_at: string;
     pnr?: string | null;
+    payment_mode?: 'WALLET' | 'DIRECT';
 }
 
 export interface CreateBookingData {
@@ -47,6 +48,7 @@ export interface CreateBookingData {
     passport_expiry_date?: string;
     frequent_flyer_number?: string;
     travel_date: string;
+    payment_mode?: 'WALLET' | 'DIRECT';
 }
 
 export interface CreateMultiBookingData {
@@ -65,6 +67,9 @@ export interface User {
         phone_number: string;
         passport_number: string;
         address: string;
+        wallet_balance?: number;
+        credit_limit?: number;
+        total_dues?: number;
     }
 }
 
@@ -72,6 +77,43 @@ export interface ContactMessage {
     name: string;
     email: string;
     message: string;
+}
+
+export interface WalletData {
+    wallet_balance: number;
+    credit_limit: number;
+    total_dues: number;
+    available_spending_power: number;
+    recent_transactions: WalletTransaction[];
+}
+
+export interface WalletTransaction {
+    id: number;
+    amount: string;
+    transaction_type: 'CREDIT' | 'DEBIT';
+    description: string;
+    timestamp: string;
+    balance_after: string;
+    dues_after: string;
+}
+
+export async function getWalletBalance(): Promise<WalletData> {
+    const res = await fetch(`${API_BASE_URL}/wallet/balance/`, {
+        headers: getAuthHeaders(),
+        cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch wallet balance');
+    return res.json();
+}
+
+export async function topUpWallet(amount: number): Promise<{ message: string, wallet_balance: number, total_dues: number, dues_cleared: number }> {
+    const res = await fetch(`${API_BASE_URL}/wallet/top-up/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount })
+    });
+    if (!res.ok) throw new Error('Failed to top up wallet');
+    return res.json();
 }
 
 
@@ -216,7 +258,13 @@ export async function createBooking(data: CreateBookingData | CreateMultiBooking
         headers: getAuthHeaders(), // Use auth headers
         body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to create booking');
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        if (errorData) {
+            throw new Error(JSON.stringify(errorData));
+        }
+        throw new Error('Failed to create booking');
+    }
     return res.json();
 }
 
@@ -241,6 +289,17 @@ export async function submitContactMessage(data: ContactMessage): Promise<void> 
         body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to submit message');
+}
+
+export async function requestRefund(bookingId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/bookings/refund/${bookingId}/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to request refund');
+    }
 }
 
 

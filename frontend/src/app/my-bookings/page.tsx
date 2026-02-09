@@ -1,8 +1,9 @@
 'use client';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect, useState } from 'react';
-import { Booking, getBookingHistory } from '@/lib/api';
-import { Loader2, User as UserIcon, Mail, Phone, Calendar as CalendarIcon, FileText, RefreshCw } from 'lucide-react';
+import { Booking, getBookingHistory, requestRefund } from '@/lib/api';
+import Swal from 'sweetalert2';
+import { Loader2, User as UserIcon, Mail, Phone, Calendar as CalendarIcon, FileText, RefreshCw, Wallet, CreditCard } from 'lucide-react';
 import { RipplesBackground } from '@/components/RipplesBackground';
 
 export default function MyBookingsPage() {
@@ -45,6 +46,36 @@ export default function MyBookingsPage() {
         // Artificial delay to show spinning animation
         await new Promise(resolve => setTimeout(resolve, 500));
         setIsRefreshing(false);
+    };
+
+    const handleRequestRefund = async (booking: Booking) => {
+        const result = await Swal.fire({
+            title: 'Request Refund?',
+            text: `Are you sure you want to request a refund for this booking?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, request refund!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await requestRefund(booking.booking_id);
+                Swal.fire(
+                    'Requested!',
+                    'Your refund request has been submitted.',
+                    'success'
+                );
+                fetchBookings(); // Refresh list
+            } catch (error: any) {
+                Swal.fire(
+                    'Error!',
+                    error.message || 'Failed to request refund.',
+                    'error'
+                );
+            }
+        }
     };
 
     if (!isAuthenticated) {
@@ -126,9 +157,10 @@ export default function MyBookingsPage() {
                                         <div className="relative">
                                             {/* Header with Airline and Status */}
                                             <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' :
-                                                firstPassenger.status === 'CANCELLED' ? 'bg-gradient-to-r from-red-500 to-red-600' :
-                                                    firstPassenger.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
-                                                        'bg-gradient-to-r from-green-600 to-emerald-600'
+                                                firstPassenger.status === 'REFUNDED' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                                                    firstPassenger.status === 'CANCELLED' ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                                                        firstPassenger.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
+                                                            'bg-gradient-to-r from-green-600 to-emerald-600'
                                                 } text-white px-6 py-4 flex justify-between items-center`}>
                                                 <div>
                                                     <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
@@ -206,7 +238,7 @@ export default function MyBookingsPage() {
 
                                             {/* Flight Info Section */}
                                             <div className="px-6 pt-4 pb-12 bg-white text-center">
-                                                <div className="grid grid-cols-3 gap-4">
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                     <div>
                                                         <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Travel Date</div>
                                                         <div className="font-semibold text-slate-800">
@@ -215,7 +247,25 @@ export default function MyBookingsPage() {
                                                     </div>
                                                     <div>
                                                         <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Price per Person</div>
-                                                        <div className="font-bold text-slate-800">₹{firstPassenger.flight_details.price}</div>
+                                                        <div className="font-bold text-slate-800">₹{parseFloat(firstPassenger.flight_details.price).toLocaleString('en-IN')}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Payment Method</div>
+                                                        <div className="font-bold text-slate-800 flex items-center justify-center gap-1.5">
+                                                            {firstPassenger.payment_mode === 'WALLET' ? (
+                                                                <>
+                                                                    <Wallet size={14} className="text-blue-500" />
+                                                                    <span>Wallet</span>
+                                                                </>
+                                                            ) : firstPassenger.payment_mode === 'DIRECT' ? (
+                                                                <>
+                                                                    <CreditCard size={14} className="text-purple-500" />
+                                                                    <span>Direct</span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-slate-400 text-xs">Wallet</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Group Ref</div>
@@ -223,6 +273,32 @@ export default function MyBookingsPage() {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* Refund Action */}
+                                            {!isExpired && firstPassenger.status === 'CONFIRMED' && (
+                                                <div className="border-t border-slate-100 p-4">
+                                                    <button
+                                                        onClick={() => handleRequestRefund(firstPassenger)}
+                                                        className="cursor-pointer text-sm text-red-500 hover:text-red-700 font-medium underline decoration-red-200 hover:decoration-red-500 underline-offset-4 transition-all"
+                                                    >
+                                                        Request Refund
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {!isExpired && firstPassenger.status === 'REFUND_REQUESTED' && (
+                                                <div className="border-t border-slate-100 p-4">
+                                                    <span className="text-sm text-orange-500 font-medium">
+                                                        Refund Requested
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {firstPassenger.status === 'REFUNDED' && (
+                                                <div className="border-t border-slate-100 p-4">
+                                                    <span className="text-sm text-slate-500 font-medium">
+                                                        Refunded to Wallet
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -324,6 +400,6 @@ export default function MyBookingsPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

@@ -1,19 +1,19 @@
-import uuid
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
-from .models import Flight, Booking, ContactMessage, UserProfile
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
 from .serializers import (
     UserSerializer, RegisterSerializer, FlightSerializer, 
     BookingSerializer, AdminBookingSerializer, ContactMessageSerializer,
-    UserProfileSerializer, AdminUserSerializer
+    UserProfileSerializer, AdminUserSerializer, WalletTransactionSerializer
 )
 from .permissions import IsAdminType
 from rest_framework import filters
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+import uuid
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -46,6 +46,10 @@ class FlightListView(generics.ListAPIView):
         queryset = Flight.objects.annotate(
             booked_seats_count=Count('bookings', filter=booked_filter)
         )
+
+        if not flight_id:
+            from django.utils import timezone
+            queryset = queryset.filter(departure_time__gt=timezone.now())
 
         # Filter by passenger capacity if specified
         if passengers:
@@ -148,20 +152,75 @@ class BookingCreateView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         passengers = request.data.get('passengers', [])
-        if not passengers:
-            # Fallback for single passenger data direct in request root
-            return super().create(request, *args, **kwargs)
+        payment_mode = request.data.get('payment_mode', 'WALLET') # Default to WALLET for now
         
+        if not passengers:
+             # Fallback for single passenger data direct in request root (Legacy support)
+             # NOTE: This path needs update for wallet logic if we want to support it fully.
+             # For now, let's assume the new bulk format is primary.
+             return super().create(request, *args, **kwargs)
+        
+        # Calculate total cost
+        flight_id = request.data.get('flight')
+        try:
+            flight = Flight.objects.get(id=flight_id)
+        except Flight.DoesNotExist:
+            return Response({'error': 'Flight not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        total_cost = flight.price * len(passengers)
+        user = request.user
+        profile = user.profile
+
+        from decimal import Decimal
+        # Ensure prices are decimals
+        total_cost = Decimal(str(total_cost))
+
+        # Wallet Logic
+        if payment_mode == 'WALLET':
+            available_funds = profile.wallet_balance + (profile.credit_limit - profile.total_dues)
+            if available_funds < total_cost:
+                return Response({
+                    'error': 'Insufficient funds/credit limit',
+                    'available': available_funds,
+                    'required': total_cost
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Deduct funds
+            spent_from_wallet = Decimal('0.00')
+            added_to_dues = Decimal('0.00')
+
+            if profile.wallet_balance >= total_cost:
+                profile.wallet_balance -= total_cost
+                spent_from_wallet = total_cost
+            else:
+                spent_from_wallet = profile.wallet_balance
+                remaining_cost = total_cost - profile.wallet_balance
+                profile.wallet_balance = Decimal('0.00')
+                profile.total_dues += remaining_cost
+                added_to_dues = remaining_cost
+            
+            profile.save()
+
+            # Record Transaction
+            WalletTransaction.objects.create(
+                user=user,
+                amount=total_cost,
+                transaction_type='DEBIT',
+                description=f"Booking for {len(passengers)} passengers on flight {flight.flight_number}. Wallet: {spent_from_wallet}, Credit used: {added_to_dues}.",
+                balance_after=profile.wallet_balance,
+                dues_after=profile.total_dues
+            )
+
         booking_group = f"GRP-{uuid.uuid4().hex[:8].upper()}"
         response_data = []
         
-        flight_id = request.data.get('flight')
         travel_date = request.data.get('travel_date')
 
         for p_data in passengers:
             # Mix in group level data
             p_data['flight'] = flight_id
             p_data['travel_date'] = travel_date
+            p_data['payment_mode'] = payment_mode
             
             serializer = self.get_serializer(data=p_data)
             serializer.is_valid(raise_exception=True)
@@ -178,6 +237,7 @@ class BookingCreateView(generics.CreateAPIView):
         return Response(response_data[0] if len(response_data) == 1 else response_data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
+        # This is for single create, simplified wallet logic (might need expansion if single create is used)
         booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
         serializer.save(
             booking_id=booking_id, 
@@ -221,6 +281,8 @@ class SearchMetaView(generics.RetrieveAPIView):
         if dest_param:
             date_qs = date_qs.filter(destination__icontains=dest_param)
         
+        from django.utils import timezone
+        date_qs = date_qs.filter(departure_time__gt=timezone.now())
         dates = date_qs.dates('departure_time', 'day')
         
         return Response({
@@ -294,7 +356,8 @@ class AdminFlightListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminType]
 
     def get_queryset(self):
-        queryset = Flight.objects.all().order_by('-departure_time')
+        from django.utils import timezone
+        queryset = Flight.objects.filter(departure_time__gt=timezone.now()).order_by('departure_time')
         search = self.request.query_params.get('search')
         if search:
             from django.db.models import Q
@@ -344,6 +407,10 @@ class AdminBookingListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        
+        status_param = request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
         
         # Calculate total revenue of all CONFIRMED bookings regardless of pagination
         from django.db.models import Sum
@@ -422,4 +489,201 @@ class LoginView(ObtainAuthToken):
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
         return Response({'token': token.key})
+
+class WalletBalanceView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        profile = user.profile
+        recent_transactions = WalletTransaction.objects.filter(user=user).order_by('-timestamp')[:10]
+        
+        return Response({
+            'wallet_balance': profile.wallet_balance,
+            'credit_limit': profile.credit_limit,
+            'total_dues': profile.total_dues,
+            'available_spending_power': profile.wallet_balance + (profile.credit_limit - profile.total_dues),
+            'recent_transactions': WalletTransactionSerializer(recent_transactions, many=True).data
+        })
+
+class WalletTopUpView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        amount = request.data.get('amount')
+        try:
+            amount = float(amount)
+            if amount <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+        user = request.user
+        profile = user.profile
+
+        # Logic: Clear dues first
+        dues_cleared = Decimal('0.00')
+        wallet_added = Decimal('0.00')
+
+        if profile.total_dues > 0:
+            if amount >= profile.total_dues:
+                dues_cleared = profile.total_dues
+                remaining_amount = amount - profile.total_dues
+                profile.total_dues = Decimal('0.00')
+                profile.wallet_balance += remaining_amount
+                wallet_added = remaining_amount
+            else:
+                dues_cleared = amount
+                profile.total_dues -= amount
+                wallet_added = Decimal('0.00')
+        else:
+            profile.wallet_balance += amount
+            wallet_added = amount
+
+        profile.save()
+
+        # Create Transaction Record
+        WalletTransaction.objects.create(
+            user=user,
+            amount=amount,
+            transaction_type='CREDIT',
+            description=f"Top-up of {amount}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+            balance_after=profile.wallet_balance,
+            dues_after=profile.total_dues
+        )
+
+        return Response({
+            'message': 'Top-up successful',
+            'wallet_balance': profile.wallet_balance,
+            'total_dues': profile.total_dues,
+            'dues_cleared': dues_cleared
+        })
+
+class AdminWalletUpdateView(generics.UpdateAPIView):
+    permission_classes = [IsAdminType]
+    serializer_class = AdminUserSerializer
+    queryset = User.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        user = self.get_object()
+        profile = user.profile
+        
+        credit_limit = request.data.get('credit_limit')
+        if credit_limit is not None:
+            profile.credit_limit = credit_limit
+        
+        # Admin can also manually adjust balance/dues if needed, 
+        # but primarily this is for credit limit.
+        # Let's allow manual adjustment for now.
+        wallet_balance = request.data.get('wallet_balance')
+        if wallet_balance is not None:
+            profile.wallet_balance = wallet_balance
+            
+        total_dues = request.data.get('total_dues')
+        if total_dues is not None:
+            profile.total_dues = total_dues
+
+        profile.save()
+        
+        return Response({
+            'message': 'Wallet updated successfully',
+            'wallet_balance': profile.wallet_balance,
+            'credit_limit': profile.credit_limit,
+            'total_dues': profile.total_dues
+        })
+
+class RefundRequestView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = BookingSerializer
+    queryset = Booking.objects.all()
+    lookup_field = 'booking_id'
+
+    def update(self, request, *args, **kwargs):
+        booking = self.get_object()
+        
+        # Verify ownership
+        if booking.booked_by != request.user:
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        if booking.status != 'CONFIRMED':
+            return Response({'error': 'Only confirmed bookings can be refunded'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        booking.status = 'REFUND_REQUESTED'
+        booking.save()
+        
+        return Response({'message': 'Refund requested successfully', 'status': booking.status})
+
+class RefundProcessView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+    
+    def post(self, request):
+        booking_id = request.data.get('booking_id')
+        refund_amount = request.data.get('amount')
+        
+        if not booking_id or not refund_amount:
+            return Response({'error': 'Booking ID and amount required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        if booking.status == 'REFUNDED':
+             return Response({'error': 'Booking already refunded'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Credit User Wallet
+        user = booking.booked_by
+        if not user:
+             return Response({'error': 'No user associated with this booking'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        profile = user.profile
+        from decimal import Decimal
+        try:
+            refund_amount = Decimal(str(refund_amount))
+        except:
+             return Response({'error': 'Invalid amount format'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Logic: Clear dues first
+        dues_cleared = Decimal('0.00')
+        wallet_added = Decimal('0.00')
+
+        if profile.total_dues > 0:
+            if refund_amount >= profile.total_dues:
+                dues_cleared = profile.total_dues
+                remaining_amount = refund_amount - profile.total_dues
+                profile.total_dues = Decimal('0.00')
+                profile.wallet_balance += remaining_amount
+                wallet_added = remaining_amount
+            else:
+                dues_cleared = refund_amount
+                profile.total_dues -= refund_amount
+                wallet_added = Decimal('0.00')
+        else:
+            profile.wallet_balance += refund_amount
+            wallet_added = refund_amount
+
+        profile.save()
+        
+        # Update Booking Status
+        booking.status = 'REFUNDED'
+        booking.save()
+        
+        # Create Transaction
+        WalletTransaction.objects.create(
+            user=user,
+            amount=refund_amount,
+            transaction_type='CREDIT',
+            description=f"Refund for booking {booking_id}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+            balance_after=profile.wallet_balance,
+            dues_after=profile.total_dues
+        )
+        
+        return Response({
+            'message': 'Refund processed successfully', 
+            'refunded_amount': refund_amount,
+            'new_status': booking.status
+        })
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Plane, LogOut, User } from 'lucide-react';
+import { Plane, LogOut, User, Wallet } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 import { EditProfileModal } from '@/components/EditProfileModal';
@@ -34,7 +34,8 @@ export function Header() {
                 <nav className="hidden md:flex items-center space-x-8">
                     <NavLink href="/">Home</NavLink>
                     <NavLink href="/search">Flights</NavLink>
-                    {isAuthenticated && <NavLink href="/my-bookings">My Bookings</NavLink>}
+                    {isAuthenticated && <NavLink href="/my-bookings">Bookings</NavLink>}
+                    {isAuthenticated && <NavLink href="/wallet">Wallet</NavLink>}
                     <NavLink href="/about">About</NavLink>
                     <NavLink href="/contact">Contact</NavLink>
                 </nav>
@@ -52,9 +53,17 @@ export function Header() {
                                 </button>
                                 <EditProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
                             </div>
+                            {user?.profile?.wallet_balance !== undefined && (
+                                <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-emerald-500 hover:bg-emerald-500/20 transition-all duration-300 group cursor-default">
+                                    <Wallet size={16} className="text-white group-hover:scale-110 transition-transform" />
+                                    <span className="text-white font-semibold text-sm">
+                                        ₹{Number(user.profile.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            )}
                             <button
                                 onClick={logout}
-                                className="cursor-pointer bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors"
+                                className="cursor-pointer bg-white/10 hover:bg-white/20 text-white p-2 border border-emerald-500 rounded-full transition-colors"
                                 title="Logout"
                             >
                                 <LogOut size={18} />

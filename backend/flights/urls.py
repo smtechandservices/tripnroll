@@ -5,7 +5,9 @@ from .views import (
     AvailableAirlinesView, cleanup_flight_data,
     AdminFlightListCreateView, AdminFlightDetailView, AdminFlightBulkCreateView,
     AdminBookingListView, AdminBookingDetailView, AdminDashboardView,
-    AdminUserListView, AdminUserDetailView, LoginView
+    AdminUserListView, AdminUserDetailView, LoginView,
+    WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
+    RefundRequestView, RefundProcessView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -16,11 +18,16 @@ urlpatterns = [
     path('flights/', FlightListView.as_view(), name='flight-list'),
     path('bookings/', BookingCreateView.as_view(), name='booking-create'),
     path('bookings/history/', BookingHistoryView.as_view(), name='booking-history'),
+    path('bookings/refund/<str:booking_id>/', RefundRequestView.as_view(), name='refund-request'),
     path('contact/', ContactCreateView.as_view(), name='contact-create'),
     path('search-meta/', SearchMetaView.as_view(), name='search-meta'),
     path('available-airlines/', AvailableAirlinesView.as_view(), name='available-airlines'),
     path('cleanup-flights/', cleanup_flight_data, name='cleanup-flights'),
     
+    # Wallet Routes
+    path('wallet/balance/', WalletBalanceView.as_view(), name='wallet-balance'),
+    path('wallet/top-up/', WalletTopUpView.as_view(), name='wallet-topup'),
+
     # Admin Routes
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('admin/flights/', AdminFlightListCreateView.as_view(), name='admin-flight-list'),
@@ -28,6 +35,8 @@ urlpatterns = [
     path('admin/flights/<int:pk>/', AdminFlightDetailView.as_view(), name='admin-flight-detail'),
     path('admin/bookings/', AdminBookingListView.as_view(), name='admin-booking-list'),
     path('admin/bookings/<str:booking_id>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
+    path('admin/refund/process/', RefundProcessView.as_view(), name='admin-refund-process'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
+    path('admin/users/<int:pk>/wallet/', AdminWalletUpdateView.as_view(), name='admin-user-wallet-update'),
 ]

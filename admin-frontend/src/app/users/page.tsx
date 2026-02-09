@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, User } from '@/lib/api';
+import { getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, updateAdminUserWallet, User } from '@/lib/api';
 import { UserPlus, Edit2, Trash2, Search, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -28,6 +28,13 @@ export default function UserManagementPage() {
         }
     });
 
+    const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+    const [walletData, setWalletData] = useState({
+        credit_limit: '',
+        wallet_balance: '',
+        total_dues: ''
+    });
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchTerm);
@@ -36,6 +43,7 @@ export default function UserManagementPage() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    // ... existing fetchUsers ...
     useEffect(() => {
         fetchUsers(currentPage, debouncedSearch);
     }, [currentPage, debouncedSearch]);
@@ -80,6 +88,41 @@ export default function UserManagementPage() {
             });
         }
         setIsModalOpen(true);
+    };
+
+    const openWalletModal = (user: User) => {
+        setEditingUser(user);
+        setWalletData({
+            credit_limit: user.profile?.credit_limit?.toString() || '0',
+            wallet_balance: user.profile?.wallet_balance?.toString() || '0',
+            total_dues: user.profile?.total_dues?.toString() || '0'
+        });
+        setIsWalletModalOpen(true);
+    };
+
+    const handleWalletSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        try {
+            await updateAdminUserWallet(editingUser.id, {
+                credit_limit: parseFloat(walletData.credit_limit),
+                // We typically only update credit limit, but let's send others if changed or just ignore for now
+                // Requirement mainly focuses on Credit Limit. But let's support all since backend does.
+                wallet_balance: parseFloat(walletData.wallet_balance),
+                total_dues: parseFloat(walletData.total_dues)
+            });
+            Swal.fire({
+                icon: 'success',
+                title: 'Wallet updated successfully',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            setIsWalletModalOpen(false);
+            fetchUsers(currentPage, debouncedSearch);
+        } catch (error: any) {
+            Swal.fire('Error', error.message || 'Action failed', 'error');
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -182,7 +225,9 @@ export default function UserManagementPage() {
                         <tr>
                             <th className="px-6 py-4 font-medium text-slate-500">Username</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Email</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Phone</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Wallet</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Credit Limit</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Dues</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Joined</th>
                             <th className="px-6 py-4 font-medium text-slate-500 text-right">Actions</th>
                         </tr>
@@ -190,7 +235,7 @@ export default function UserManagementPage() {
                     <tbody className="divide-y divide-slate-100">
                         {loading && users.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                                         <span>Loading users...</span>
@@ -199,7 +244,7 @@ export default function UserManagementPage() {
                             </tr>
                         ) : users.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                     No users found.
                                 </td>
                             </tr>
@@ -208,12 +253,27 @@ export default function UserManagementPage() {
                                 <tr key={user.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 font-medium text-slate-900">{user.username}</td>
                                     <td className="px-6 py-4 text-slate-600">{user.email}</td>
-                                    <td className="px-6 py-4 text-slate-600">{user.profile?.phone_number || '-'}</td>
+                                    <td className="px-6 py-4 font-medium text-green-600">
+                                        ₹{parseFloat(user.profile?.wallet_balance?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        ₹{parseFloat(user.profile?.credit_limit?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-6 py-4 font-medium text-red-500">
+                                        ₹{parseFloat(user.profile?.total_dues?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {user.date_joined ? new Date(user.date_joined).toLocaleDateString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => openWalletModal(user)}
+                                                className="cursor-pointer px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-xs font-bold transition-colors"
+                                                title="Manage Wallet"
+                                            >
+                                                Wallet
+                                            </button>
                                             <button
                                                 onClick={() => openModal(user)}
                                                 className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
@@ -259,7 +319,7 @@ export default function UserManagementPage() {
                 )}
             </div>
 
-            {/* Modal */}
+            {/* User Details Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -345,6 +405,90 @@ export default function UserManagementPage() {
                                     className="px-6 py-2 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-md shadow-green-200 cursor-pointer"
                                 >
                                     {editingUser ? 'Update User' : 'Create User'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Wallet Management Modal */}
+            {isWalletModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <h3 className="text-xl font-bold text-slate-800">
+                                Manage Wallet
+                            </h3>
+                            <button
+                                onClick={() => setIsWalletModalOpen(false)}
+                                className="p-2 -mr-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                            >
+                                <X className="w-5 h-5 cursor-pointer" />
+                            </button>
+                        </div>
+                        <div className="px-6 py-2 bg-blue-50 border-b border-blue-100">
+                            <p className="text-sm text-blue-800 font-medium">User: {editingUser?.username}</p>
+                        </div>
+
+                        <form onSubmit={handleWalletSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Credit Limit</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={walletData.credit_limit}
+                                        onChange={(e) => setWalletData({ ...walletData, credit_limit: e.target.value })}
+                                        className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Maximum credit allowed for this broker.</p>
+                            </div>
+
+                            {/* Allow editing Balance and Dues manually too - giving full control to admin */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Wallet Balance</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={walletData.wallet_balance}
+                                        onChange={(e) => setWalletData({ ...walletData, wallet_balance: e.target.value })}
+                                        className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Total Dues</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={walletData.total_dues}
+                                        onChange={(e) => setWalletData({ ...walletData, total_dues: e.target.value })}
+                                        className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsWalletModalOpen(false)}
+                                    className="px-6 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-200 cursor-pointer"
+                                >
+                                    Save Wallet
                                 </button>
                             </div>
                         </form>

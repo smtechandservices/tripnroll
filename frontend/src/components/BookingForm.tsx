@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CreateBookingData, createBooking } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Wallet, CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
 
@@ -19,6 +19,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [paymentMode, setPaymentMode] = useState<'WALLET' | 'DIRECT'>('WALLET');
 
     // Format departure date to YYYY-MM-DD for input field
     const formattedDate = new Date(departureDate).toISOString().split('T')[0];
@@ -123,6 +124,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
             const data = {
                 flight: flightId,
                 travel_date: formattedDate,
+                payment_mode: paymentMode,
                 passengers: passengers.map(p => ({
                     ...p,
                     passport_number: p.passport_number || undefined,
@@ -137,7 +139,28 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
             const firstBooking = Array.isArray(response) ? response[0] : response;
             onSuccess(firstBooking.booking_group || firstBooking.booking_id);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Something went wrong');
+            let errorMessage = 'Something went wrong';
+            if (err instanceof Error) {
+                errorMessage = err.message;
+                try {
+                    // Try to parse JSON error from api.ts
+                    const errorObj = JSON.parse(errorMessage);
+                    if (errorObj.error) {
+                        errorMessage = errorObj.error;
+                        if (errorObj.available !== undefined && errorObj.required !== undefined) {
+                            errorMessage += ` (Available: ₹${errorObj.available}, Required: ₹${errorObj.required})`;
+                        }
+                    } else if (errorObj.detail) {
+                        errorMessage = errorObj.detail;
+                    } else {
+                        // Fallback for other JSON structures
+                        errorMessage = JSON.stringify(errorObj);
+                    }
+                } catch (e) {
+                    // Not JSON, use original message
+                }
+            }
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -261,6 +284,62 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                         </div>
                     </div>
                 ))}
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+                <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                    Payment Method
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setPaymentMode('WALLET')}
+                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left ${paymentMode === 'WALLET'
+                            ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500'
+                            : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
+                            }`}
+                    >
+                        <div className={`p-3 rounded-full ${paymentMode === 'WALLET' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                            <Wallet size={24} />
+                        </div>
+                        <div>
+                            <div className="font-bold text-slate-800">Trip N Roll Wallet</div>
+                            <div className="text-sm text-slate-500 mt-1">
+                                Pay using your wallet balance.
+                                {user?.profile?.wallet_balance !== undefined && (
+                                    <span className="block mt-1 font-medium text-emerald-600">
+                                        Available: ₹{Number(user.profile.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        {paymentMode === 'WALLET' && (
+                            <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setPaymentMode('DIRECT')}
+                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left ${paymentMode === 'DIRECT'
+                            ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500'
+                            : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
+                            }`}
+                    >
+                        <div className={`p-3 rounded-full ${paymentMode === 'DIRECT' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                            <CreditCard size={24} />
+                        </div>
+                        <div>
+                            <div className="font-bold text-slate-800">Pay Directly</div>
+                            <div className="text-sm text-slate-500 mt-1">
+                                Pay via Credit/Debit Card or Netbanking (Zaakpay).
+                            </div>
+                        </div>
+                        {paymentMode === 'DIRECT' && (
+                            <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
+                        )}
+                    </button>
+                </div>
             </div>
 
             <button

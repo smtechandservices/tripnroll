@@ -21,6 +21,8 @@ class Booking(models.Model):
         ('PENDING', 'Pending'),
         ('CONFIRMED', 'Confirmed'),
         ('CANCELLED', 'Cancelled'),
+        ('REFUND_REQUESTED', 'Refund Requested'),
+        ('REFUNDED', 'Refunded'),
     ]
 
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE, related_name='bookings')
@@ -38,6 +40,7 @@ class Booking(models.Model):
     booked_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings_made')
     booking_group = models.CharField(max_length=50, blank=True, null=True)
     pnr = models.CharField(max_length=20, blank=True, null=True)
+    payment_mode = models.CharField(max_length=20, default='WALLET')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -61,6 +64,25 @@ class UserProfile(models.Model):
     passport_number = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True)
     usertype = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='user')
+    wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_dues = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     def __str__(self):
         return f"Profile for {self.user.username}"
+
+class WalletTransaction(models.Model):
+    TRANSACTION_TYPE_CHOICES = (
+        ('CREDIT', 'Credit'), # Added funds
+        ('DEBIT', 'Debit'),   # Spent funds
+    )
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='wallet_transactions')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
+    description = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2)
+    dues_after = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.transaction_type} of {self.amount} for {self.user.username}"

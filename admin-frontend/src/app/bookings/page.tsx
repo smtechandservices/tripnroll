@@ -18,6 +18,7 @@ interface GroupedBooking {
     status: string;
     passengers: Booking[];
     total_price: number;
+    payment_mode: string;
 }
 
 export default function AdminBookingsPage() {
@@ -64,6 +65,7 @@ export default function AdminBookingsPage() {
                         status: booking.status,
                         passengers: [],
                         total_price: 0,
+                        payment_mode: booking.payment_mode || 'WALLET',
                     };
                 }
                 groups[groupId].passengers.push(booking);
@@ -156,6 +158,7 @@ export default function AdminBookingsPage() {
                             <th className="px-6 py-4 font-medium text-slate-500">Travel Date</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Passengers</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Total Price</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Payment</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Status</th>
                         </tr>
                     </thead>
@@ -208,6 +211,11 @@ export default function AdminBookingsPage() {
                                     </td>
                                     <td className={`px-6 py-4 font-bold ${group.status === 'CONFIRMED' ? 'text-green-600' : 'text-slate-900'}`}>
                                         ₹{group.total_price.toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${group.payment_mode === 'WALLET' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                            {group.payment_mode}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${group.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
