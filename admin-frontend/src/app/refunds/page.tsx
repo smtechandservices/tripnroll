@@ -8,12 +8,14 @@ import Swal from 'sweetalert2';
 export default function RefundPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
 
-    const fetchRefundRequests = async () => {
+    const fetchRefundRequests = async (tab: 'pending' | 'completed' = activeTab) => {
         setLoading(true);
         try {
-            // We use the status filter to get only refund requests
-            const data = await getAdminBookings(1, '', 'REFUND_REQUESTED');
+            // Fetch based on active tab
+            const status = tab === 'pending' ? 'REFUND_REQUESTED' : 'REFUNDED';
+            const data = await getAdminBookings(1, '', status);
             setBookings(data.results);
         } catch (error) {
             console.error('Failed to fetch refund requests', error);
@@ -23,8 +25,8 @@ export default function RefundPage() {
     };
 
     useEffect(() => {
-        fetchRefundRequests();
-    }, []);
+        fetchRefundRequests(activeTab);
+    }, [activeTab]);
 
     const handleProcessRefund = async (booking: Booking) => {
         const maxRefund = parseFloat(booking.flight_details.price);
@@ -91,15 +93,37 @@ export default function RefundPage() {
         <div className='pt-8'>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Refund Requests</h2>
-                    <p className="text-slate-500 mt-1">Manage and process pending refund requests</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Refund Management</h2>
+                    <p className="text-slate-500 mt-1">Manage pending and completed refunds</p>
                 </div>
                 <button
-                    onClick={fetchRefundRequests}
+                    onClick={() => fetchRefundRequests(activeTab)}
                     className="cursor-pointer p-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors text-slate-600 shadow-sm"
                     title="Refresh List"
                 >
                     <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2 mb-6">
+                <button
+                    onClick={() => setActiveTab('pending')}
+                    className={`cursor-pointer px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === 'pending'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                >
+                    Pending Requests
+                </button>
+                <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`cursor-pointer px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === 'completed'
+                        ? 'bg-green-600 text-white shadow-lg shadow-green-600/20'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                >
+                    Completed Refunds
                 </button>
             </div>
 
@@ -112,29 +136,36 @@ export default function RefundPage() {
                             <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Requested By</th>
                             <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Flight Details</th>
                             <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Paid Amount</th>
-                            <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs text-right">Action</th>
+                            {activeTab === 'completed' && (
+                                <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Refunded</th>
+                            )}
+                            <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs text-right">
+                                {activeTab === 'pending' ? 'Action' : 'Status'}
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={activeTab === 'completed' ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        <span>Loading requests...</span>
+                                        <span>Loading {activeTab === 'pending' ? 'requests' : 'refunds'}...</span>
                                     </div>
                                 </td>
                             </tr>
                         ) : bookings.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-20 text-center">
+                                <td colSpan={activeTab === 'completed' ? 7 : 6} className="px-6 py-20 text-center">
                                     <div className="flex flex-col items-center gap-4">
                                         <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
                                             <CheckCircle className="w-8 h-8 text-green-500" />
                                         </div>
                                         <div>
                                             <h3 className="text-lg font-bold text-slate-800">All caught up!</h3>
-                                            <p className="text-slate-500 mt-1">No pending refund requests found.</p>
+                                            <p className="text-slate-500 mt-1">
+                                                {activeTab === 'pending' ? 'No pending refund requests found.' : 'No completed refunds found.'}
+                                            </p>
                                         </div>
                                     </div>
                                 </td>
@@ -173,13 +204,26 @@ export default function RefundPage() {
                                     <td className="px-6 py-4 font-bold text-slate-900">
                                         ₹{parseFloat(booking.flight_details.price).toLocaleString('en-IN')}
                                     </td>
+                                    {activeTab === 'completed' && (
+                                        <td className="px-6 py-4">
+                                            <span className="font-bold text-red-600">
+                                                -₹{parseFloat(booking.refunded_amount || '0').toLocaleString('en-IN')}
+                                            </span>
+                                        </td>
+                                    )}
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleProcessRefund(booking)}
-                                            className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:translate-y-0.5"
-                                        >
-                                            Process Refund
-                                        </button>
+                                        {activeTab === 'pending' ? (
+                                            <button
+                                                onClick={() => handleProcessRefund(booking)}
+                                                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:translate-y-0.5"
+                                            >
+                                                Process Refund
+                                            </button>
+                                        ) : (
+                                            <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                                ✓ Refunded
+                                            </span>
+                                        )}
                                     </td>
                                 </tr>
                             ))

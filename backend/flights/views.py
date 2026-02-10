@@ -413,10 +413,16 @@ class AdminBookingListView(generics.ListAPIView):
             queryset = queryset.filter(status=status_param)
         
         # Calculate total revenue of all CONFIRMED bookings regardless of pagination
-        from django.db.models import Sum
-        total_revenue = Booking.objects.filter(status='CONFIRMED').aggregate(
-            total=Sum('flight__price')
-        )['total'] or 0
+        from django.db.models import Sum, F, Q
+        from decimal import Decimal
+        
+        # Net revenue = Sum of (flight price - refunded amount) for CONFIRMED and REFUNDED bookings
+        confirmed_bookings = Booking.objects.filter(Q(status='CONFIRMED') | Q(status='REFUNDED'))
+        total_revenue = Decimal('0.00')
+        
+        for booking in confirmed_bookings:
+            net_amount = booking.flight.price - booking.refunded_amount
+            total_revenue += net_amount
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -441,12 +447,17 @@ class AdminDashboardView(generics.GenericAPIView):
     permission_classes = [IsAdminType]
 
     def get(self, request):
-        from django.db.models import Sum, Count
+        from django.db.models import Sum, Count, Q
         from django.utils import timezone
+        from decimal import Decimal
         
-        total_revenue = Booking.objects.filter(status='CONFIRMED').aggregate(
-            total=Sum('flight__price')
-        )['total'] or 0
+        # Calculate net revenue (price - refunded_amount) for CONFIRMED and REFUNDED bookings
+        confirmed_bookings = Booking.objects.filter(Q(status='CONFIRMED') | Q(status='REFUNDED'))
+        total_revenue = Decimal('0.00')
+        
+        for booking in confirmed_bookings:
+            net_amount = booking.flight.price - booking.refunded_amount
+            total_revenue += net_amount
         
         total_bookings = Booking.objects.count()
         active_bookings = Booking.objects.filter(status='CONFIRMED').count()
@@ -645,6 +656,14 @@ class RefundProcessView(generics.GenericAPIView):
             refund_amount = Decimal(str(refund_amount))
         except:
              return Response({'error': 'Invalid amount format'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        if refund_amount <= 0:
+            return Response({'error': 'Refund amount must be positive'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if refund_amount > booking.flight.price:
+            return Response({
+                'error': f'Refund amount ({refund_amount}) cannot exceed booking cost ({booking.flight.price})'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Logic: Clear dues first
         dues_cleared = Decimal('0.00')
@@ -667,7 +686,8 @@ class RefundProcessView(generics.GenericAPIView):
 
         profile.save()
         
-        # Update Booking Status
+        # Update Booking Status and Refunded Amount
+        booking.refunded_amount = refund_amount
         booking.status = 'REFUNDED'
         booking.save()
         

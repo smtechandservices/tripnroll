@@ -40,6 +40,7 @@ export interface Booking {
     booking_group: string | null;
     pnr?: string | null;
     payment_mode?: 'WALLET' | 'DIRECT';
+    refunded_amount?: string;
 }
 
 // ... existing code ...

@@ -41,6 +41,7 @@ class Booking(models.Model):
     booking_group = models.CharField(max_length=50, blank=True, null=True)
     pnr = models.CharField(max_length=20, blank=True, null=True)
     payment_mode = models.CharField(max_length=20, default='WALLET')
+    refunded_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     created_at = models.DateTimeField(auto_now_add=True)
 

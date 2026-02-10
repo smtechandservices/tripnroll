@@ -67,9 +67,16 @@ export default function AdminBookingsPage() {
                         total_price: 0,
                         payment_mode: booking.payment_mode || 'WALLET',
                     };
+                    (groups[groupId] as any).total_refunded = 0;
                 }
                 groups[groupId].passengers.push(booking);
                 groups[groupId].total_price += parseFloat(booking.flight_details.price);
+
+                // Track refunded amount
+                if (!groups[groupId].hasOwnProperty('total_refunded')) {
+                    (groups[groupId] as any).total_refunded = 0;
+                }
+                (groups[groupId] as any).total_refunded += parseFloat(booking.refunded_amount || '0');
             });
 
             setGroupedBookings(Object.values(groups));
@@ -158,6 +165,7 @@ export default function AdminBookingsPage() {
                             <th className="px-6 py-4 font-medium text-slate-500">Travel Date</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Passengers</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Total Price</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Refunded</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Payment</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Status</th>
                         </tr>
@@ -165,7 +173,7 @@ export default function AdminBookingsPage() {
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                                         <span>Searching bookings...</span>
@@ -174,7 +182,7 @@ export default function AdminBookingsPage() {
                             </tr>
                         ) : groupedBookings.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                                     No bookings found matching your search.
                                 </td>
                             </tr>
@@ -211,6 +219,15 @@ export default function AdminBookingsPage() {
                                     </td>
                                     <td className={`px-6 py-4 font-bold ${group.status === 'CONFIRMED' ? 'text-green-600' : 'text-slate-900'}`}>
                                         ₹{group.total_price.toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {(group as any).total_refunded > 0 ? (
+                                            <span className="font-bold text-red-600">
+                                                - ₹{((group as any).total_refunded).toLocaleString('en-IN')}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-400">-</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${group.payment_mode === 'WALLET' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
