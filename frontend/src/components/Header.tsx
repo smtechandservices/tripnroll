@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { EditProfileModal } from '@/components/EditProfileModal';
 
 export function Header() {
-    const { user, logout, isAuthenticated } = useAuth();
+    const { user, logout, isAuthenticated, refreshUser } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
 
@@ -20,6 +20,17 @@ export function Header() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // Poll for wallet updates every 10 seconds
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const interval = setInterval(() => {
+            refreshUser().catch(err => console.error("Wallet poll failed", err));
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [isAuthenticated, refreshUser]);
 
     return (
         <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-black/40 backdrop-blur-md border-b border-white/20' : 'bg-black/20'}`}>

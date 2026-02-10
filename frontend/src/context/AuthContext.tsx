@@ -11,6 +11,7 @@ interface AuthContextType {
     token: string | null;
     login: (token: string, user: User) => void;
     logout: () => void;
+    refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
 }
 
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
     token: null,
     login: () => { },
     logout: () => { },
+    refreshUser: async () => { },
     isAuthenticated: false,
 });
 
@@ -60,6 +62,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push('/');
     };
 
+    const refreshUser = async () => {
+        if (!token) return;
+        try {
+            const userData = await getUserProfile();
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+        } catch (error) {
+            console.error("Failed to refresh user", error);
+            // Optionally handle token expiry here, but better to be safe and just log for now
+            // to avoid auto-logout during a background poll
+        }
+    };
+
     const logout = () => {
         setToken(null);
         setUser(null);
@@ -69,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
+        <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isAuthenticated: !!token }}>
             {children}
         </AuthContext.Provider>
     );

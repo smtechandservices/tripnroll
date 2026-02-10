@@ -5,18 +5,52 @@ import { register } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function SignupPage() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
+    const [phoneError, setPhoneError] = useState('');
     const router = useRouter();
+
+    const validatePhoneNumber = (phoneNumber: string): boolean => {
+        if (!phoneNumber) return true; // Phone is optional
+
+        // Remove all spaces and special characters except +
+        const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
+
+        // Check for valid Indian phone number formats:
+        // +919876543210 (with country code)
+        // 919876543210 (without + but with country code)
+        // 9876543210 (10 digits only)
+        const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+
+        return phoneRegex.test(cleaned);
+    };
+
+    const handlePhoneChange = (value: string) => {
+        setPhone(value);
+        if (value && !validatePhoneNumber(value)) {
+            setPhoneError('Please enter a valid Indian phone number (10 digits, starting with 6-9)');
+        } else {
+            setPhoneError('');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        // Validate phone number before submission
+        if (phone && !validatePhoneNumber(phone)) {
+            setError('Please enter a valid phone number');
+            return;
+        }
+
         try {
             await register(username, email, password, phone);
             router.push('/login');
@@ -83,24 +117,41 @@ export default function SignupPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
-                                placeholder="Create a strong password"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="text-black w-full px-4 py-3 pr-12 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
+                                    placeholder="Create a strong password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2">Phone Number</label>
                             <input
                                 type="tel"
                                 value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
+                                onChange={(e) => handlePhoneChange(e.target.value)}
+                                className={`text-black w-full px-4 py-3 rounded-xl border-2 ${phoneError
+                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                                        : 'border-slate-200 focus:border-green-500 focus:ring-green-200'
+                                    } focus:ring-2 outline-none transition-all bg-white`}
                                 placeholder="+91 9876543210"
                             />
+                            {phoneError && (
+                                <p className="mt-1 text-xs text-red-600">{phoneError}</p>
+                            )}
+                            <p className="mt-1 text-xs text-slate-500">Optional. Format: 10 digits starting with 6-9</p>
                         </div>
 
                         <button

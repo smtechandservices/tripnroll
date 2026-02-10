@@ -96,6 +96,21 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         setPassengers(newPassengers);
     };
 
+    const validatePhoneNumber = (phoneNumber: string): boolean => {
+        if (!phoneNumber) return false; // Phone is required in booking
+
+        // Remove all spaces and special characters except +
+        const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
+
+        // Check for valid Indian phone number formats:
+        // +919876543210 (with country code)
+        // 919876543210 (without + but with country code)
+        // 9876543210 (10 digits only)
+        const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+
+        return phoneRegex.test(cleaned);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -116,6 +131,22 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         });
 
         if (!result.isConfirmed) return;
+
+        // Validate all phone numbers before submission
+        const invalidPhones = passengers.filter((p, idx) => !validatePhoneNumber(p.passenger_phone));
+        if (invalidPhones.length > 0) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Invalid Phone Number',
+                text: 'Please enter valid Indian phone numbers for all passengers (10 digits, starting with 6-9)',
+                confirmButtonColor: '#ef4444',
+                customClass: {
+                    popup: 'rounded-3xl',
+                    confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                }
+            });
+            return;
+        }
 
         setLoading(true);
         setError(null);

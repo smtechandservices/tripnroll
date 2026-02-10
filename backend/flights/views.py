@@ -32,6 +32,16 @@ class FlightListView(generics.ListAPIView):
 
     def get_queryset(self):
         from django.db.models import Count, F, Q
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Automatic Cleanup: Delete flights older than 30 days
+        try:
+            cutoff_date = timezone.now() - timedelta(days=30)
+            Flight.objects.filter(departure_time__lt=cutoff_date).delete()
+        except Exception as e:
+            # Log error but don't stop the request
+            print(f"Error during auto-cleanup: {e}")
         
         origin = self.request.query_params.get('origin')
         destination = self.request.query_params.get('destination')
@@ -150,6 +160,13 @@ class BookingCreateView(generics.CreateAPIView):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
 
+    def generate_pnr(self, airline_name):
+        import random
+        import string
+        prefix = airline_name[:3].upper() if airline_name else 'TNR'
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        return f"{prefix}{suffix}"
+
     def create(self, request, *args, **kwargs):
         passengers = request.data.get('passengers', [])
         payment_mode = request.data.get('payment_mode', 'WALLET') # Default to WALLET for now
@@ -226,11 +243,14 @@ class BookingCreateView(generics.CreateAPIView):
             serializer.is_valid(raise_exception=True)
             
             booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
+            pnr = self.generate_pnr(flight.airline)
+            
             serializer.save(
                 booking_id=booking_id, 
                 status='CONFIRMED',
                 booked_by=request.user,
-                booking_group=booking_group
+                booking_group=booking_group,
+                pnr=pnr
             )
             response_data.append(serializer.data)
             
@@ -239,10 +259,17 @@ class BookingCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         # This is for single create, simplified wallet logic (might need expansion if single create is used)
         booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Get flight from validated data
+        flight = serializer.validated_data.get('flight')
+        airline = flight.airline if flight else 'TNR'
+        
+        pnr = self.generate_pnr(airline)
         serializer.save(
             booking_id=booking_id, 
             status='CONFIRMED',
-            booked_by=self.request.user
+            booked_by=self.request.user,
+            pnr=pnr
         )
 
 class BookingHistoryView(generics.ListAPIView):
@@ -452,6 +479,7 @@ class AdminDashboardView(generics.GenericAPIView):
         from decimal import Decimal
         
         # Calculate net revenue (price - refunded_amount) for CONFIRMED and REFUNDED bookings
+        # Revenue should arguably include past flights too, so we keep this as is for total lifetime revenue
         confirmed_bookings = Booking.objects.filter(Q(status='CONFIRMED') | Q(status='REFUNDED'))
         total_revenue = Decimal('0.00')
         
@@ -460,8 +488,15 @@ class AdminDashboardView(generics.GenericAPIView):
             total_revenue += net_amount
         
         total_bookings = Booking.objects.count()
-        active_bookings = Booking.objects.filter(status='CONFIRMED').count()
-        total_flights = Flight.objects.count()
+
+        # Update: Active bookings = Confirmed bookings for FUTURE flights
+        active_bookings = Booking.objects.filter(
+            status='CONFIRMED',
+            flight__departure_time__gt=timezone.now()
+        ).count()
+
+        # Update: Total flights = FUTURE flights only
+        total_flights = Flight.objects.filter(departure_time__gt=timezone.now()).count()
         
         recent_bookings = Booking.objects.order_by('-created_at')[:5]
         recent_bookings_data = BookingSerializer(recent_bookings, many=True).data

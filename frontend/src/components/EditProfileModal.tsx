@@ -17,11 +17,48 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
     const [phone, setPhone] = useState(user?.profile?.phone_number || '');
     const [passport, setPassport] = useState(user?.profile?.passport_number || '');
     const [address, setAddress] = useState(user?.profile?.address || '');
+    const [phoneError, setPhoneError] = useState('');
+
+    const validatePhoneNumber = (phoneNumber: string): boolean => {
+        if (!phoneNumber) return true; // Phone is optional
+
+        // Remove all spaces and special characters except +
+        const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
+
+        // Check for valid Indian phone number formats:
+        // +919876543210 (with country code)
+        // 919876543210 (without + but with country code)
+        // 9876543210 (10 digits only)
+        const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+
+        return phoneRegex.test(cleaned);
+    };
+
+    const handlePhoneChange = (value: string) => {
+        setPhone(value);
+        if (value && !validatePhoneNumber(value)) {
+            setPhoneError('Please enter a valid Indian phone number (10 digits, starting with 6-9)');
+        } else {
+            setPhoneError('');
+        }
+    };
 
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate phone number before submission
+        if (phone && !validatePhoneNumber(phone)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid Phone Number',
+                text: 'Please enter a valid Indian phone number',
+                confirmButtonColor: '#ef4444'
+            });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -102,10 +139,17 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                     <input
                         type="tel"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-700"
-                        placeholder="+1 234 567 890"
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        className={`w-full px-3 py-2 rounded-lg border ${phoneError
+                                ? 'border-red-300 focus:border-red-500'
+                                : 'border-slate-200 focus:border-blue-500'
+                            } outline-none transition-all text-sm font-medium text-slate-700`}
+                        placeholder="+91 9876543210"
                     />
+                    {phoneError && (
+                        <p className="mt-1 text-xs text-red-600">{phoneError}</p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">Format: 10 digits starting with 6-9</p>
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Passport Number</label>
