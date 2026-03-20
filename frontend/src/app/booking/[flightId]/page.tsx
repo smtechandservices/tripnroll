@@ -103,8 +103,8 @@ export default function BookingPage() {
                                     <div className="text-xs text-slate-400 uppercase mb-1">Route</div>
                                     <div className="font-semibold text-slate-700">{flight.origin} → {flight.destination}</div>
                                     <div className="text-xs mt-1">
-                                        <span className="text-slate-500">{flight.stops === 0 && !flight.stop_details ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
-                                        {flight.stop_details && (
+                                        <span className="text-slate-500">{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
+                                        {flight.stops > 0 && flight.stop_details && (
                                             <span className="text-slate-400 ml-1">via {flight.stop_details}</span>
                                         )}
                                     </div>

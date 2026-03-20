@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CreateBookingData, createBooking } from '@/lib/api';
-import { Loader2, Wallet, CreditCard } from 'lucide-react';
+import { CreateBookingData, createBooking, getWalletBalance, WalletData } from '@/lib/api';
+import { Loader2, Wallet, CreditCard, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
 
@@ -20,6 +20,22 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [paymentMode, setPaymentMode] = useState<'WALLET' | 'DIRECT'>('WALLET');
+    const [walletData, setWalletData] = useState<WalletData | null>(null);
+
+    // Fetch wallet data for accurate spending power
+    useEffect(() => {
+        const fetchWallet = async () => {
+            if (user) {
+                try {
+                    const data = await getWalletBalance();
+                    setWalletData(data);
+                } catch (error) {
+                    console.error('Failed to fetch wallet balance:', error);
+                }
+            }
+        };
+        fetchWallet();
+    }, [user]);
 
     // Format departure date to YYYY-MM-DD for input field
     const formattedDate = new Date(departureDate).toISOString().split('T')[0];
@@ -337,7 +353,17 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                             <div className="font-bold text-slate-800">Trip N Roll Wallet</div>
                             <div className="text-sm text-slate-500 mt-1">
                                 Pay using your wallet balance.
-                                {user?.profile?.wallet_balance !== undefined && (
+                                {walletData ? (
+                                    <div className="mt-1 space-y-1">
+                                        <span className="block font-medium text-emerald-600">
+                                            Available: ₹{Number(walletData.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                        <span className="block text-[11px] font-bold text-blue-600 flex items-center gap-1">
+                                            <Info size={10} />
+                                            Spending Power: ₹{Number(walletData.available_spending_power).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                ) : user?.profile?.wallet_balance !== undefined && (
                                     <span className="block mt-1 font-medium text-emerald-600">
                                         Available: ₹{Number(user.profile.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                     </span>

@@ -13,6 +13,7 @@ export interface Flight {
     stops: number;
     stop_details?: string;
     available_seats?: number;
+    is_hidden?: boolean;
 }
 
 export interface Booking {
@@ -223,21 +224,23 @@ export async function getFlights(
     return res.json();
 }
 
-export async function getSearchMeta(origin?: string, destination?: string): Promise<{ origins: string[], destinations: string[], dates: string[] }> {
+export async function getSearchMeta(origin?: string, destination?: string, passengers?: number): Promise<{ origins: string[], destinations: string[], dates: string[], return_dates: string[] }> {
     const params = new URLSearchParams();
     if (origin) params.append('origin', origin);
     if (destination) params.append('destination', destination);
+    if (passengers) params.append('passengers', passengers.toString());
 
     const res = await fetch(`${API_BASE_URL}/search-meta/?${params.toString()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to fetch search metadata');
     return res.json();
 }
 
-export async function getAvailableAirlines(origin?: string, destination?: string, date?: string): Promise<{ airlines: string[] }> {
+export async function getAvailableAirlines(origin?: string, destination?: string, date?: string, passengers?: number): Promise<{ airlines: string[] }> {
     const params = new URLSearchParams();
     if (origin) params.append('origin', origin);
     if (destination) params.append('destination', destination);
     if (date) params.append('date', date);
+    if (passengers) params.append('passengers', passengers.toString());
 
     const res = await fetch(`${API_BASE_URL}/available-airlines/?${params.toString()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to fetch available airlines');

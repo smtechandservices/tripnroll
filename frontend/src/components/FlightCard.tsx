@@ -61,8 +61,8 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                         </div>
                         <div className="text-xs text-slate-400 mt-1">
                             <div className="flex flex-col items-center">
-                                <span>{flight.stops === 0 && !flight.stop_details ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
-                                {flight.stop_details && (
+                                <span>{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
+                                {flight.stops > 0 && flight.stop_details && (
                                     <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
                                         via {flight.stop_details}
                                     </span>

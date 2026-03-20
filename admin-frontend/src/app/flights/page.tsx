@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminFlights, createFlight, updateFlight, deleteFlight, bulkCreateFlights, Flight } from '@/lib/api';
-import { Plus, Edit2, Trash2, Search, X, FileDigit, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, FileDigit, Download, Eye, EyeOff } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 
@@ -98,10 +98,38 @@ export default function AdminFlightsPage() {
                 stops: 0,
                 stop_details: '',
                 total_seats: 150,
-                available_seats: 150
+                available_seats: 150,
+                is_hidden: false
             });
         }
         setIsModalOpen(true);
+    };
+
+    const toggleVisibility = async (flight: Flight) => {
+        try {
+            const newHiddenStatus = !flight.is_hidden;
+            await updateFlight(flight.id, { is_hidden: newHiddenStatus });
+            setFlights(flights.map(f => f.id === flight.id ? { ...f, is_hidden: newHiddenStatus } : f));
+            
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true,
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: `Flight ${newHiddenStatus ? 'hidden' : 'visible'}`
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to update visibility.',
+            });
+        }
     };
 
     const handleTotalSeatsChange = (val: number) => {
@@ -341,7 +369,7 @@ export default function AdminFlightsPage() {
                                             <span>{flight.origin} → {flight.destination}</span>
                                             <div className="text-[10px] text-slate-500">
                                                 {flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}
-                                                {flight.stop_details && <span className="ml-1">via {flight.stop_details}</span>}
+                                                {flight.stops > 0 && flight.stop_details && <span className="ml-1">via {flight.stop_details}</span>}
                                             </div>
                                         </div>
                                     </td>
@@ -355,6 +383,13 @@ export default function AdminFlightsPage() {
                                         {flight.available_seats !== undefined ? flight.available_seats : '-'} / {flight.total_seats || 0}
                                     </td>
                                     <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => toggleVisibility(flight)}
+                                            className={`p-1 rounded mr-2 transition-colors ${flight.is_hidden ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-blue-500 hover:text-blue-700 hover:bg-blue-50'}`}
+                                            title={flight.is_hidden ? "Show Flight" : "Hide Flight"}
+                                        >
+                                            {flight.is_hidden ? <EyeOff className="cursor-pointer w-4 h-4" /> : <Eye className="cursor-pointer w-4 h-4" />}
+                                        </button>
                                         <button
                                             onClick={() => openModal(flight)}
                                             className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 mr-2"
@@ -547,6 +582,17 @@ export default function AdminFlightsPage() {
                                         value={formData.available_seats !== undefined ? formData.available_seats : ''}
                                         onChange={e => handleAvailableSeatsChange(parseInt(e.target.value) || 0)}
                                     />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                                            checked={formData.is_hidden || false}
+                                            onChange={e => setFormData({ ...formData, is_hidden: e.target.checked })}
+                                        />
+                                        <span className="text-sm font-medium text-slate-700">Temporarily hide this flight from users</span>
+                                    </label>
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3 pt-4">

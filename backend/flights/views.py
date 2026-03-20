@@ -53,7 +53,7 @@ class FlightListView(generics.ListAPIView):
         # We count CONFIRMED and PENDING bookings as taking up a seat
         booked_filter = Q(bookings__status='CONFIRMED') | Q(bookings__status='PENDING')
 
-        queryset = Flight.objects.annotate(
+        queryset = Flight.objects.filter(is_hidden=False).annotate(
             booked_seats_count=Count('bookings', filter=booked_filter)
         )
 
@@ -229,6 +229,7 @@ class BookingCreateView(generics.CreateAPIView):
             )
 
         booking_group = f"GRP-{uuid.uuid4().hex[:8].upper()}"
+        pnr = self.generate_pnr(flight.airline)
         response_data = []
         
         travel_date = request.data.get('travel_date')
@@ -243,7 +244,6 @@ class BookingCreateView(generics.CreateAPIView):
             serializer.is_valid(raise_exception=True)
             
             booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
-            pnr = self.generate_pnr(flight.airline)
             
             serializer.save(
                 booking_id=booking_id, 
@@ -288,12 +288,17 @@ class SearchMetaView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         origin_param = request.query_params.get('origin')
         dest_param = request.query_params.get('destination')
+        passengers = request.query_params.get('passengers', 1)
+        try:
+            passengers = int(passengers)
+        except (ValueError, TypeError):
+            passengers = 1
 
         # Base query for determining valid destinations/dates
-        flights = Flight.objects.all()
+        flights = Flight.objects.filter(is_hidden=False, total_seats__gte=passengers)
 
         # Origins: Always return all unique origins (or could filter if needed, but usually we want all)
-        origins = Flight.objects.values_list('origin', flat=True).distinct()
+        origins = flights.values_list('origin', flat=True).distinct()
 
         # Destinations: Filter by origin if selected
         dest_qs = flights
@@ -311,11 +316,21 @@ class SearchMetaView(generics.RetrieveAPIView):
         from django.utils import timezone
         date_qs = date_qs.filter(departure_time__gt=timezone.now())
         dates = date_qs.dates('departure_time', 'day')
+
+        return_dates = []
+        if origin_param and dest_param:
+            return_date_qs = flights.filter(
+                origin__icontains=dest_param,
+                destination__icontains=origin_param,
+                departure_time__gt=timezone.now()
+            )
+            return_dates = return_date_qs.dates('departure_time', 'day')
         
         return Response({
             'origins': list(origins),
             'destinations': list(destinations),
-            'dates': [d.strftime('%Y-%m-%d') for d in dates]
+            'dates': [d.strftime('%Y-%m-%d') for d in dates],
+            'return_dates': [d.strftime('%Y-%m-%d') for d in return_dates]
         })
 
 class AvailableAirlinesView(generics.RetrieveAPIView):
@@ -326,8 +341,13 @@ class AvailableAirlinesView(generics.RetrieveAPIView):
         origin = request.query_params.get('origin')
         destination = request.query_params.get('destination')
         date = request.query_params.get('date')
+        passengers = request.query_params.get('passengers', 1)
+        try:
+            passengers = int(passengers)
+        except (ValueError, TypeError):
+            passengers = 1
         
-        queryset = Flight.objects.all()
+        queryset = Flight.objects.filter(is_hidden=False, total_seats__gte=passengers)
         
         if origin:
             queryset = queryset.filter(origin__icontains=origin)

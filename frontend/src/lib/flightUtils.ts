@@ -12,6 +12,6 @@ export function isInternationalFlight(origin: string, destination: string): bool
     const originIsIndian = INDIAN_AIRPORT_CODES.includes(origin.toUpperCase());
     const destinationIsIndian = INDIAN_AIRPORT_CODES.includes(destination.toUpperCase());
 
-    // If one is Indian and the other is not, it's international
-    return originIsIndian !== destinationIsIndian;
+    // If any is not Indian, it's international
+    return !originIsIndian || !destinationIsIndian;
 }

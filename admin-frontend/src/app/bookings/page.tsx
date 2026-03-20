@@ -155,98 +155,100 @@ export default function AdminBookingsPage() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                        <tr>
-                            <th className="px-6 py-4 font-medium text-slate-500">Group ID</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Booked By</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Flight</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Route</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Travel Date</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Passengers</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Total Price</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Refunded</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Payment</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {loading ? (
+                <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 border-b border-slate-100">
                             <tr>
-                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                                        <span>Searching bookings...</span>
-                                    </div>
-                                </td>
+                                <th className="px-6 py-4 font-medium text-slate-500">Group ID</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Booked By</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Flight</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Route</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Travel Date</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Passengers</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Total Price</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Refunded</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Payment</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Status</th>
                             </tr>
-                        ) : groupedBookings.length === 0 ? (
-                            <tr>
-                                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
-                                    No bookings found matching your search.
-                                </td>
-                            </tr>
-                        ) : (
-                            groupedBookings.map((group) => (
-                                <tr key={group.booking_group} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                                        {group.booking_group?.substring(0, 8) || 'N/A'}...
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-900">{group.broker.username}</div>
-                                        <div className="text-slate-500 text-xs">{group.broker.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-slate-900">{group.flight_details.airline}</div>
-                                        <div className="text-slate-500 text-xs">{group.flight_details.flight_number}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        <div className="font-medium">{group.flight_details.origin} → {group.flight_details.destination}</div>
-                                        {group.flight_details.stops > 0 && (
-                                            <div className="text-[10px] text-slate-400">via {group.flight_details.stop_details}</div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        {new Date(group.travel_date).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <button
-                                            onClick={() => setSelectedGroup(group)}
-                                            className="cursor-pointer inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold hover:bg-blue-100 transition-colors"
-                                        >
-                                            {group.passengers.length} Passenger(s)
-                                        </button>
-                                    </td>
-                                    <td className={`px-6 py-4 font-bold ${group.status === 'CONFIRMED' ? 'text-green-600' : 'text-slate-900'}`}>
-                                        ₹{group.total_price.toLocaleString('en-IN')}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {(group as any).total_refunded > 0 ? (
-                                            <span className="font-bold text-red-600">
-                                                - ₹{((group as any).total_refunded).toLocaleString('en-IN')}
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-400">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${group.payment_mode === 'WALLET' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                            {group.payment_mode}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${group.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                                            group.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
-                                            }`}>
-                                            {group.status}
-                                        </span>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Searching bookings...</span>
+                                        </div>
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : groupedBookings.length === 0 ? (
+                                <tr>
+                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                        No bookings found matching your search.
+                                    </td>
+                                </tr>
+                            ) : (
+                                groupedBookings.map((group) => (
+                                    <tr key={group.booking_group} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                                            {group.booking_group?.substring(0, 8) || 'N/A'}...
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-900">{group.broker.username}</div>
+                                            <div className="text-slate-500 text-xs">{group.broker.email}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-slate-900">{group.flight_details.airline}</div>
+                                            <div className="text-slate-500 text-xs">{group.flight_details.flight_number}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            <div className="font-medium">{group.flight_details.origin} → {group.flight_details.destination}</div>
+                                            {group.flight_details.stops > 0 && (
+                                                <div className="text-[10px] text-slate-400">via {group.flight_details.stop_details}</div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            {new Date(group.travel_date).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => setSelectedGroup(group)}
+                                                className="cursor-pointer inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold hover:bg-blue-100 transition-colors"
+                                            >
+                                                {group.passengers.length} Passenger(s)
+                                            </button>
+                                        </td>
+                                        <td className={`px-6 py-4 font-bold ${group.status === 'CONFIRMED' ? 'text-green-600' : 'text-slate-900'}`}>
+                                            ₹{group.total_price.toLocaleString('en-IN')}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {(group as any).total_refunded > 0 ? (
+                                                <span className="font-bold text-red-600">
+                                                    - ₹{((group as any).total_refunded).toLocaleString('en-IN')}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${group.payment_mode === 'WALLET' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                {group.payment_mode}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${group.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
+                                                group.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-red-100 text-red-800'
+                                                }`}>
+                                                {group.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
                 {!loading && (
                     <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
                         <span className="text-sm text-slate-500">

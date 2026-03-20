@@ -207,9 +207,9 @@ export default function MyBookingsPage() {
                                                             <div className="text-md text-slate-500">{firstPassenger.flight_details.duration}</div>
                                                             <div className="text-xs mt-1">
                                                                 <span className="text-slate-400 font-medium">
-                                                                    {firstPassenger.flight_details.stops === 0 && !firstPassenger.flight_details.stop_details ? 'Non-stop' : `${firstPassenger.flight_details.stops} Stop(s)`}
+                                                                    {firstPassenger.flight_details.stops === 0 ? 'Non-stop' : `${firstPassenger.flight_details.stops} Stop(s)`}
                                                                 </span>
-                                                                {firstPassenger.flight_details.stop_details && (
+                                                                {firstPassenger.flight_details.stops > 0 && firstPassenger.flight_details.stop_details && (
                                                                     <span className="text-slate-400 ml-1">via {firstPassenger.flight_details.stop_details}</span>
                                                                 )}
                                                             </div>
@@ -305,8 +305,8 @@ export default function MyBookingsPage() {
 
                                 {/* Passenger Details Card - Right (1/3 width) */}
                                 <div className="lg:col-span-1">
-                                    <div className="bg-white rounded-2xl overflow-hidden border-y-2 border-slate-700 h-full shadow-sm">
-                                        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4">
+                                    <div className={`bg-white rounded-2xl overflow-hidden h-full shadow-sm border-y-2 ${isExpired ? 'border-slate-400 opacity-75' : 'border-slate-700'}`}>
+                                        <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white px-6 py-4`}>
                                             <div className="text-xs uppercase tracking-wider opacity-90">Passenger List</div>
                                             <div className="text-lg font-bold mt-1">{passengers.length} Passenger{passengers.length !== 1 ? 's' : ''}</div>
                                         </div>

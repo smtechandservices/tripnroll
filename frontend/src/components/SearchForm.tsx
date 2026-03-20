@@ -47,9 +47,11 @@ export function SearchForm({
     const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
     const [availableDestinations, setAvailableDestinations] = useState<string[]>([]);
     const [availableDates, setAvailableDates] = useState<Date[]>([]);
+    const [availableReturnDates, setAvailableReturnDates] = useState<Date[]>([]);
 
     const fetchMetadata = (origin?: string, dest?: string) => {
-        getSearchMeta(origin, dest).then(data => {
+        const passCount = typeof passengers === 'string' ? parseInt(passengers) : passengers;
+        getSearchMeta(origin, dest, passCount).then(data => {
             // Only update what we need based on context to avoid clearing user's current valid selection view
             // actually, we should update everything that is downstream.
 
@@ -62,6 +64,12 @@ export function SearchForm({
                 return new Date(y, m - 1, dstr);
             });
             setAvailableDates(dates);
+
+            const returnDates = data.return_dates.map(d => {
+                const [y, m, dstr] = d.split('-').map(Number);
+                return new Date(y, m - 1, dstr);
+            });
+            setAvailableReturnDates(returnDates);
         }).catch(err => console.error(err));
     };
 
@@ -75,6 +83,17 @@ export function SearchForm({
             }
         }
     }, [availableDates, departureDate]);
+
+    // Ensure return date is not before departure date
+    useEffect(() => {
+        if (departureDate && returnDate && returnDate < departureDate) {
+            setReturnDate(null);
+        }
+    }, [departureDate, returnDate]);
+
+    useEffect(() => {
+        fetchMetadata(originQuery, destQuery);
+    }, [passengers]);
 
     useEffect(() => {
         fetchMetadata(initialOrigin, initialDestination);
@@ -101,6 +120,9 @@ export function SearchForm({
 
     const originSuggestions = filterAirports(originQuery, availableOrigins);
     const destSuggestions = filterAirports(destQuery, availableDestinations);
+
+    const filteredReturnDates = availableReturnDates.filter(d => !departureDate || d >= departureDate);
+    const filteredDepartureDates = availableDates.filter(d => !returnDate || d <= returnDate);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -152,6 +174,30 @@ export function SearchForm({
         setReturnDate(null);
         setTripType('one-way');
         router.push('/search');
+        fetchMetadata(); // Reset metadata to show all available options
+    };
+
+    const clearOrigin = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setOriginQuery('');
+        fetchMetadata('', destQuery);
+    };
+
+    const clearDest = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDestQuery('');
+        fetchMetadata(originQuery, '');
+    };
+
+    const clearDeparture = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDepartureDate(null);
+        setReturnDate(null);
+    };
+
+    const clearReturn = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setReturnDate(null);
     };
 
     return (
@@ -277,13 +323,23 @@ export function SearchForm({
                                 }
                             </div>
                         </div>
+                        {departureDate && (
+                            <button
+                                type="button"
+                                onClick={clearDeparture}
+                                className="p-1 hover:bg-slate-200 rounded-full transition-colors"
+                                title="Clear departure date"
+                            >
+                                <X size={16} className="text-slate-400 hover:text-red-500" />
+                            </button>
+                        )}
                         <ChevronDown className={`text-slate-400 w-4 h-4 transition-transform ${showDepartureOptions ? 'rotate-180' : ''}`} />
                     </div>
 
                     {showDepartureOptions && (
                         <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100">
-                            {availableDates.length > 0 ? (
-                                availableDates.map(date => {
+                            {filteredDepartureDates.length > 0 ? (
+                                filteredDepartureDates.map(date => {
                                     const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                                     const isSelected = departureDate?.toDateString() === date.toDateString();
                                     return (
@@ -303,7 +359,12 @@ export function SearchForm({
                                     );
                                 })
                             ) : (
-                                <div className="p-4 text-center text-slate-400 text-sm italic">No dates available</div>
+                                <div className="p-6 text-center text-slate-400 text-sm italic">
+                                    {availableDates.length > 0
+                                        ? "No departure dates available before return date"
+                                        : "No departure flights available"
+                                    }
+                                </div>
                             )}
                         </div>
                     )}
@@ -335,14 +396,23 @@ export function SearchForm({
                                     }
                                 </div>
                             </div>
+                            {returnDate && (
+                                <button
+                                    type="button"
+                                    onClick={clearReturn}
+                                    className="p-1 hover:bg-slate-200 rounded-full transition-colors"
+                                    title="Clear return date"
+                                >
+                                    <X size={16} className="text-slate-400 hover:text-red-500" />
+                                </button>
+                            )}
                             <ChevronDown className={`text-slate-400 w-4 h-4 transition-transform ${showReturnOptions ? 'rotate-180' : ''}`} />
                         </div>
 
                         {showReturnOptions && (
                             <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100">
-                                {availableDates
-                                    .filter(d => !departureDate || d >= departureDate)
-                                    .map(date => {
+                                {filteredReturnDates.length > 0 ? (
+                                    filteredReturnDates.map(date => {
                                         const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                                         const isSelected = returnDate?.toDateString() === date.toDateString();
                                         return (
@@ -360,7 +430,15 @@ export function SearchForm({
                                                 {isSelected && <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
                                             </div>
                                         );
-                                    })}
+                                    })
+                                ) : (
+                                    <div className="p-6 text-center text-slate-400 text-sm italic">
+                                        {availableReturnDates.length > 0
+                                            ? "No return flights available after departure date"
+                                            : "No return flights available for this route"
+                                        }
+                                    </div>
+                                )}
                             </div>
                         )}
 

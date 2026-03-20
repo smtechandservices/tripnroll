@@ -14,6 +14,7 @@ export interface Flight {
     stop_details?: string;
     available_seats?: number;
     total_seats?: number;
+    is_hidden?: boolean;
 }
 
 export interface Booking {
