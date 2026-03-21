@@ -8,7 +8,8 @@ from .views import (
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
     RefundRequestView, RefundProcessView,
-    AdminContactMessageListView
+    AdminContactMessageListView,
+    SubmitKYCView, AdminKYCListView, AdminKYCActionView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -41,4 +42,9 @@ urlpatterns = [
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/users/<int:pk>/wallet/', AdminWalletUpdateView.as_view(), name='admin-user-wallet-update'),
     path('admin/messages/', AdminContactMessageListView.as_view(), name='admin-message-list'),
+    
+    # KYC Routes
+    path('kyc/submit/', SubmitKYCView.as_view(), name='kyc-submit'),
+    path('admin/kyc/', AdminKYCListView.as_view(), name='admin-kyc-list'),
+    path('admin/kyc/action/', AdminKYCActionView.as_view(), name='admin-kyc-action'),
 ]

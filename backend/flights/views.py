@@ -188,6 +188,14 @@ class BookingCreateView(generics.CreateAPIView):
         user = request.user
         profile = user.profile
 
+        # KYC Verification Check
+        if profile.kyc_status != 'VERIFIED':
+            return Response({
+                'error': 'KYC Verification Required',
+                'details': 'Please complete your KYC verification (Aadhar and PAN) to book flights.',
+                'kyc_status': profile.kyc_status
+            }, status=status.HTTP_403_FORBIDDEN)
+
         from decimal import Decimal
         # Ensure prices are decimals
         total_cost = Decimal(str(total_cost))
@@ -769,3 +777,78 @@ class AdminContactMessageListView(generics.ListAPIView):
     permission_classes = [IsAdminType]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'email', 'message']
+
+class SubmitKYCView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        return self.request.user.profile
+
+    def update(self, request, *args, **kwargs):
+        profile = self.get_object()
+        aadhar_number = request.data.get('aadhar_number')
+        pan_number = request.data.get('pan_number')
+
+        if not aadhar_number or not pan_number:
+            return Response({'error': 'Aadhar and PAN numbers are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.aadhar_number = aadhar_number
+        profile.pan_number = pan_number
+        profile.kyc_status = 'SUBMITTED'
+        profile.save()
+
+        return Response({
+            'message': 'KYC submitted successfully',
+            'kyc_status': profile.kyc_status
+        })
+
+class AdminKYCListView(generics.ListAPIView):
+    queryset = User.objects.filter(profile__kyc_status__in=['SUBMITTED', 'VERIFIED', 'REJECTED']).order_by('-date_joined')
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminType]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'email', 'profile__aadhar_number', 'profile__pan_number']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        status_param = request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(profile__kyc_status=status_param)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+class AdminKYCActionView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        action = request.data.get('action') # 'APPROVE' or 'REJECT'
+        
+        if not user_id or not action:
+            return Response({'error': 'User ID and action are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+            profile = user.profile
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if action == 'APPROVE':
+            profile.kyc_status = 'VERIFIED'
+        elif action == 'REJECT':
+            profile.kyc_status = 'REJECTED'
+        else:
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.save()
+        return Response({
+            'message': f'KYC {action.lower()}d successfully',
+            'kyc_status': profile.kyc_status
+        })

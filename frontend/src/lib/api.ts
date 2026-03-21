@@ -71,6 +71,9 @@ export interface User {
         wallet_balance?: number;
         credit_limit?: number;
         total_dues?: number;
+        aadhar_number?: string;
+        pan_number?: string;
+        kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     }
 }
 
@@ -306,3 +309,15 @@ export async function requestRefund(bookingId: string): Promise<void> {
 }
 
 
+export async function submitKYC(aadhar_number: string, pan_number: string): Promise<{ message: string, kyc_status: string }> {
+    const res = await fetch(`${API_BASE_URL}/kyc/submit/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ aadhar_number, pan_number }),
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to submit KYC');
+    }
+    return res.json();
+}

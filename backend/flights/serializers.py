@@ -5,8 +5,8 @@ from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransact
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues')
-        read_only_fields = ('wallet_balance', 'credit_limit', 'total_dues')
+        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues', 'aadhar_number', 'pan_number', 'kyc_status')
+        read_only_fields = ('wallet_balance', 'credit_limit', 'total_dues', 'kyc_status')
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:

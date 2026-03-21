@@ -69,6 +69,20 @@ class UserProfile(models.Model):
     wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total_dues = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    # KYC Fields
+    aadhar_number = models.CharField(max_length=12, blank=True, null=True)
+    pan_number = models.CharField(max_length=10, blank=True, null=True)
+    kyc_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('SUBMITTED', 'Submitted'),
+            ('VERIFIED', 'Verified'),
+            ('REJECTED', 'Rejected'),
+        ],
+        default='PENDING'
+    )
 
     def __str__(self):
         return f"Profile for {self.user.username}"

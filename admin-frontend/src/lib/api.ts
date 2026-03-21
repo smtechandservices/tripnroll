@@ -85,6 +85,9 @@ export interface User {
         wallet_balance?: number;
         credit_limit?: number;
         total_dues?: number;
+        aadhar_number?: string;
+        pan_number?: string;
+        kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     };
     date_joined?: string;
 }
@@ -421,3 +424,28 @@ export async function getAdminContactMessages(page: number = 1, search: string =
     return res.json();
 }
 
+export async function getAdminKYCs(page: number = 1, search: string = '', status?: string): Promise<PaginatedResponse<User>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+
+    const res = await fetch(`${API_BASE_URL}/admin/kyc/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch KYC submissions');
+    return res.json();
+}
+
+export async function updateKYCStatus(userId: number, action: 'APPROVE' | 'REJECT'): Promise<{ message: string, kyc_status: string }> {
+    const res = await fetch(`${API_BASE_URL}/admin/kyc/action/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ user_id: userId, action })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update KYC status');
+    }
+    return res.json();
+}

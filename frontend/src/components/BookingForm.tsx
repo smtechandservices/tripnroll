@@ -148,17 +148,26 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
         if (!result.isConfirmed) return;
 
-        // Validate all phone numbers before submission
-        const invalidPhones = passengers.filter((p, idx) => !validatePhoneNumber(p.passenger_phone));
-        if (invalidPhones.length > 0) {
+        // KYC Verification Check
+        if (user?.profile?.kyc_status !== 'VERIFIED') {
+            const statusText = user?.profile?.kyc_status === 'SUBMITTED' 
+                ? 'Your KYC is currently under review by our admin team.' 
+                : 'You must complete your KYC verification (Aadhar & PAN) to book flights.';
+            
             await Swal.fire({
-                icon: 'error',
-                title: 'Invalid Phone Number',
-                text: 'Please enter valid Indian phone numbers for all passengers (10 digits, starting with 6-9)',
-                confirmButtonColor: '#ef4444',
+                icon: 'warning',
+                title: 'KYC Required',
+                text: statusText,
+                confirmButtonColor: '#2563eb',
+                confirmButtonText: user?.profile?.kyc_status === 'SUBMITTED' ? 'Okay' : 'Complete KYC Now',
                 customClass: {
                     popup: 'rounded-3xl',
                     confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                }
+            }).then((result) => {
+                if (result.isConfirmed && user?.profile?.kyc_status !== 'SUBMITTED') {
+                    // Navigate to profile or open KYC modal
+                    window.dispatchEvent(new CustomEvent('open-kyc-modal'));
                 }
             });
             return;

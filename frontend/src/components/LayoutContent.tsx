@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { KYCModal } from '@/components/KYCModal';
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -17,6 +18,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
                 {children}
             </main>
             {!isAuthPage && <Footer />}
+            <KYCModal />
         </>
     );
 }
