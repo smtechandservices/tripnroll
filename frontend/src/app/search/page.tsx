@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { FlightCard } from '@/components/FlightCard';
 import { SearchForm } from '@/components/SearchForm';
 import { FlightFilters, FilterState } from '@/components/FlightFilters';
-import { Plane } from 'lucide-react';
+import { Plane, Filter, X } from 'lucide-react';
 
 interface Flight {
     id: number;
@@ -35,6 +35,7 @@ export default function SearchPage() {
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [availableAirlines, setAvailableAirlines] = useState<string[]>([]);
+    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
     const router = useRouter();
 
@@ -178,9 +179,9 @@ export default function SearchPage() {
 
             {/* Content */}
             <div className="relative z-10">
-                <div className="pb-32 pt-24 px-4 lg:pt-64">
-                    <div className="max-w-9xl md:px-10 mx-auto w-full flex flex-col justify-end items-center text-left min-h-[50vh]">
-                        <h1 className="max-w-2xl text-5xl md:text-5xl font-extrabold text-white mb-32 tracking-tight text-center">
+                <div className="pb-20 pt-24 lg:pt-32 px-4 overflow-x-hidden">
+                    <div className="max-w-9xl md:px-10 mx-auto w-full flex flex-col justify-end items-center text-left min-h-[40vh] md:min-h-[50vh]">
+                        <h1 className="max-w-2xl text-4xl md:text-5xl font-extrabold text-white mb-32 tracking-tight text-center">
                             Find Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Perfect Flight</span>
                         </h1>
 
@@ -199,15 +200,15 @@ export default function SearchPage() {
 
                 {/* Results section */}
                 <div className="relative bg-white pb-20">
-                    <div className="max-w-9xl mx-auto px-12 pt-12">
-                        <div className="flex items-center justify-between mb-8">
+                    <div className="max-w-9xl mx-auto px-4 md:px-12 pt-8 md:pt-12">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                                 <Plane className="text-green-600" />
                                 {totalCount} Flights Found
                             </h2>
                             <div className="text-sm text-slate-500">
                                 {returnDate ? (
-                                    <span className="flex items-center gap-1">
+                                    <span className="flex items-center flex-wrap gap-1">
                                         Round Trip:
                                         <span className="font-semibold text-slate-800">{origin}</span>
                                         <span className="mx-1">↔</span>
@@ -219,10 +220,54 @@ export default function SearchPage() {
                             </div>
                         </div>
 
+                        {/* Mobile Filter Toggle Button */}
+                        <div className="lg:hidden mb-6 z-30 px-2 leading-none relative">
+                            <button
+                                onClick={() => setIsMobileFilterOpen(true)}
+                                className="w-full py-4 shadow-xl bg-slate-900 border border-slate-800 text-white rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                            >
+                                <Filter className="w-5 h-5 text-green-400" />
+                                Filters & Sorting
+                            </button>
+                        </div>
+
+                        {/* Mobile Filter Overlay */}
+                        {isMobileFilterOpen && (
+                            <div className="fixed inset-0 z-[1000] bg-white flex flex-col lg:hidden">
+                                <div className="h-20 px-4 flex items-center justify-between border-b border-slate-200 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="text-green-600" size={20} />
+                                        <h2 className="text-xl font-bold text-slate-800">Filters</h2>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsMobileFilterOpen(false)}
+                                        className="p-3 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition-colors"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-6 pb-32">
+                                    <FlightFilters
+                                        filters={currentFilters}
+                                        onFilterChange={handleFilterChange}
+                                        availableAirlines={availableAirlines}
+                                    />
+                                </div>
+                                <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-[210]">
+                                    <button
+                                        onClick={() => setIsMobileFilterOpen(false)}
+                                        className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-600/20 active:scale-[0.98] transition-all"
+                                    >
+                                        Show Results
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Grid layout: Filters on left, Results on right */}
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                            {/* Filters Sidebar */}
-                            <div className="lg:col-span-1">
+                            {/* Desktop Filters Sidebar */}
+                            <div className="hidden lg:block lg:col-span-1">
                                 <FlightFilters
                                     filters={currentFilters}
                                     onFilterChange={handleFilterChange}

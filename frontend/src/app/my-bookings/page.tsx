@@ -117,22 +117,22 @@ export default function MyBookingsPage() {
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
             {/* Hero Section with WebGL Ripples */}
-            <div className="pt-20 relative min-h-[30vh] flex items-center overflow-hidden">
+            <div className="pt-4 relative min-h-[30vh] flex items-center overflow-hidden">
                 <RipplesBackground imageUrl="/hero-booking.png">
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/60 to-black/10"></div>
 
                     {/* Content */}
-                    <div className="relative max-w-9xl px-10 mx-auto w-full pt-42">
-                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">My Bookings</h1>
-                        <p className="text-slate-200 text-lg">Showing bookings for {user?.email}</p>
+                    <div className="relative max-w-9xl px-4 md:px-10 mx-auto w-full pt-32">
+                        <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">My Bookings</h1>
+                        <p className="text-slate-200 text-sm md:text-lg">Showing bookings for {user?.email}</p>
                     </div>
                 </RipplesBackground>
             </div>
 
             {/* Main Content */}
-            <div className="max-w-9xl px-10 mx-auto py-8">
-                <h2 className="text-xl font-bold text-slate-800 mb-6">{groupKeys.length} Booking Group{groupKeys.length !== 1 ? 's' : ''} Found</h2>
+            <div className="max-w-9xl px-4 md:px-10 mx-auto py-8">
+                <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-6">{groupKeys.length} Booking Group{groupKeys.length !== 1 ? 's' : ''} Found</h2>
 
                 {groupKeys.length > 0 ? (
                     groupKeys.map((groupKey, groupIndex) => {
@@ -182,11 +182,11 @@ export default function MyBookingsPage() {
                                             </div>
 
                                             {/* Flight Route Section */}
-                                            <div className="px-2 pt-14 bg-gradient-to-b from-slate-50 to-white">
-                                                <div className="grid grid-cols-3 gap-8 items-center">
+                                            <div className="px-4 py-8 md:pt-14 bg-gradient-to-b from-slate-50 to-white">
+                                                <div className="flex flex-col md:grid md:grid-cols-3 gap-6 md:gap-8 items-center">
                                                     {/* Origin */}
-                                                    <div className="text-center">
-                                                        <div className="text-4xl font-bold text-slate-800">{firstPassenger.flight_details.origin}</div>
+                                                    <div className="text-center w-full md:w-auto">
+                                                        <div className="text-3xl md:text-4xl font-bold text-slate-800">{firstPassenger.flight_details.origin}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Origin</div>
                                                         <div className="text-sm text-slate-400 mt-1">
                                                             {new Date(firstPassenger.flight_details.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -194,8 +194,8 @@ export default function MyBookingsPage() {
                                                     </div>
 
                                                     {/* Flight Path */}
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="text-md text-slate-500 mb-2">Flight {firstPassenger.flight_details.flight_number}</div>
+                                                    <div className="flex flex-col items-center w-full">
+                                                        <div className="text-sm md:text-md text-slate-500 mb-2">Flight {firstPassenger.flight_details.flight_number}</div>
                                                         <div className="w-full flex items-center justify-center">
                                                             <div className="h-px bg-slate-300 flex-1"></div>
                                                             <svg className="w-6 h-6 text-green-600 mx-2" fill="currentColor" viewBox="0 0 20 20">
@@ -204,8 +204,8 @@ export default function MyBookingsPage() {
                                                             <div className="h-px bg-slate-300 flex-1"></div>
                                                         </div>
                                                         <div className="flex flex-col items-center mt-2">
-                                                            <div className="text-md text-slate-500">{firstPassenger.flight_details.duration}</div>
-                                                            <div className="text-xs mt-1">
+                                                            <div className="text-sm md:text-md text-slate-500">{firstPassenger.flight_details.duration}</div>
+                                                            <div className="text-[10px] md:text-xs mt-1">
                                                                 <span className="text-slate-400 font-medium">
                                                                     {firstPassenger.flight_details.stops === 0 ? 'Non-stop' : `${firstPassenger.flight_details.stops} Stop(s)`}
                                                                 </span>
@@ -217,8 +217,8 @@ export default function MyBookingsPage() {
                                                     </div>
 
                                                     {/* Destination */}
-                                                    <div className="text-center">
-                                                        <div className="text-4xl font-bold text-slate-800">{firstPassenger.flight_details.destination}</div>
+                                                    <div className="text-center w-full md:w-auto">
+                                                        <div className="text-3xl md:text-4xl font-bold text-slate-800">{firstPassenger.flight_details.destination}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Destination</div>
                                                         <div className="text-sm text-slate-400 mt-1">
                                                             {new Date(firstPassenger.flight_details.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -228,12 +228,12 @@ export default function MyBookingsPage() {
                                             </div>
 
                                             {/* Perforated Divider */}
-                                            <div className="relative h-24 bg-white">
+                                            <div className="relative h-12 md:h-24 bg-white overflow-hidden">
                                                 <div className="absolute inset-0 flex items-center">
                                                     <div className="w-full border-t-2 border-dashed border-slate-300"></div>
                                                 </div>
-                                                <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-12 bg-slate-50 rounded-full border-2 border-slate-200"></div>
-                                                <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-12 bg-slate-50 rounded-full border-2 border-slate-200"></div>
+                                                <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-10 md:h-12 bg-slate-50 rounded-full border-2 border-slate-200"></div>
+                                                <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-10 md:h-12 bg-slate-50 rounded-full border-2 border-slate-200"></div>
                                             </div>
 
                                             {/* Flight Info Section */}

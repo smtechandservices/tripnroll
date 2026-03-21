@@ -11,8 +11,14 @@ import './globals.css';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Close sidebar on navigation
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -75,22 +81,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <link rel="icon" href="/logo.png" />
       </head>
       <body>
-        <div className="flex min-h-screen bg-slate-100">
+        <div className="flex min-h-screen bg-slate-100 relative">
+          {/* Mobile Overlay */}
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/60 z-[1000] lg:hidden backdrop-blur-sm"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+
           {/* Sidebar */}
-          <aside className="w-64 bg-slate-900 text-white fixed h-full z-20">
-            <div className="p-6 flex items-center gap-3">
-              <Image
-                src="/logo.png"
-                alt="Logo"
-                width={48}
-                height={48}
-                priority
-                unoptimized
-                className="object-contain rounded-lg"
-              />
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-emerald-400">
-                Trip N Roll
-              </h1>
+          <aside className={`
+            w-64 bg-slate-900 text-white fixed h-full z-[1001] transition-transform duration-300 transform
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}>
+            <div className="p-6 flex items-center justify-between lg:justify-start gap-3">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                  priority
+                  unoptimized
+                  className="object-contain rounded-lg"
+                />
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-emerald-400">
+                  Trip N Roll
+                </h1>
+              </div>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="lg:hidden p-2 text-slate-400 hover:text-white"
+              >
+                <LogOut size={20} className="rotate-180" />
+              </button>
             </div>
             <nav className="mt-6 px-4 space-y-2">
               {navItems.map((item) => {
@@ -99,6 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={() => setIsSidebarOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
                   >
@@ -120,10 +146,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </nav>
           </aside>
 
-          {/* Main Content */}
-          <main className="flex-1 ml-64 p-8 min-w-0">
-            {children}
-          </main>
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+            {/* Mobile Header Bar */}
+            <header className="lg:hidden h-16 bg-slate-900 flex items-center justify-between px-4 sticky top-0 z-20 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Image src="/logo.png" alt="Logo" width={32} height={32} unoptimized />
+                <span className="text-white font-bold">Admin</span>
+              </div>
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 text-white hover:bg-white/10 rounded-lg"
+              >
+                <LayoutDashboard size={24} />
+              </button>
+            </header>
+
+            <main className="p-4 md:p-8 flex-1">
+              {children}
+            </main>
+          </div>
         </div>
       </body>
     </html>

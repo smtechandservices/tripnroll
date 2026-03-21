@@ -80,7 +80,7 @@ export default function BookingPage() {
         <div className="min-h-screen bg-slate-50">
             <div className="bg-slate-900 py-10 text-center"></div>
             
-            <div className="max-w-9xl px-12 mx-auto pt-14">
+            <div className="max-w-9xl px-4 md:px-12 mx-auto pt-14">
 
                 <BackButton />
                 <h1 className="text-3xl font-bold text-slate-800 mb-8">Complete Your Booking</h1>
@@ -139,7 +139,7 @@ export default function BookingPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
                             <h2 className="text-xl font-bold text-slate-800 mb-6">Passenger Details</h2>
                             <BookingSuccessWrapper
                                 flight={flight}

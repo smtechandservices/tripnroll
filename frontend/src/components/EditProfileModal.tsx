@@ -1,23 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { updateProfile } from '@/lib/api';
 import { X, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
 
-interface EditProfileModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-}
-
-export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
+export function EditProfileModal() {
     const { user, refreshUser } = useAuth(); // We need refreshUser to update the user in context
+    const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [phone, setPhone] = useState(user?.profile?.phone_number || '');
     const [passport, setPassport] = useState(user?.profile?.passport_number || '');
     const [address, setAddress] = useState(user?.profile?.address || '');
     const [phoneError, setPhoneError] = useState('');
+
+    useEffect(() => {
+        const handleOpen = () => setIsOpen(true);
+        window.addEventListener('open-edit-profile-modal', handleOpen);
+        return () => window.removeEventListener('open-edit-profile-modal', handleOpen);
+    }, []);
+
+    const onClose = () => setIsOpen(false);
 
     const validatePhoneNumber = (phoneNumber: string): boolean => {
         if (!phoneNumber) return true; // Phone is optional
@@ -113,7 +117,19 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
     };
 
     return (
-        <div className="absolute top-full right-0 mt-4 w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 z-50 animate-in fade-in slide-in-from-top-5">
+        <>
+            {/* Mobile/Desktop Overlay specifically for the EditProfileModal when it's in view */}
+            <div 
+                className={`fixed inset-0 bg-black/60 lg:bg-black/10 backdrop-blur-sm lg:backdrop-blur-none z-[1000] transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                onClick={onClose}
+            />
+            
+            <div className={`
+                ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'}
+                transition-all duration-300
+                fixed inset-x-4 top-[15%] max-w-lg mx-auto bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 z-[1001]
+                lg:inset-auto lg:top-20 lg:right-12 lg:w-96 lg:rounded-2xl
+            `}>
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Edit Profile</h2>
                 <button
@@ -224,5 +240,6 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                 </div>
             </form>
         </div>
+        </>
     );
 }

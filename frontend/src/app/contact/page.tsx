@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Header } from '@/components/Header';
 import { submitContactMessage } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Mail, Phone, MapPin, Send, Instagram, Facebook, X as XIcon, Clock, MessageSquare, HelpCircle, Youtube, Linkedin } from 'lucide-react';
@@ -47,10 +46,9 @@ export default function ContactPage() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            <Header />
 
             {/* Page Header */}
-            <div className="bg-slate-900 pt-36 pb-20 px-4 text-center">
+            <div className="bg-slate-900 pt-28 pb-20 px-4 text-center">
                 <div className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-bold mb-6 border border-blue-500/20">
                     <MessageSquare size={16} />
                     Contact Support

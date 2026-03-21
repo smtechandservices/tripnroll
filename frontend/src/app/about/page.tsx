@@ -1,14 +1,12 @@
 'use client';
-import { Header } from '@/components/Header';
 import { Plane, Users, Globe, Award, Heart, Shield, Zap, TrendingUp } from 'lucide-react';
 
 export default function AboutPage() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-            <Header />
 
             {/* Page Header */}
-            <div className="bg-slate-900 pt-36 pb-20 px-4 text-center">
+            <div className="bg-slate-900 pt-28 pb-20 px-4 text-center">
                 <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-4 py-2 rounded-full text-sm font-bold mb-6 border border-green-500/20">
                     <Plane size={16} />
                     About Our Journey
@@ -129,15 +127,6 @@ export default function AboutPage() {
                     </div>
                 </div>
             </div>
-
-            {/* Footer */}
-            <footer className="bg-slate-900 text-slate-300 py-12 px-4">
-                <div className="max-w-6xl mx-auto text-center">
-                    <p className="text-sm">
-                        © 2026 TripnRoll. All rights reserved. Making travel accessible for everyone.
-                    </p>
-                </div>
-            </footer>
         </div>
     );
 }
