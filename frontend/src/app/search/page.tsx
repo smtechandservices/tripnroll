@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FlightCard } from '@/components/FlightCard';
 import { SearchForm } from '@/components/SearchForm';
@@ -20,7 +20,7 @@ interface Flight {
     stops: number;
 }
 
-export default function SearchPage() {
+function SearchPageContent() {
     const searchParams = useSearchParams();
     const origin = searchParams.get('origin');
     const destination = searchParams.get('destination');
@@ -376,5 +376,20 @@ export default function SearchPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                    <p className="mt-4 text-slate-600 font-medium tracking-tight">Loading Search results...</p>
+                </div>
+            </div>
+        }>
+            <SearchPageContent />
+        </Suspense>
     );
 }
