@@ -63,7 +63,6 @@ class UserProfile(models.Model):
     )
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=20, blank=True)
-    passport_number = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True)
     usertype = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='user')
     wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
@@ -73,6 +72,12 @@ class UserProfile(models.Model):
     # KYC Fields
     aadhar_number = models.CharField(max_length=12, blank=True, null=True)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
+    gst_number = models.CharField(max_length=15, blank=True, null=True)
+    
+    brand_logo = models.ImageField(upload_to='docs/brand_logos/', blank=True, null=True)
+    aadhar_card_doc = models.FileField(upload_to='docs/aadhar/', blank=True, null=True)
+    pan_card_doc = models.FileField(upload_to='docs/pan/', blank=True, null=True)
+
     kyc_status = models.CharField(
         max_length=20,
         choices=[

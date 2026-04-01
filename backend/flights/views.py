@@ -555,18 +555,37 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class LoginView(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
+        email = request.data.get('email')
+        password = request.data.get('password')
         
-        username = request.data.get('username')
-        if username and not User.objects.filter(username=username).exists():
+        if not email:
+            # Fallback for username-based login if needed, but the requirement is email
+            username = request.data.get('username')
+            if username:
+                try:
+                    user = User.objects.get(username=username)
+                    email = user.email
+                except User.DoesNotExist:
+                    return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # AuthTokenSerializer expects 'username' and 'password'
+        serializer = self.serializer_class(data={'username': user.username, 'password': password}, 
+                                         context={'request': request})
+        
         if not serializer.is_valid():
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
         
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
         return Response({'token': token.key})
+
 
 class WalletBalanceView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
@@ -864,21 +883,17 @@ class SubmitKYCView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         profile = self.get_object()
-        aadhar_number = request.data.get('aadhar_number')
-        pan_number = request.data.get('pan_number')
-
-        if not aadhar_number or not pan_number:
-            return Response({'error': 'Aadhar and PAN numbers are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        profile.aadhar_number = aadhar_number
-        profile.pan_number = pan_number
-        profile.kyc_status = 'SUBMITTED'
-        profile.save()
-
-        return Response({
-            'message': 'KYC submitted successfully',
-            'kyc_status': profile.kyc_status
-        })
+        serializer = self.get_serializer(profile, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save(kyc_status='SUBMITTED')
+            return Response({
+                'message': 'KYC submitted successfully',
+                'kyc_status': 'SUBMITTED',
+                'details': serializer.data
+            })
+        
+        return Response({'error': 'Invalid KYC data', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class AdminKYCListView(generics.ListAPIView):
     queryset = User.objects.filter(profile__kyc_status__in=['SUBMITTED', 'VERIFIED', 'REJECTED']).order_by('-date_joined')

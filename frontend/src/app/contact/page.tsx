@@ -223,10 +223,6 @@ export default function ContactPage() {
                                 a: "You'll typically need a valid passport (with at least 6 months validity), a visa for your destination, and your flight tickets. Some countries also require travel insurance and health certificates."
                             },
                             {
-                                q: "Can I make changes to my flight after booking?",
-                                a: "Yes, modifications can be made through our support team, subject to airline availability and rescheduling fees."
-                            },
-                            {
                                 q: "What is the baggage allowance for my flight?",
                                 a: "Baggage allowance varies by airline and class of travel. You can find specific baggage details in your booking confirmation email or by checking your PNR on the airline's official website."
                             },

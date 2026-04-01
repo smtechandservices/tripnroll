@@ -79,7 +79,6 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 last_name: lastName,
                 passenger_email: user.email || '',
                 passenger_phone: user.profile?.phone_number || '',
-                passport_number: user.profile?.passport_number || '',
             };
             setPassengers(newPassengers);
         }

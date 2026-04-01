@@ -90,7 +90,6 @@ export interface User {
     is_superuser: boolean;
     profile: {
         phone_number: string;
-        passport_number: string;
         address: string;
         usertype: 'user' | 'admin' | 'superadmin';
         wallet_balance?: number;
@@ -98,6 +97,10 @@ export interface User {
         total_dues?: number;
         aadhar_number?: string;
         pan_number?: string;
+        gst_number?: string;
+        brand_logo?: string;
+        aadhar_card_doc?: string;
+        pan_card_doc?: string;
         kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     };
     date_joined?: string;
@@ -122,11 +125,11 @@ function getAuthHeaders(): Record<string, string> {
     return headers;
 }
 
-export async function login(username: string, password: string): Promise<{ token: string }> {
+export async function login(email: string, password: string): Promise<{ token: string }> {
     const res = await fetch(`${API_BASE_URL}/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -134,6 +137,7 @@ export async function login(username: string, password: string): Promise<{ token
     }
     return res.json();
 }
+
 
 export async function getUserProfile(): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {

@@ -66,13 +66,16 @@ export interface User {
     is_superuser: boolean;
     profile: {
         phone_number: string;
-        passport_number: string;
         address: string;
         wallet_balance?: number;
         credit_limit?: number;
         total_dues?: number;
         aadhar_number?: string;
         pan_number?: string;
+        gst_number?: string;
+        brand_logo?: string;
+        aadhar_card_doc?: string;
+        pan_card_doc?: string;
         kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     }
 }
@@ -149,11 +152,11 @@ function getAuthHeaders(): Record<string, string> {
     return headers;
 }
 
-export async function login(username: string, password: string): Promise<{ token: string }> {
+export async function login(email: string, password: string): Promise<{ token: string }> {
     const res = await fetch(`${API_BASE_URL}/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -161,6 +164,7 @@ export async function login(username: string, password: string): Promise<{ token
     }
     return res.json();
 }
+
 
 export async function getUserProfile(): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {
@@ -170,7 +174,7 @@ export async function getUserProfile(): Promise<User> {
     return res.json();
 }
 
-export async function updateProfile(data: { phone_number?: string; passport_number?: string; address?: string }): Promise<void> {
+export async function updateProfile(data: { username?: string; phone_number?: string; address?: string }): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
@@ -179,17 +183,18 @@ export async function updateProfile(data: { phone_number?: string; passport_numb
     if (!res.ok) throw new Error('Failed to update profile');
 }
 
-export async function register(username: string, email: string, password: string, phone_number: string): Promise<void> {
+export async function register(email: string, password: string, phone_number: string, username?: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, phone_number }),
+        body: JSON.stringify({ username: username || email, email, password, phone_number }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Registration failed');
     }
 }
+
 
 export interface PaginatedResponse<T> {
     count: number;
@@ -327,11 +332,13 @@ export async function requestRefund(bookingId: string): Promise<void> {
 }
 
 
-export async function submitKYC(aadhar_number: string, pan_number: string): Promise<{ message: string, kyc_status: string }> {
+export async function submitKYC(formData: FormData): Promise<{ message: string, kyc_status: string }> {
     const res = await fetch(`${API_BASE_URL}/kyc/submit/`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ aadhar_number, pan_number }),
+        headers: {
+            'Authorization': getAuthHeaders().Authorization,
+        },
+        body: formData,
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

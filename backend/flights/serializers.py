@@ -5,7 +5,7 @@ from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransact
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues', 'aadhar_number', 'pan_number', 'kyc_status')
+        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues', 'aadhar_number', 'pan_number', 'gst_number', 'brand_logo', 'aadhar_card_doc', 'pan_card_doc', 'kyc_status')
         read_only_fields = ('wallet_balance', 'credit_limit', 'total_dues', 'kyc_status')
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
@@ -15,14 +15,35 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
+    phone_number = serializers.CharField(source='profile.phone_number', required=False, allow_blank=True)
+    address = serializers.CharField(source='profile.address', required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'profile', 'is_staff', 'is_superuser')
+        fields = ('id', 'username', 'email', 'profile', 'phone_number', 'address', 'is_staff', 'is_superuser')
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        
+        # Update User fields (username, etc.)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update Profile fields
+        if profile_data:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+            
+        return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False, allow_blank=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     address = serializers.CharField(required=False, allow_blank=True)
+
 
     class Meta:
         model = User
@@ -34,13 +55,16 @@ class RegisterSerializer(serializers.ModelSerializer):
             'phone_number': validated_data.pop('phone_number', ''),
             'address': validated_data.pop('address', '')
         }
+        # Use email as username for strictly email-based system
+        username = validated_data.get('username') or validated_data['email']
         user = User.objects.create_user(
-            validated_data['username'],
+            username,
             validated_data['email'],
             validated_data['password']
         )
         UserProfile.objects.create(user=user, **profile_data)
         return user
+
 
 class FlightSerializer(serializers.ModelSerializer):
     available_seats = serializers.SerializerMethodField()
