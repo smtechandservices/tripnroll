@@ -1,8 +1,8 @@
-# ✈️ Trip n Roll - Premium Flight Booking Portal
+# Trip n Roll - Premium Flight Booking Portal
 
 Trip n Roll is a modern, high-performance flight search and booking application. It provides a seamless experience for travelers to find, filter, and book flights across a global network of airlines.
 
-## 🌟 Discover Your Next Adventure
+## Discover Your Next Adventure
 
 Trip n Roll takes the stress out of travel planning with an intuitive interface and intelligent search capabilities that work for you. Whether you're planning a quick solo getaway or a large family vacation, we've got you covered.
 
