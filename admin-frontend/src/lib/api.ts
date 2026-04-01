@@ -44,6 +44,17 @@ export interface Booking {
     refunded_amount?: string;
 }
 
+export interface TopUpRequest {
+    id: number;
+    user: number;
+    username: string;
+    user_email: string;
+    amount: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    created_at: string;
+    updated_at: string;
+}
+
 // ... existing code ...
 
 export async function updateBooking(bookingId: string, data: Partial<Booking>): Promise<Booking> {
@@ -267,6 +278,7 @@ export interface AdminStats {
     total_bookings: number;
     active_bookings: number;
     total_flights: number;
+    pending_topups: number;
     recent_bookings: Booking[];
 }
 
@@ -446,6 +458,31 @@ export async function updateKYCStatus(userId: number, action: 'APPROVE' | 'REJEC
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to update KYC status');
+    }
+    return res.json();
+}
+export async function getAdminTopUpRequests(page: number = 1, search: string = '', status?: string): Promise<PaginatedResponse<TopUpRequest>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+
+    const res = await fetch(`${API_BASE_URL}/admin/topups/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch top-up requests');
+    return res.json();
+}
+
+export async function processTopUpRequest(requestId: number, action: 'APPROVE' | 'REJECT'): Promise<{ message: string; status: string; wallet_balance?: number }> {
+    const res = await fetch(`${API_BASE_URL}/admin/topups/action/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ request_id: requestId, action })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to process top-up request');
     }
     return res.json();
 }

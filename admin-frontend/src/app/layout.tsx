@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getUserProfile } from '@/lib/api';
 import Link from 'next/link';
 import Image from 'next/image';
-import { LayoutDashboard, Plane, Calendar, Users, LogOut, RotateCcw, MessageSquare, Shield } from 'lucide-react';
+import { LayoutDashboard, Plane, Calendar, Users, LogOut, RotateCcw, MessageSquare, Shield, Wallet } from 'lucide-react';
 import './globals.css';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -69,6 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Flights', href: '/flights', icon: Plane },
     { name: 'Bookings', href: '/bookings', icon: Calendar },
     { name: 'Refunds', href: '/refunds', icon: RotateCcw },
+    { name: 'Top-up Requests', href: '/topups', icon: Wallet },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'KYC', href: '/kyc', icon: Shield },

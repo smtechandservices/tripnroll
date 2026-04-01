@@ -3,11 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest
 from .serializers import (
     UserSerializer, RegisterSerializer, FlightSerializer, 
     BookingSerializer, AdminBookingSerializer, ContactMessageSerializer,
-    UserProfileSerializer, AdminUserSerializer, WalletTransactionSerializer
+    UserProfileSerializer, AdminUserSerializer, WalletTransactionSerializer,
+    TopUpRequestSerializer
 )
 from .permissions import IsAdminType
 from rest_framework import filters
@@ -169,7 +170,7 @@ class BookingCreateView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         passengers = request.data.get('passengers', [])
-        payment_mode = request.data.get('payment_mode', 'WALLET') # Default to WALLET for now
+        payment_mode = 'WALLET' # Hardcode to WALLET for all new bookings
         
         if not passengers:
              # Fallback for single passenger data direct in request root (Legacy support)
@@ -200,8 +201,8 @@ class BookingCreateView(generics.CreateAPIView):
         # Ensure prices are decimals
         total_cost = Decimal(str(total_cost))
 
-        # Wallet Logic
-        if payment_mode == 'WALLET':
+        # Wallet Logic (Mandatory for all bookings now)
+        if True: # Always enforce wallet deduction logic
             available_funds = profile.wallet_balance + (profile.credit_limit - profile.total_dues)
             if available_funds < total_cost:
                 return Response({
@@ -529,11 +530,14 @@ class AdminDashboardView(generics.GenericAPIView):
         recent_bookings = Booking.objects.order_by('-created_at')[:5]
         recent_bookings_data = BookingSerializer(recent_bookings, many=True).data
 
+        pending_topups = TopUpRequest.objects.filter(status='PENDING').count()
+
         return Response({
             'total_revenue': total_revenue,
             'total_bookings': total_bookings,
             'active_bookings': active_bookings,
             'total_flights': total_flights,
+            'pending_topups': pending_topups,
             'recent_bookings': recent_bookings_data
         })
 
@@ -581,8 +585,16 @@ class WalletBalanceView(generics.RetrieveAPIView):
             'recent_transactions': WalletTransactionSerializer(recent_transactions, many=True).data
         })
 
+class UserTopUpRequestListView(generics.ListAPIView):
+    serializer_class = TopUpRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TopUpRequest.objects.filter(user=self.request.user).order_by('-created_at')
+
 class WalletTopUpView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TopUpRequestSerializer
 
     def create(self, request, *args, **kwargs):
         amount = request.data.get('amount')
@@ -596,44 +608,109 @@ class WalletTopUpView(generics.CreateAPIView):
         from decimal import Decimal
         amount = Decimal(str(amount))
         user = request.user
-        profile = user.profile
-
-        # Logic: Clear dues first
-        dues_cleared = Decimal('0.00')
-        wallet_added = Decimal('0.00')
-
-        if profile.total_dues > 0:
-            if amount >= profile.total_dues:
-                dues_cleared = profile.total_dues
-                remaining_amount = amount - profile.total_dues
-                profile.total_dues = Decimal('0.00')
-                profile.wallet_balance += remaining_amount
-                wallet_added = remaining_amount
-            else:
-                dues_cleared = amount
-                profile.total_dues -= amount
-                wallet_added = Decimal('0.00')
-        else:
-            profile.wallet_balance += amount
-            wallet_added = amount
-
-        profile.save()
-
-        # Create Transaction Record
-        WalletTransaction.objects.create(
+        
+        # Create a Top-up Request instead of immediate top-up
+        topup_request = TopUpRequest.objects.create(
             user=user,
             amount=amount,
-            transaction_type='CREDIT',
-            description=f"Top-up of {amount}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
-            balance_after=profile.wallet_balance,
-            dues_after=profile.total_dues
+            status='PENDING'
         )
 
         return Response({
-            'message': 'Top-up successful',
-            'wallet_balance': profile.wallet_balance,
-            'total_dues': profile.total_dues,
-            'dues_cleared': dues_cleared
+            'message': 'Top-up request submitted for admin approval',
+            'request_id': topup_request.id,
+            'amount': topup_request.amount,
+            'status': topup_request.status
+        }, status=status.HTTP_201_CREATED)
+
+class AdminTopUpRequestListView(generics.ListAPIView):
+    queryset = TopUpRequest.objects.all().order_by('-created_at')
+    serializer_class = TopUpRequestSerializer
+    permission_classes = [IsAdminType]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['user__username', 'user__email']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        status_param = request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+class AdminTopUpRequestActionView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+
+    def post(self, request):
+        request_id = request.data.get('request_id')
+        action = request.data.get('action') # 'APPROVE' or 'REJECT'
+        
+        if not request_id or not action:
+            return Response({'error': 'Request ID and action are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            topup_request = TopUpRequest.objects.get(id=request_id)
+        except TopUpRequest.DoesNotExist:
+            return Response({'error': 'Top-up request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if topup_request.status != 'PENDING':
+            return Response({'error': 'This request has already been processed'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = topup_request.user
+        profile = user.profile
+        from decimal import Decimal
+
+        if action == 'APPROVE':
+            topup_request.status = 'APPROVED'
+            amount = topup_request.amount
+            
+            # Logic: Clear dues first (copied from original WalletTopUpView)
+            dues_cleared = Decimal('0.00')
+            wallet_added = Decimal('0.00')
+
+            if profile.total_dues > 0:
+                if amount >= profile.total_dues:
+                    dues_cleared = profile.total_dues
+                    remaining_amount = amount - profile.total_dues
+                    profile.total_dues = Decimal('0.00')
+                    profile.wallet_balance += remaining_amount
+                    wallet_added = remaining_amount
+                else:
+                    dues_cleared = amount
+                    profile.total_dues -= amount
+                    wallet_added = Decimal('0.00')
+            else:
+                profile.wallet_balance += amount
+                wallet_added = amount
+
+            profile.save()
+
+            # Create Transaction Record
+            WalletTransaction.objects.create(
+                user=user,
+                amount=amount,
+                transaction_type='CREDIT',
+                description=f"Top-up of {amount} (Approved). Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+                balance_after=profile.wallet_balance,
+                dues_after=profile.total_dues
+            )
+        elif action == 'REJECT':
+            topup_request.status = 'REJECTED'
+        else:
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        topup_request.save()
+
+        return Response({
+            'message': f'Top-up request {action.lower()}d successfully',
+            'status': topup_request.status,
+            'wallet_balance': profile.wallet_balance if action == 'APPROVE' else None
         })
 
 class AdminWalletUpdateView(generics.UpdateAPIView):

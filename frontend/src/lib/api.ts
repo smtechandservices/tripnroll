@@ -49,7 +49,7 @@ export interface CreateBookingData {
     passport_expiry_date?: string;
     frequent_flyer_number?: string;
     travel_date: string;
-    payment_mode?: 'WALLET' | 'DIRECT';
+    payment_mode?: 'WALLET';
 }
 
 export interface CreateMultiBookingData {
@@ -101,6 +101,14 @@ export interface WalletTransaction {
     dues_after: string;
 }
 
+export interface TopUpRequest {
+    id: number;
+    amount: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    created_at: string;
+    updated_at: string;
+}
+
 export async function getWalletBalance(): Promise<WalletData> {
     const res = await fetch(`${API_BASE_URL}/wallet/balance/`, {
         headers: getAuthHeaders(),
@@ -110,7 +118,7 @@ export async function getWalletBalance(): Promise<WalletData> {
     return res.json();
 }
 
-export async function topUpWallet(amount: number): Promise<{ message: string, wallet_balance: number, total_dues: number, dues_cleared: number }> {
+export async function topUpWallet(amount: number): Promise<{ message: string, request_id: number, amount: string, status: string }> {
     const res = await fetch(`${API_BASE_URL}/wallet/top-up/`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -118,6 +126,16 @@ export async function topUpWallet(amount: number): Promise<{ message: string, wa
     });
     if (!res.ok) throw new Error('Failed to top up wallet');
     return res.json();
+}
+
+export async function getTopUpRequests(): Promise<TopUpRequest[]> {
+    const res = await fetch(`${API_BASE_URL}/wallet/top-up-requests/`, {
+        headers: getAuthHeaders(),
+        cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch top-up requests');
+    const data: PaginatedResponse<TopUpRequest> = await res.json();
+    return data.results;
 }
 
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -69,7 +69,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
-        read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr')
+        read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr', 'payment_mode')
 
 class AdminBookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)
@@ -78,7 +78,7 @@ class AdminBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
-        read_only_fields = ('booking_id', 'created_at', 'booked_by', 'booking_group')
+        read_only_fields = ('booking_id', 'created_at', 'booked_by', 'booking_group', 'payment_mode')
 
 class ContactMessageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -127,3 +127,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
             profile.save()
             
         return instance
+
+class TopUpRequestSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = TopUpRequest
+        fields = '__all__'
+        read_only_fields = ('user', 'status', 'created_at', 'updated_at')

@@ -102,3 +102,18 @@ class WalletTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type} of {self.amount} for {self.user.username}"
+
+class TopUpRequest(models.Model):
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='topup_requests')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Top-up request of {self.amount} by {self.user.username} ({self.status})"

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CreateBookingData, createBooking, getWalletBalance, WalletData } from '@/lib/api';
-import { Loader2, Wallet, CreditCard, Info } from 'lucide-react';
+import { Loader2, Wallet, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
 
@@ -19,7 +19,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [paymentMode, setPaymentMode] = useState<'WALLET' | 'DIRECT'>('WALLET');
+    const [paymentMode, setPaymentMode] = useState<'WALLET'>('WALLET');
     const [walletData, setWalletData] = useState<WalletData | null>(null);
 
     // Fetch wallet data for accurate spending power
@@ -346,16 +346,11 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
                     Payment Method
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setPaymentMode('WALLET')}
-                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left ${paymentMode === 'WALLET'
-                            ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500'
-                            : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
-                            }`}
+                <div className="grid grid-cols-1 gap-4">
+                    <div
+                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left border-blue-500 bg-blue-50/50 ring-1 ring-blue-500`}
                     >
-                        <div className={`p-3 rounded-full ${paymentMode === 'WALLET' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                        <div className={`p-3 rounded-full bg-blue-100 text-blue-600`}>
                             <Wallet size={24} />
                         </div>
                         <div>
@@ -379,32 +374,8 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                                 )}
                             </div>
                         </div>
-                        {paymentMode === 'WALLET' && (
-                            <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
-                        )}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setPaymentMode('DIRECT')}
-                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left ${paymentMode === 'DIRECT'
-                            ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500'
-                            : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
-                            }`}
-                    >
-                        <div className={`p-3 rounded-full ${paymentMode === 'DIRECT' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
-                            <CreditCard size={24} />
-                        </div>
-                        <div>
-                            <div className="font-bold text-slate-800">Pay Directly</div>
-                            <div className="text-sm text-slate-500 mt-1">
-                                Pay via Credit/Debit Card or Netbanking (Zaakpay).
-                            </div>
-                        </div>
-                        {paymentMode === 'DIRECT' && (
-                            <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
-                        )}
-                    </button>
+                        <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
+                    </div>
                 </div>
             </div>
 
