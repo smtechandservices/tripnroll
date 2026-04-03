@@ -15,6 +15,9 @@ export interface Flight {
     available_seats?: number;
     total_seats?: number;
     is_hidden?: boolean;
+    pnr?: string;
+    baggage_allowance?: string;
+    layover_duration?: string;
 }
 
 export interface Booking {
@@ -283,6 +286,7 @@ export interface AdminStats {
     active_bookings: number;
     total_flights: number;
     pending_topups: number;
+    pending_refunds: number;
     recent_bookings: Booking[];
 }
 
@@ -365,6 +369,19 @@ export async function processRefund(bookingId: string, amount: number): Promise<
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to process refund');
+    }
+    return res.json();
+}
+
+export async function cancelRefundRequest(bookingId: string): Promise<{ message: string; status: string }> {
+    const res = await fetch(`${API_BASE_URL}/admin/refund/cancel/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ booking_id: bookingId })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to cancel refund request');
     }
     return res.json();
 }

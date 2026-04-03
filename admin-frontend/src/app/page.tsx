@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminStats, AdminStats } from '@/lib/api';
-import { IndianRupee, BookOpen, Plane, Users, Wallet } from 'lucide-react';
+import { IndianRupee, BookOpen, Plane, Users, Wallet, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const cards = [
     { label: 'Total Revenue', value: `₹${stats.total_revenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'bg-green-500' },
     { label: 'Pending Top-ups', value: stats.pending_topups, icon: Wallet, color: 'bg-amber-500', link: '/topups' },
+    { label: 'Pending Refunds', value: stats.pending_refunds, icon: Undo2, color: 'bg-rose-500', link: '/refunds' },
     { label: 'Total Bookings', value: stats.total_bookings, icon: BookOpen, color: 'bg-blue-500' },
     { label: 'Active Bookings', value: stats.active_bookings, icon: Users, color: 'bg-purple-500' },
     { label: 'Total Flights', value: stats.total_flights, icon: Plane, color: 'bg-orange-500' },
@@ -28,7 +29,7 @@ export default function AdminDashboard() {
   return (
     <div className='pt-8'>
       <h2 className="text-2xl font-bold text-slate-800 mb-8">Dashboard Overview</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {cards.map((card) => (
           <div 
             key={card.label} 

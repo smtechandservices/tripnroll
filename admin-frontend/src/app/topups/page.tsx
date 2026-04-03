@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminTopUpRequests, processTopUpRequest, TopUpRequest, PaginatedResponse } from '@/lib/api';
-import { Wallet, Search, CheckCircle, XCircle, Clock, Filter, AlertCircle, TrendingUp, User as UserIcon } from 'lucide-react';
+import { Wallet, Search, CheckCircle, XCircle, Clock, Filter, User as UserIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function TopUpRequestsPage() {
@@ -72,41 +72,6 @@ export default function TopUpRequestsPage() {
                         Top-up Requests
                     </h1>
                     <p className="text-slate-500 mt-1">Review and process user wallet top-up requests.</p>
-                </div>
-            </div>
-
-            {/* Quick stats / summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                        <Clock size={24} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Tasks</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                            {requests.filter(r => r.status === 'PENDING').length}+ Pending
-                        </p>
-                    </div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-                        <CheckCircle size={24} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Rate</p>
-                        <p className="text-2xl font-bold text-slate-900">High</p>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                        <TrendingUp size={24} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Volume</p>
-                        <p className="text-2xl font-bold text-slate-900">Processed</p>
-                    </div>
                 </div>
             </div>
 

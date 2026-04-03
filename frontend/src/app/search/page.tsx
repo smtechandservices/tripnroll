@@ -179,7 +179,7 @@ function SearchPageContent() {
 
             {/* Content */}
             <div className="relative z-10">
-                <div className="pb-20 pt-24 lg:pt-32 px-4 overflow-x-hidden">
+                <div className="pb-20 pt-24 lg:pt-32 px-4">
                     <div className="max-w-9xl md:px-10 mx-auto w-full flex flex-col justify-end items-center text-left min-h-[40vh] md:min-h-[50vh]">
                         <h1 className="max-w-2xl text-4xl md:text-5xl font-extrabold text-white mb-32 tracking-tight text-center">
                             Find Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Perfect Flight</span>

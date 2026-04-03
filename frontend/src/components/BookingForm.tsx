@@ -6,6 +6,18 @@ import { Loader2, Wallet, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
 
+const calculateAge = (dateString: string): number | null => {
+    if (!dateString) return null;
+    const birthDate = new Date(dateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+};
+
 interface BookingFormProps {
     flightId: number;
     departureDate: string; // ISO date string from flight
@@ -36,6 +48,8 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         };
         fetchWallet();
     }, [user]);
+
+    const [primaryPassengerIndex, setPrimaryPassengerIndex] = useState(0);
 
     // Format departure date to YYYY-MM-DD for input field
     const formattedDate = new Date(departureDate).toISOString().split('T')[0];
@@ -101,6 +115,11 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
     const handleRemovePassenger = (index: number) => {
         if (passengers.length > 1) {
             setPassengers(passengers.filter((_, i) => i !== index));
+            if (primaryPassengerIndex === index) {
+                setPrimaryPassengerIndex(0);
+            } else if (primaryPassengerIndex > index) {
+                setPrimaryPassengerIndex(prev => prev - 1);
+            }
         }
     };
 
@@ -128,6 +147,43 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        let hasAdult = false;
+        for (const p of passengers) {
+            const age = calculateAge(p.date_of_birth);
+            if (age !== null && age >= 18) {
+                hasAdult = true;
+                break;
+            }
+        }
+
+        if (!hasAdult) {
+            if (passengers.length === 1) {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Age Restriction',
+                    text: 'The passenger must be 18 years or older to book.',
+                    confirmButtonColor: '#2563eb',
+                    customClass: {
+                        popup: 'rounded-3xl',
+                        confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                    }
+                });
+                return;
+            } else {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Age Restriction',
+                    text: 'At least one passenger must be 18 years or older when booking for multiple passengers.',
+                    confirmButtonColor: '#2563eb',
+                    customClass: {
+                        popup: 'rounded-3xl',
+                        confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                    }
+                });
+                return;
+            }
+        }
 
         const result = await Swal.fire({
             title: 'Complete Your Booking',
@@ -176,12 +232,15 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         setError(null);
 
         try {
+            const primaryPassenger = passengers[primaryPassengerIndex] || passengers[0];
             const data = {
                 flight: flightId,
                 travel_date: formattedDate,
                 payment_mode: paymentMode,
                 passengers: passengers.map(p => ({
                     ...p,
+                    passenger_email: p.passenger_email,
+                    passenger_phone: p.passenger_phone,
                     passport_number: p.passport_number || undefined,
                     passport_issue_date: p.passport_issue_date || undefined,
                     passport_expiry_date: p.passport_expiry_date || undefined,
@@ -230,24 +289,47 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
             )}
 
             <div className="space-y-12">
-                {passengers.map((passenger, index) => (
-                    <div key={index} className="relative p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-2">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
-                                    {index + 1}
-                                </span>
-                                Passenger Information
-                            </h3>
-                            {passengers.length > 1 && (
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemovePassenger(index)}
-                                    className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1 transition-colors"
-                                >
-                                    Remove
-                                </button>
-                            )}
+                {passengers.map((passenger, index) => {
+                    const age = calculateAge(passenger.date_of_birth);
+                    const isInfant = age !== null && age <= 2;
+
+                    return (
+                        <div key={index} className="relative p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-2">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                    <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                                        {index + 1}
+                                    </span>
+                                    Passenger Information
+                                    {isInfant && (
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold ml-1">
+                                            Infant
+                                        </span>
+                                    )}
+                                </h3>
+                                {passengers.length > 1 && (
+                                    <label className="flex items-center gap-2 ml-4 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="primary_passenger"
+                                            checked={primaryPassengerIndex === index}
+                                            onChange={() => setPrimaryPassengerIndex(index)}
+                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                                        />
+                                        <span className="text-sm font-bold text-blue-600">Primary Passenger</span>
+                                    </label>
+                                )}
+                            <div className="ml-auto">
+                                {passengers.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemovePassenger(index)}
+                                        className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1 transition-colors"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -269,7 +351,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             <FormInput
-                                label="Email Address"
+                                label={index === primaryPassengerIndex ? "Email Address (For Booking Confirmation)" : "Email Address"}
                                 name="passenger_email"
                                 type="email"
                                 value={passenger.passenger_email}
@@ -284,6 +366,8 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                                 onChange={(e) => handlePassengerChange(index, e)}
                                 required
                             />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             <FormInput
                                 label="Date of Birth"
                                 name="date_of_birth"
@@ -338,7 +422,8 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                             />
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="space-y-4 pt-4 border-t border-slate-200">
@@ -378,13 +463,22 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 </div>
             </div>
 
-            <button
-                type="button"
-                onClick={handleAddPassenger}
-                className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
-            >
-                + Add Another Passenger
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                    type="button"
+                    onClick={handleAddPassenger}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
+                >
+                    + Add Passenger
+                </button>
+                <button
+                    type="button"
+                    onClick={handleAddPassenger}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-pink-500 hover:bg-pink-50/30 transition-all flex items-center justify-center gap-2"
+                >
+                    + Add Infant (0-2 Yrs)
+                </button>
+            </div>
 
             <button
                 type="submit"
@@ -400,7 +494,9 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 function FormInput({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
     return (
         <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">{label}</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                {label} {props.required && <span className="text-red-500 ml-0.5">*</span>}
+            </label>
             <input
                 {...props}
                 className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-slate-800 ${props.readOnly ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-50'

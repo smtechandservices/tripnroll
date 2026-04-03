@@ -15,7 +15,7 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
     const router = useRouter();
 
     const formatTime = (isoString: string) => {
-        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     };
 
     const formatDate = (isoString: string) => {
@@ -41,7 +41,14 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                     </div>
                     <div>
                         <h3 className="font-bold text-slate-800">{flight.airline}</h3>
-                        <p className="text-sm text-slate-500">{flight.flight_number}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-sm text-slate-500">{flight.flight_number}</p>
+                            {flight.baggage_allowance && (
+                                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                    {flight.baggage_allowance}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -62,10 +69,11 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                         <div className="text-xs text-slate-400 mt-1">
                             <div className="flex flex-col items-center">
                                 <span>{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
-                                {flight.stops > 0 && flight.stop_details && (
-                                    <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
-                                        via {flight.stop_details}
-                                    </span>
+                                {flight.stops > 0 && (
+                                    <div className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex flex-col items-center">
+                                        {flight.stop_details && <span>via {flight.stop_details}</span>}
+                                        {flight.layover_duration && <span className="text-blue-500/80 mt-0.5">Layover: {flight.layover_duration}</span>}
+                                    </div>
                                 )}
                             </div>
                         </div>

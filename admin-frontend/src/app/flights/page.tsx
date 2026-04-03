@@ -99,7 +99,10 @@ export default function AdminFlightsPage() {
                 stop_details: '',
                 total_seats: 150,
                 available_seats: 150,
-                is_hidden: false
+                is_hidden: false,
+                pnr: '',
+                baggage_allowance: '',
+                layover_duration: ''
             });
         }
         setIsModalOpen(true);
@@ -195,26 +198,36 @@ export default function AdminFlightsPage() {
                 flight_number: '6E-2134',
                 origin: 'DEL',
                 destination: 'BOM',
-                departure_time: '2026-10-25/14:30:00',
-                arrival_time: '2026-10-25/16:45:00',
+                departure_date: '2026-10-25',
+                departure_time: '14:30:00',
+                arrival_date: '2026-10-25',
+                arrival_time: '16:45:00',
                 duration: '02:15:00',
                 price: 5500,
                 stops: 0,
                 stop_details: '',
-                total_seats: 180
+                total_seats: 180,
+                pnr: 'DELBOM123',
+                baggage_allowance: '15kg Cabin / 7kg Hand',
+                layover_duration: ''
             },
             {
                 airline: 'Air India',
                 flight_number: 'AI-101',
                 origin: 'BOM',
                 destination: 'LHR',
-                departure_time: '2026-10-26/02:00:00',
-                arrival_time: '2026-10-26/07:30:00',
+                departure_date: '2026-10-26',
+                departure_time: '02:00:00',
+                arrival_date: '2026-10-26',
+                arrival_time: '07:30:00',
                 duration: '09:00:00',
                 price: 45000,
                 stops: 1,
                 stop_details: 'DXB',
-                total_seats: 250
+                total_seats: 250,
+                pnr: 'BOMLHR999',
+                baggage_allowance: '25kg Cabin / 7kg Hand',
+                layover_duration: '2h 30m'
             }
         ];
 
@@ -247,13 +260,16 @@ export default function AdminFlightsPage() {
                     flight_number: item.flight_number || '',
                     origin: item.origin || '',
                     destination: item.destination || '',
-                    departure_time: item.departure_time || '',
-                    arrival_time: item.arrival_time || '',
+                    departure_time: (item.departure_date && item.departure_time) ? `${item.departure_date}T${item.departure_time}Z` : item.departure_time || '',
+                    arrival_time: (item.arrival_date && item.arrival_time) ? `${item.arrival_date}T${item.arrival_time}Z` : item.arrival_time || '',
                     duration: item.duration || '',
                     price: item.price || 0,
                     stops: item.stops || 0,
                     stop_details: item.stop_details || '',
-                    total_seats: item.total_seats || 150
+                    total_seats: item.total_seats || 150,
+                    pnr: item.pnr || '',
+                    baggage_allowance: item.baggage_allowance || '',
+                    layover_duration: item.layover_duration || ''
                 }));
 
                 await bulkCreateFlights(flightsToCreate);
@@ -335,7 +351,8 @@ export default function AdminFlightsPage() {
                         <tr>
                             <th className="px-6 py-4 font-medium text-slate-500">Airline</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Route</th>
-                            <th className="px-6 py-4 font-medium text-slate-500">Departure</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Dep. Date</th>
+                            <th className="px-6 py-4 font-medium text-slate-500">Dep. Time</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Price</th>
                             <th className="px-6 py-4 font-medium text-slate-500">Seats</th>
                             <th className="px-6 py-4 font-medium text-slate-500 text-right">Actions</th>
@@ -374,7 +391,10 @@ export default function AdminFlightsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        {new Date(flight.departure_time).toLocaleString()}
+                                        {new Date(flight.departure_time).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600">
+                                        {new Date(flight.departure_time).toLocaleTimeString([], { hour12: false })}
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-900">
                                         ₹{parseFloat(flight.price).toLocaleString('en-IN')}
@@ -492,23 +512,59 @@ export default function AdminFlightsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Time</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Date</label>
                                     <input
-                                        type="datetime-local"
+                                        type="date"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.departure_time?.toString().slice(0, 16) || ''}
-                                        onChange={e => setFormData({ ...formData, departure_time: e.target.value })}
+                                        value={formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[0] : ''}
+                                        onChange={e => {
+                                            const time = formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[1].slice(0, 5) : '00:00';
+                                            const newDate = new Date(`${e.target.value}T${time}:00`);
+                                            setFormData({ ...formData, departure_time: newDate.toISOString() });
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Time</label>
+                                    <input
+                                        type="time"
+                                        required
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.departure_time ? new Date(formData.departure_time).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
+                                        onChange={e => {
+                                            const date = formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                                            const newDate = new Date(`${date}T${e.target.value}:00`);
+                                            setFormData({ ...formData, departure_time: newDate.toISOString() });
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Date</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[0] : ''}
+                                        onChange={e => {
+                                            const time = formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[1].slice(0, 5) : '00:00';
+                                            const newDate = new Date(`${e.target.value}T${time}:00`);
+                                            setFormData({ ...formData, arrival_time: newDate.toISOString() });
+                                        }}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Time</label>
                                     <input
-                                        type="datetime-local"
+                                        type="time"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.arrival_time?.toString().slice(0, 16) || ''}
-                                        onChange={e => setFormData({ ...formData, arrival_time: e.target.value })}
+                                        value={formData.arrival_time ? new Date(formData.arrival_time).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
+                                        onChange={e => {
+                                            const date = formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                                            const newDate = new Date(`${date}T${e.target.value}:00`);
+                                            setFormData({ ...formData, arrival_time: newDate.toISOString() });
+                                        }}
                                     />
                                 </div>
                             </div>
@@ -581,6 +637,37 @@ export default function AdminFlightsPage() {
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-green-700"
                                         value={formData.available_seats !== undefined ? formData.available_seats : ''}
                                         onChange={e => handleAvailableSeatsChange(parseInt(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Baggage Allowance</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. 15kg / 7kg"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.baggage_allowance || ''}
+                                        onChange={e => setFormData({ ...formData, baggage_allowance: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Layover Duration</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. 2h 30m"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.layover_duration || ''}
+                                        onChange={e => setFormData({ ...formData, layover_duration: e.target.value })}
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Flight PNR</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. INDBOM001"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg font-mono uppercase bg-slate-50 focus:bg-white"
+                                        value={formData.pnr || ''}
+                                        onChange={e => setFormData({ ...formData, pnr: e.target.value.toUpperCase() })}
                                     />
                                 </div>
                                 <div className="col-span-2">

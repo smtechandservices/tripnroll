@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getAdminBookings, processRefund, Booking } from '@/lib/api';
+import { useEffect, useState, Fragment } from 'react';
+import { getAdminBookings, processRefund, cancelRefundRequest, Booking } from '@/lib/api';
 import { RefreshCw, CheckCircle, Search } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -89,6 +89,28 @@ export default function RefundPage() {
         }
     };
 
+    const handleCancelRefund = async (booking: Booking) => {
+        const result = await Swal.fire({
+            title: 'Reject & Cancel Refund?',
+            text: `Are you sure you want to reject the refund request for ${booking.first_name} ${booking.last_name}? The booking will revert to CONFIRMED.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, reject it!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await cancelRefundRequest(booking.booking_id);
+                Swal.fire('Rejected!', 'The refund request has been rejected and cancelled.', 'success');
+                fetchRefundRequests();
+            } catch (error: any) {
+                Swal.fire('Error!', error.message || 'Failed to cancel refund.', 'error');
+            }
+        }
+    };
+
     return (
         <div className='pt-8'>
             <div className="flex items-center justify-between mb-8">
@@ -171,62 +193,113 @@ export default function RefundPage() {
                                 </td>
                             </tr>
                         ) : (
-                            bookings.map((booking) => (
-                                <tr key={booking.booking_id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
-                                        {booking.booking_group || booking.booking_id}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-900">{booking.first_name} {booking.last_name}</div>
-                                        <div className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
-                                            {booking.passenger_email}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {booking.booked_by ? (
-                                            <>
-                                                <div className="font-medium text-slate-900">{booking.booked_by.username}</div>
-                                                <div className="text-slate-500 text-xs mt-0.5">{booking.booked_by.email}</div>
-                                            </>
-                                        ) : (
-                                            <span className="text-slate-400 italic">System/Guest</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-slate-900">{booking.flight_details.airline}</div>
-                                        <div className="text-slate-500 text-xs mt-0.5">
-                                            {booking.flight_details.origin} <span className="text-slate-300">→</span> {booking.flight_details.destination}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 mt-1">
-                                            {booking.flight_details.flight_number}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 font-bold text-slate-900">
-                                        ₹{parseFloat(booking.flight_details.price).toLocaleString('en-IN')}
-                                    </td>
-                                    {activeTab === 'completed' && (
-                                        <td className="px-6 py-4">
-                                            <span className="font-bold text-red-600">
-                                                -₹{parseFloat(booking.refunded_amount || '0').toLocaleString('en-IN')}
-                                            </span>
-                                        </td>
-                                    )}
-                                    <td className="px-6 py-4 text-right">
-                                        {activeTab === 'pending' ? (
-                                            <button
-                                                onClick={() => handleProcessRefund(booking)}
-                                                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:translate-y-0.5"
-                                            >
-                                                Process Refund
-                                            </button>
-                                        ) : (
-                                            <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                                                ✓ Refunded
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))
+                            (() => {
+                                const groupedBookingsMap = bookings.reduce((acc: { [key: string]: Booking[] }, booking) => {
+                                    const key = booking.booking_group || booking.booking_id;
+                                    if (!acc[key]) acc[key] = [];
+                                    acc[key].push(booking);
+                                    return acc;
+                                }, {});
+
+                                const orderedGroupKeys = Array.from(new Set(bookings.map(b => b.booking_group || b.booking_id)));
+                                
+                                const groupColors = [
+                                    { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-400' },
+                                    { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-400' },
+                                    { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-400' },
+                                    { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-400' },
+                                    { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-400' },
+                                    { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-400' },
+                                    { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-400' },
+                                ];
+
+                                return orderedGroupKeys.map((groupKey, groupIdx) => {
+                                    const groupBookings = groupedBookingsMap[groupKey];
+                                    const groupBgClass = groupIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60';
+                                    const colorTheme = groupColors[groupIdx % groupColors.length];
+
+                                    return (
+                                        <Fragment key={groupKey}>
+                                            {groupBookings.map((booking, idx) => {
+                                                const isLastInGroup = idx === groupBookings.length - 1;
+                                                return (
+                                                    <tr 
+                                                        key={booking.booking_id} 
+                                                        className={`${groupBgClass} hover:bg-slate-100/50 transition-colors ${isLastInGroup && groupIdx !== orderedGroupKeys.length - 1 ? 'border-b-[3px] border-slate-200' : 'border-b border-slate-100/30'}`}
+                                                    >
+                                                        <td className={`px-4 py-4 border-l-4 ${colorTheme.border}`}>
+                                                            <div className="font-mono text-xs font-bold text-slate-700 pl-1">{booking.booking_id}</div>
+                                                            {booking.booking_group && (
+                                                                <div className={`ml-1 font-mono text-[10px] ${colorTheme.bg} px-2 py-0.5 rounded-md inline-block ${colorTheme.text} font-bold mt-1.5`}>
+                                                                    Grp: {booking.booking_group}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-slate-900">{booking.first_name} {booking.last_name}</div>
+                                                            <div className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
+                                                                {booking.passenger_email}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            {booking.booked_by ? (
+                                                                <>
+                                                                    <div className="font-medium text-slate-900">{booking.booked_by.username}</div>
+                                                                    <div className="text-slate-500 text-xs mt-0.5">{booking.booked_by.email}</div>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-slate-400 italic">System/Guest</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-medium text-slate-900">{booking.flight_details.airline}</div>
+                                                            <div className="text-slate-500 text-xs mt-0.5">
+                                                                {booking.flight_details.origin} <span className="text-slate-300">→</span> {booking.flight_details.destination}
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 mt-1">
+                                                                {booking.flight_details.flight_number}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-bold text-slate-900">
+                                                            ₹{parseFloat(booking.flight_details.price).toLocaleString('en-IN')}
+                                                        </td>
+                                                        {activeTab === 'completed' && (
+                                                            <td className="px-6 py-4">
+                                                                <span className="font-bold text-red-600">
+                                                                    -₹{parseFloat(booking.refunded_amount || '0').toLocaleString('en-IN')}
+                                                                </span>
+                                                            </td>
+                                                        )}
+                                                        <td className="px-6 py-4 text-right">
+                                                            {activeTab === 'pending' ? (
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <button
+                                                                        onClick={() => handleCancelRefund(booking)}
+                                                                        className="cursor-pointer inline-flex items-center px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-50 transition-colors shadow-sm"
+                                                                        title="Reject & Cancel Refund"
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleProcessRefund(booking)}
+                                                                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:translate-y-0.5"
+                                                                    >
+                                                                        Process Refund
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                                                    ✓ Refunded
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </Fragment>
+                                    );
+                                });
+                            })()
                         )}
                     </tbody>
                 </table>

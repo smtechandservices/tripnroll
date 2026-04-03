@@ -8,7 +8,7 @@ from .views import (
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
     UserTopUpRequestListView, AdminTopUpRequestListView, AdminTopUpRequestActionView,
-    RefundRequestView, RefundProcessView,
+    RefundRequestView, RefundProcessView, AdminCancelRefundView,
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView
 )
@@ -40,6 +40,7 @@ urlpatterns = [
     path('admin/bookings/', AdminBookingListView.as_view(), name='admin-booking-list'),
     path('admin/bookings/<str:booking_id>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
     path('admin/refund/process/', RefundProcessView.as_view(), name='admin-refund-process'),
+    path('admin/refund/cancel/', AdminCancelRefundView.as_view(), name='admin-refund-cancel'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/users/<int:pk>/wallet/', AdminWalletUpdateView.as_view(), name='admin-user-wallet-update'),

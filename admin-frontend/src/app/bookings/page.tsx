@@ -6,6 +6,18 @@ import { Search, X } from 'lucide-react';
 // import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 
+const calculateAge = (dateString?: string | null): number | null => {
+    if (!dateString) return null;
+    const birthDate = new Date(dateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+};
+
 interface GroupedBooking {
     booking_group: string;
     broker: {
@@ -159,7 +171,7 @@ export default function AdminBookingsPage() {
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-50 border-b border-slate-100">
                             <tr>
-                                <th className="px-6 py-4 font-medium text-slate-500">Group ID</th>
+                                <th className="px-6 py-4 font-medium text-slate-500">Group Ref</th>
                                 <th className="px-6 py-4 font-medium text-slate-500">Booked By</th>
                                 <th className="px-6 py-4 font-medium text-slate-500">Flight</th>
                                 <th className="px-6 py-4 font-medium text-slate-500">Route</th>
@@ -191,7 +203,7 @@ export default function AdminBookingsPage() {
                                 groupedBookings.map((group) => (
                                     <tr key={group.booking_group} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                                            {group.booking_group?.substring(0, 8) || 'N/A'}...
+                                            {group.booking_group || 'N/A'}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-slate-900">{group.broker.username}</div>
@@ -293,15 +305,24 @@ export default function AdminBookingsPage() {
                         </div>
 
                         <div className="p-6 space-y-8 overflow-y-auto">
-                            {selectedGroup.passengers.map((passenger, index) => (
+                            {selectedGroup.passengers.map((passenger, index) => {
+                                const age = calculateAge(passenger.date_of_birth);
+                                const isInfant = age !== null && age <= 2;
+                                
+                                return (
                                 <div key={passenger.booking_id} className={`${index !== 0 ? 'pt-8 border-t border-slate-100' : ''}`}>
                                     <div className="flex items-center gap-4 mb-6">
                                         <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm uppercase">
                                             {passenger.first_name[0]}{passenger.last_name[0]}
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-slate-900">
+                                            <h4 className="font-bold text-slate-900 flex items-center gap-2">
                                                 {passenger.first_name} {passenger.last_name}
+                                                {isInfant && (
+                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold">
+                                                        Infant
+                                                    </span>
+                                                )}
                                             </h4>
                                             <p className="text-slate-400 text-[10px] font-mono uppercase tracking-wider">
                                                 ID: {passenger.booking_id}
@@ -310,6 +331,10 @@ export default function AdminBookingsPage() {
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-x-8 gap-y-4 px-2">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Booking ID</label>
+                                            <div className="text-slate-800 font-medium text-sm font-mono">{passenger.booking_id}</div>
+                                        </div>
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Email</label>
                                             <div className="text-slate-800 font-medium text-sm break-all">{passenger.passenger_email}</div>
@@ -383,7 +408,7 @@ export default function AdminBookingsPage() {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                            )})}
                         </div>
 
                         <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">

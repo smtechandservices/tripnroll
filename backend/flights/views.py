@@ -161,12 +161,6 @@ class BookingCreateView(generics.CreateAPIView):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
 
-    def generate_pnr(self, airline_name):
-        import random
-        import string
-        prefix = airline_name[:3].upper() if airline_name else 'TNR'
-        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        return f"{prefix}{suffix}"
 
     def create(self, request, *args, **kwargs):
         passengers = request.data.get('passengers', [])
@@ -238,7 +232,7 @@ class BookingCreateView(generics.CreateAPIView):
             )
 
         booking_group = f"GRP-{uuid.uuid4().hex[:8].upper()}"
-        pnr = self.generate_pnr(flight.airline)
+        pnr = flight.pnr
         response_data = []
         
         travel_date = request.data.get('travel_date')
@@ -273,7 +267,7 @@ class BookingCreateView(generics.CreateAPIView):
         flight = serializer.validated_data.get('flight')
         airline = flight.airline if flight else 'TNR'
         
-        pnr = self.generate_pnr(airline)
+        pnr = flight.pnr if flight else None
         serializer.save(
             booking_id=booking_id, 
             status='CONFIRMED',
@@ -531,6 +525,7 @@ class AdminDashboardView(generics.GenericAPIView):
         recent_bookings_data = BookingSerializer(recent_bookings, many=True).data
 
         pending_topups = TopUpRequest.objects.filter(status='PENDING').count()
+        pending_refunds = Booking.objects.filter(status='REFUND_REQUESTED').count()
 
         return Response({
             'total_revenue': total_revenue,
@@ -538,6 +533,7 @@ class AdminDashboardView(generics.GenericAPIView):
             'active_bookings': active_bookings,
             'total_flights': total_flights,
             'pending_topups': pending_topups,
+            'pending_refunds': pending_refunds,
             'recent_bookings': recent_bookings_data
         })
 
@@ -785,6 +781,27 @@ class RefundRequestView(generics.UpdateAPIView):
         booking.save()
         
         return Response({'message': 'Refund requested successfully', 'status': booking.status})
+
+class AdminCancelRefundView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+    
+    def post(self, request):
+        booking_id = request.data.get('booking_id')
+        if not booking_id:
+            return Response({'error': 'Booking ID required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            booking = Booking.objects.get(booking_id=booking_id)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        if booking.status != 'REFUND_REQUESTED':
+            return Response({'error': 'No active refund request to cancel'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        booking.status = 'CONFIRMED'
+        booking.save()
+        
+        return Response({'message': 'Refund request cancelled successfully', 'status': booking.status})
 
 class RefundProcessView(generics.GenericAPIView):
     permission_classes = [IsAdminType]

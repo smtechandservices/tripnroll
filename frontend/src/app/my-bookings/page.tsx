@@ -48,10 +48,10 @@ export default function MyBookingsPage() {
         setIsRefreshing(false);
     };
 
-    const handleRequestRefund = async (booking: Booking) => {
+    const handleRequestRefund = async (passengersToRefund: Booking[]) => {
         const result = await Swal.fire({
             title: 'Request Refund?',
-            text: `Are you sure you want to request a refund for this booking?`,
+            text: `Are you sure you want to request a refund for ${passengersToRefund.length} passenger(s) in this booking?`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -61,7 +61,7 @@ export default function MyBookingsPage() {
 
         if (result.isConfirmed) {
             try {
-                await requestRefund(booking.booking_id);
+                await Promise.all(passengersToRefund.map(p => requestRefund(p.booking_id)));
                 Swal.fire(
                     'Requested!',
                     'Your refund request has been submitted.',
@@ -275,24 +275,24 @@ export default function MyBookingsPage() {
                                             </div>
 
                                             {/* Refund Action */}
-                                            {!isExpired && firstPassenger.status === 'CONFIRMED' && (
+                                            {!isExpired && passengers.some(p => p.status === 'CONFIRMED') && (
                                                 <div className="border-t border-slate-100 p-4">
                                                     <button
-                                                        onClick={() => handleRequestRefund(firstPassenger)}
+                                                        onClick={() => handleRequestRefund(passengers.filter(p => p.status === 'CONFIRMED'))}
                                                         className="cursor-pointer text-sm text-red-500 hover:text-red-700 font-medium underline decoration-red-200 hover:decoration-red-500 underline-offset-4 transition-all"
                                                     >
                                                         Request Refund
                                                     </button>
                                                 </div>
                                             )}
-                                            {!isExpired && firstPassenger.status === 'REFUND_REQUESTED' && (
+                                            {!isExpired && passengers.some(p => p.status === 'REFUND_REQUESTED') && !passengers.some(p => p.status === 'CONFIRMED') && (
                                                 <div className="border-t border-slate-100 p-4">
                                                     <span className="text-sm text-orange-500 font-medium">
                                                         Refund Requested
                                                     </span>
                                                 </div>
                                             )}
-                                            {firstPassenger.status === 'REFUNDED' && (
+                                            {passengers.some(p => p.status === 'REFUNDED') && !passengers.some(p => p.status === 'CONFIRMED') && !passengers.some(p => p.status === 'REFUND_REQUESTED') && (
                                                 <div className="border-t border-slate-100 p-4">
                                                     <span className="text-sm text-slate-500 font-medium">
                                                         Refunded to Wallet

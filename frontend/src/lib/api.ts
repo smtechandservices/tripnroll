@@ -14,6 +14,9 @@ export interface Flight {
     stop_details?: string;
     available_seats?: number;
     is_hidden?: boolean;
+    pnr?: string;
+    baggage_allowance?: string;
+    layover_duration?: string;
 }
 
 export interface Booking {
@@ -330,7 +333,6 @@ export async function requestRefund(bookingId: string): Promise<void> {
         throw new Error(errorData.error || 'Failed to request refund');
     }
 }
-
 
 export async function submitKYC(formData: FormData): Promise<{ message: string, kyc_status: string }> {
     const res = await fetch(`${API_BASE_URL}/kyc/submit/`, {

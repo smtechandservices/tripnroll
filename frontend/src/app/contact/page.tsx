@@ -233,6 +233,10 @@ export default function ContactPage() {
                             {
                                 q: "Can I book a seat in advance?",
                                 a: "Yes, many airlines allow advance seat selection during or after booking. You can manage your seat preferences through the airline's manage booking portal using your PNR."
+                            },
+                            {
+                                q: "What is your flight cancellation and modification policy?",
+                                a: "All flight bookings are non-changeable and non-refundable. However, a refund request can still be raised which may be partially settled upon contacting our team."
                             }
                         ].map((faq, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
