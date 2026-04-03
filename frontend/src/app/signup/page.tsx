@@ -8,9 +8,10 @@ import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function SignupPage() {
-    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('');
+
     const [showPassword, setShowPassword] = useState(false);
     const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
@@ -52,8 +53,9 @@ export default function SignupPage() {
         }
 
         try {
-            await register(username, email, password, phone);
+            await register(email, password, phone, username);
             router.push('/login');
+
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Registration failed');
         }
@@ -94,18 +96,18 @@ export default function SignupPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Username</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Username <span className="text-red-500">*</span></label>
                             <input
+                                required
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
-                                placeholder="Choose a username"
-                                required
+                                placeholder="username"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Email <span className="text-red-500">*</span></label>
                             <input
                                 type="email"
                                 value={email}
@@ -116,7 +118,7 @@ export default function SignupPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Password <span className="text-red-500">*</span></label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}

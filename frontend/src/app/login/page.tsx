@@ -8,9 +8,10 @@ import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+
     const [error, setError] = useState('');
     const { login } = useAuth();
 
@@ -18,7 +19,8 @@ export default function LoginPage() {
         e.preventDefault();
         setError('');
         try {
-            const { token } = await loginApi(username, password);
+            const { token } = await loginApi(email, password);
+
             localStorage.setItem('token', token);
             const userProfile = await getUserProfile();
 
@@ -70,16 +72,17 @@ export default function LoginPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Username</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
                             <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="text-black w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all bg-white"
-                                placeholder="Enter your username"
+                                placeholder="Enter your email"
                                 required
                             />
                         </div>
+
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
                             <div className="relative">

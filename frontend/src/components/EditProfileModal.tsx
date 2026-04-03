@@ -10,10 +10,19 @@ export function EditProfileModal() {
     const { user, refreshUser } = useAuth(); // We need refreshUser to update the user in context
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [username, setUsername] = useState(user?.username || '');
     const [phone, setPhone] = useState(user?.profile?.phone_number || '');
-    const [passport, setPassport] = useState(user?.profile?.passport_number || '');
     const [address, setAddress] = useState(user?.profile?.address || '');
     const [phoneError, setPhoneError] = useState('');
+
+    // Sync state when modal opens or user data changes
+    useEffect(() => {
+        if (isOpen && user) {
+            setUsername(user.username || '');
+            setPhone(user.profile?.phone_number || '');
+            setAddress(user.profile?.address || '');
+        }
+    }, [isOpen, user]);
 
     useEffect(() => {
         const handleOpen = () => setIsOpen(true);
@@ -67,8 +76,8 @@ export function EditProfileModal() {
 
         try {
             await updateProfile({
+                username: username,
                 phone_number: phone,
-                passport_number: passport,
                 address: address,
             });
 
@@ -80,7 +89,6 @@ export function EditProfileModal() {
                     profile: {
                         ...user.profile,
                         phone_number: phone,
-                        passport_number: passport,
                         address: address
                     }
                 };
@@ -142,6 +150,17 @@ export function EditProfileModal() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Username <span className="text-red-500">*</span></label>
+                    <input
+                        required
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-700"
+                        placeholder="Your display name"
+                    />
+                </div>
+                <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
                     <input
                         type="email"
@@ -166,16 +185,6 @@ export function EditProfileModal() {
                         <p className="mt-1 text-xs text-red-600">{phoneError}</p>
                     )}
                     <p className="mt-1 text-xs text-slate-500">Format: 10 digits starting with 6-9</p>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Passport Number</label>
-                    <input
-                        type="text"
-                        value={passport}
-                        onChange={(e) => setPassport(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-700"
-                        placeholder="A12345678"
-                    />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</label>

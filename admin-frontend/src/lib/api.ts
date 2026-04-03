@@ -15,6 +15,9 @@ export interface Flight {
     available_seats?: number;
     total_seats?: number;
     is_hidden?: boolean;
+    pnr?: string;
+    baggage_allowance?: string;
+    layover_duration?: string;
 }
 
 export interface Booking {
@@ -42,6 +45,17 @@ export interface Booking {
     pnr?: string | null;
     payment_mode?: 'WALLET' | 'DIRECT';
     refunded_amount?: string;
+}
+
+export interface TopUpRequest {
+    id: number;
+    user: number;
+    username: string;
+    user_email: string;
+    amount: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    created_at: string;
+    updated_at: string;
 }
 
 // ... existing code ...
@@ -79,7 +93,6 @@ export interface User {
     is_superuser: boolean;
     profile: {
         phone_number: string;
-        passport_number: string;
         address: string;
         usertype: 'user' | 'admin' | 'superadmin';
         wallet_balance?: number;
@@ -87,6 +100,10 @@ export interface User {
         total_dues?: number;
         aadhar_number?: string;
         pan_number?: string;
+        gst_number?: string;
+        brand_logo?: string;
+        aadhar_card_doc?: string;
+        pan_card_doc?: string;
         kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     };
     date_joined?: string;
@@ -111,11 +128,11 @@ function getAuthHeaders(): Record<string, string> {
     return headers;
 }
 
-export async function login(username: string, password: string): Promise<{ token: string }> {
+export async function login(email: string, password: string): Promise<{ token: string }> {
     const res = await fetch(`${API_BASE_URL}/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -123,6 +140,7 @@ export async function login(username: string, password: string): Promise<{ token
     }
     return res.json();
 }
+
 
 export async function getUserProfile(): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {
@@ -267,6 +285,8 @@ export interface AdminStats {
     total_bookings: number;
     active_bookings: number;
     total_flights: number;
+    pending_topups: number;
+    pending_refunds: number;
     recent_bookings: Booking[];
 }
 
@@ -349,6 +369,19 @@ export async function processRefund(bookingId: string, amount: number): Promise<
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to process refund');
+    }
+    return res.json();
+}
+
+export async function cancelRefundRequest(bookingId: string): Promise<{ message: string; status: string }> {
+    const res = await fetch(`${API_BASE_URL}/admin/refund/cancel/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ booking_id: bookingId })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to cancel refund request');
     }
     return res.json();
 }
@@ -446,6 +479,31 @@ export async function updateKYCStatus(userId: number, action: 'APPROVE' | 'REJEC
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to update KYC status');
+    }
+    return res.json();
+}
+export async function getAdminTopUpRequests(page: number = 1, search: string = '', status?: string): Promise<PaginatedResponse<TopUpRequest>> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+
+    const res = await fetch(`${API_BASE_URL}/admin/topups/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch top-up requests');
+    return res.json();
+}
+
+export async function processTopUpRequest(requestId: number, action: 'APPROVE' | 'REJECT'): Promise<{ message: string; status: string; wallet_balance?: number }> {
+    const res = await fetch(`${API_BASE_URL}/admin/topups/action/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ request_id: requestId, action })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to process top-up request');
     }
     return res.json();
 }

@@ -13,6 +13,9 @@ class Flight(models.Model):
     stop_details = models.CharField(max_length=255, blank=True, null=True)
     total_seats = models.IntegerField(default=10)
     is_hidden = models.BooleanField(default=False)
+    pnr = models.CharField(max_length=20, blank=True, null=True)
+    baggage_allowance = models.CharField(max_length=100, blank=True, null=True)
+    layover_duration = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"{self.airline} {self.flight_number}: {self.origin} -> {self.destination}"
@@ -63,7 +66,6 @@ class UserProfile(models.Model):
     )
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=20, blank=True)
-    passport_number = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True)
     usertype = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='user')
     wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
@@ -73,6 +75,12 @@ class UserProfile(models.Model):
     # KYC Fields
     aadhar_number = models.CharField(max_length=12, blank=True, null=True)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
+    gst_number = models.CharField(max_length=15, blank=True, null=True)
+    
+    brand_logo = models.ImageField(upload_to='docs/brand_logos/', blank=True, null=True)
+    aadhar_card_doc = models.FileField(upload_to='docs/aadhar/', blank=True, null=True)
+    pan_card_doc = models.FileField(upload_to='docs/pan/', blank=True, null=True)
+
     kyc_status = models.CharField(
         max_length=20,
         choices=[
@@ -102,3 +110,18 @@ class WalletTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type} of {self.amount} for {self.user.username}"
+
+class TopUpRequest(models.Model):
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='topup_requests')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Top-up request of {self.amount} by {self.user.username} ({self.status})"

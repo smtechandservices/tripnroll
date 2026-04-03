@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Calendar, ChevronDown, X, Users } from 'lucide-react';
+import { Search, MapPin, Calendar, ChevronDown, X, Users, ArrowRightLeft } from 'lucide-react';
 import airports from '@/assets/airports.json';
 import DatePicker from 'react-datepicker';
 import { getSearchMeta } from '@/lib/api';
@@ -177,6 +177,14 @@ export function SearchForm({
         fetchMetadata(); // Reset metadata to show all available options
     };
 
+    const handleSwap = (e: React.MouseEvent) => {
+        e.preventDefault();
+        const temp = originQuery;
+        setOriginQuery(destQuery);
+        setDestQuery(temp);
+        fetchMetadata(destQuery, temp);
+    };
+
     const clearOrigin = (e: React.MouseEvent) => {
         e.stopPropagation();
         setOriginQuery('');
@@ -242,7 +250,7 @@ export function SearchForm({
             </div>
 
             {/* Inputs Container */}
-            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full">
                 {/* Origin Input */}
                 <div className="w-full md:flex-1 relative">
                     <div className="bg-slate-50 p-4 md:p-6 rounded-2xl flex items-center space-x-3 border border-slate-200 focus-within:border-green-400 transition-colors">
@@ -261,20 +269,35 @@ export function SearchForm({
                         </div>
                     </div>
                     {showOriginSuggestions && originSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50">
+                        <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 mt-2 max-h-72 overflow-y-auto z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
                             {originSuggestions.map((airport: Airport) => (
                                 <div
                                     key={airport.code}
-                                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                                    className="px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-all mx-2 rounded-xl mb-1 last:mb-0 hover:translate-x-1"
                                     onMouseDown={(e) => { e.preventDefault(); handleSelectOrigin(airport.code, airport.city); }}
                                 >
-                                    <div className="font-bold text-slate-800">{airport.city} ({airport.code})</div>
-                                    <div className="text-xs text-slate-500">{airport.name}, {airport.country}</div>
+                                    <div className="font-bold text-slate-800 flex items-center justify-between">
+                                        <span>{airport.city} ({airport.code})</span>
+                                        <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase">{airport.code}</span>
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">{airport.name}, {airport.country}</div>
                                 </div>
                             ))}
+                            <div className="h-1 shrink-0"></div>
                         </div>
                     )}
                 </div>
+
+                {/* Swap Button (Desktop and Mobile) */}
+                <button
+                    onClick={handleSwap}
+                    className="absolute md:static left-1/2 -translate-x-1/2 md:translate-x-0 md:-ml-8 md:-mr-8 z-20 w-8 h-8 bg-white border border-slate-200 rounded-full shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors text-slate-500 hover:text-green-600 focus:outline-none"
+                    style={{ top: 'calc(50% - 20px)' }}
+                    type="button"
+                    title="Swap Origin and Destination"
+                >
+                    <ArrowRightLeft className="w-5 h-5 md:rotate-0 rotate-90" />
+                </button>
 
                 {/* Destination Input */}
                 <div className="w-full md:flex-1 relative">
@@ -294,17 +317,21 @@ export function SearchForm({
                         </div>
                     </div>
                     {showDestSuggestions && destSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50">
+                        <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 mt-2 max-h-72 overflow-y-auto z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
                             {destSuggestions.map((airport: Airport) => (
                                 <div
                                     key={airport.code}
-                                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                                    className="px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-all mx-2 rounded-xl mb-1 last:mb-0 hover:translate-x-1"
                                     onMouseDown={(e) => { e.preventDefault(); handleSelectDest(airport.code, airport.city); }}
                                 >
-                                    <div className="font-bold text-slate-800">{airport.city} ({airport.code})</div>
-                                    <div className="text-xs text-slate-500">{airport.name}, {airport.country}</div>
+                                    <div className="font-bold text-slate-800 flex items-center justify-between">
+                                        <span>{airport.city} ({airport.code})</span>
+                                        <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase">{airport.code}</span>
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">{airport.name}, {airport.country}</div>
                                 </div>
                             ))}
+                            <div className="h-1 shrink-0"></div>
                         </div>
                     )}
                 </div>
@@ -340,7 +367,7 @@ export function SearchForm({
                         </div>
 
                         {showDepartureOptions && (
-                            <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 mt-2 max-h-72 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-200 py-2">
                                 {filteredDepartureDates.length > 0 ? (
                                     filteredDepartureDates.map(date => {
                                         const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -348,7 +375,7 @@ export function SearchForm({
                                         return (
                                             <div
                                                 key={date.toISOString()}
-                                                className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
+                                                className={`px-5 py-3.5 cursor-pointer transition-all flex items-center justify-between mx-2 rounded-xl mb-1 last:mb-0 ${isSelected ? 'bg-green-50 text-green-700 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:translate-x-1'
                                                     }`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -356,19 +383,24 @@ export function SearchForm({
                                                     setShowDepartureOptions(false);
                                                 }}
                                             >
-                                                <span className="font-medium">{dateStr}</span>
-                                                {isSelected && <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
+                                                <span className={`font-semibold ${isSelected ? 'text-green-700' : 'text-slate-700'}`}>{dateStr}</span>
+                                                {isSelected && (
+                                                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 shadow-sm shadow-green-500/30">
+                                                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })
                                 ) : (
-                                    <div className="p-6 text-center text-slate-400 text-sm italic">
+                                    <div className="p-8 text-center text-slate-400 text-sm italic">
                                         {availableDates.length > 0
                                             ? "No departure dates available before return date"
                                             : "No departure flights available"
                                         }
                                     </div>
                                 )}
+                                <div className="h-1 shrink-0"></div> {/* Bottom spacing buffer */}
                             </div>
                         )}
                     </div>
@@ -408,7 +440,7 @@ export function SearchForm({
                             </div>
 
                             {showReturnOptions && (
-                                <div className="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 mt-2 max-h-60 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100">
+                                <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 mt-2 max-h-72 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-200 py-2">
                                     {filteredReturnDates.length > 0 ? (
                                         filteredReturnDates.map(date => {
                                             const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -416,7 +448,7 @@ export function SearchForm({
                                             return (
                                                 <div
                                                     key={date.toISOString()}
-                                                    className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
+                                                    className={`px-5 py-3.5 cursor-pointer transition-all flex items-center justify-between mx-2 rounded-xl mb-1 last:mb-0 ${isSelected ? 'bg-green-50 text-green-700 shadow-sm' : 'hover:bg-slate-50 text-slate-700 hover:translate-x-1'
                                                         }`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -424,19 +456,24 @@ export function SearchForm({
                                                         setShowReturnOptions(false);
                                                     }}
                                                 >
-                                                    <span className="font-medium">{dateStr}</span>
-                                                    {isSelected && <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
+                                                    <span className={`font-semibold ${isSelected ? 'text-green-700' : 'text-slate-700'}`}>{dateStr}</span>
+                                                    {isSelected && (
+                                                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 shadow-sm shadow-green-500/30">
+                                                            <div className="w-2 h-2 rounded-full bg-white"></div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })
                                     ) : (
-                                        <div className="p-6 text-center text-slate-400 text-sm italic">
+                                        <div className="p-8 text-center text-slate-400 text-sm italic">
                                             {availableReturnDates.length > 0
                                                 ? "No return flights available after departure date"
                                                 : "No return flights available for this route"
                                             }
                                         </div>
                                     )}
+                                    <div className="h-1 shrink-0"></div> {/* Bottom spacing buffer */}
                                 </div>
                             )}
                         </div>

@@ -7,7 +7,8 @@ from .views import (
     AdminBookingListView, AdminBookingDetailView, AdminDashboardView,
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
-    RefundRequestView, RefundProcessView,
+    UserTopUpRequestListView, AdminTopUpRequestListView, AdminTopUpRequestActionView,
+    RefundRequestView, RefundProcessView, AdminCancelRefundView,
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView
 )
@@ -29,6 +30,7 @@ urlpatterns = [
     # Wallet Routes
     path('wallet/balance/', WalletBalanceView.as_view(), name='wallet-balance'),
     path('wallet/top-up/', WalletTopUpView.as_view(), name='wallet-topup'),
+    path('wallet/top-up-requests/', UserTopUpRequestListView.as_view(), name='user-topup-requests'),
 
     # Admin Routes
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
@@ -38,10 +40,13 @@ urlpatterns = [
     path('admin/bookings/', AdminBookingListView.as_view(), name='admin-booking-list'),
     path('admin/bookings/<str:booking_id>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
     path('admin/refund/process/', RefundProcessView.as_view(), name='admin-refund-process'),
+    path('admin/refund/cancel/', AdminCancelRefundView.as_view(), name='admin-refund-cancel'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/users/<int:pk>/wallet/', AdminWalletUpdateView.as_view(), name='admin-user-wallet-update'),
     path('admin/messages/', AdminContactMessageListView.as_view(), name='admin-message-list'),
+    path('admin/topups/', AdminTopUpRequestListView.as_view(), name='admin-topup-list'),
+    path('admin/topups/action/', AdminTopUpRequestActionView.as_view(), name='admin-topup-action'),
     
     # KYC Routes
     path('kyc/submit/', SubmitKYCView.as_view(), name='kyc-submit'),

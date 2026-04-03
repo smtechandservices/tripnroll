@@ -102,10 +102,20 @@ export default function BookingPage() {
                                 <div>
                                     <div className="text-xs text-slate-400 uppercase mb-1">Route</div>
                                     <div className="font-semibold text-slate-700">{flight.origin} → {flight.destination}</div>
-                                    <div className="text-xs mt-1">
-                                        <span className="text-slate-500">{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
-                                        {flight.stops > 0 && flight.stop_details && (
-                                            <span className="text-slate-400 ml-1">via {flight.stop_details}</span>
+                                    <div className="text-xs mt-1 flex flex-col gap-0.5">
+                                        <div>
+                                            <span className="text-slate-500">{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
+                                            {flight.stops > 0 && flight.stop_details && (
+                                                <span className="text-slate-400 ml-1">via {flight.stop_details}</span>
+                                            )}
+                                        </div>
+                                        {flight.stops > 0 && flight.layover_duration && (
+                                            <div className="text-blue-500/80">Layover: {flight.layover_duration}</div>
+                                        )}
+                                        {flight.baggage_allowance && (
+                                            <div className="text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded-full border border-slate-200 mt-1">
+                                                Baggage: {flight.baggage_allowance}
+                                            </div>
                                         )}
                                     </div>
                                     {isInternational && (
@@ -116,7 +126,7 @@ export default function BookingPage() {
                                     <div className="text-xs text-slate-400 uppercase mb-1">Schedule</div>
                                     <div className="font-semibold text-slate-700 flex items-center gap-2">
                                         <Clock size={14} className="text-green-600" />
-                                        {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                                     </div>
                                     <div className="text-sm text-slate-600 ml-6">
                                         {new Date(flight.departure_time).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}

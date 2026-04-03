@@ -31,7 +31,7 @@ class BookingAdmin(admin.ModelAdmin):
     search_fields = ('booking_id', 'first_name', 'last_name', 'passenger_email', 'passenger_phone')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
-    readonly_fields = ('booking_id', 'created_at')
+    readonly_fields = ('booking_id', 'created_at', 'payment_mode')
     
     fieldsets = (
         ('Booking Information', {

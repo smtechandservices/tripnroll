@@ -2,33 +2,45 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getWalletBalance, topUpWallet, WalletData } from '@/lib/api';
-import { Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, AlertCircle, History, RotateCcw } from 'lucide-react';
+import { getWalletBalance, topUpWallet, WalletData, getTopUpRequests, TopUpRequest } from '@/lib/api';
+import { Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, AlertCircle, History, RotateCcw, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function WalletPage() {
     const { user, isAuthenticated } = useAuth();
     const [walletData, setWalletData] = useState<WalletData | null>(null);
+    const [topUpRequests, setTopUpRequests] = useState<TopUpRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [topUpAmount, setTopUpAmount] = useState('');
     const [processingTopUp, setProcessingTopUp] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated) {
-            fetchWalletData();
+            fetchData();
         }
     }, [isAuthenticated]);
 
-    const fetchWalletData = async () => {
+    const fetchData = async () => {
         setLoading(true);
+        await Promise.all([fetchWalletData(), fetchTopUpRequests()]);
+        setLoading(false);
+    };
+
+    const fetchWalletData = async () => {
         try {
             const data = await getWalletBalance();
             setWalletData(data);
         } catch (error) {
             console.error('Failed to fetch wallet data', error);
-            Swal.fire('Error', 'Failed to load wallet information', 'error');
-        } finally {
-            setLoading(false);
+        }
+    };
+
+    const fetchTopUpRequests = async () => {
+        try {
+            const requests = await getTopUpRequests();
+            setTopUpRequests(requests);
+        } catch (error) {
+            console.error('Failed to fetch top-up requests', error);
         }
     };
 
@@ -61,13 +73,12 @@ export default function WalletPage() {
             const result = await topUpWallet(amount);
             Swal.fire({
                 icon: 'success',
-                title: 'Top-up Successful',
-                text: result.message,
-                timer: 2000,
-                showConfirmButton: false
+                title: 'Request Submitted',
+                text: 'Your top-up request has been submitted and is pending admin approval.',
+                confirmButtonColor: '#16a34a',
             });
             setTopUpAmount('');
-            fetchWalletData(); // Refresh data
+            fetchTopUpRequests(); // Refresh requests list
         } catch (error: any) {
             Swal.fire('Error', error.message || 'Top-up failed', 'error');
         } finally {
@@ -264,6 +275,53 @@ export default function WalletPage() {
                                     <br />
                                     <a href="/contact" className="text-green-600 font-bold hover:underline">Contact Support</a>
                                 </p>
+                            </div>
+
+                             
+                            {/* Top-up Requests Section */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                        <Clock className="w-5 h-5 text-gray-500" />
+                                        Recent Top-up Requests
+                                    </h3>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {topUpRequests.length === 0 ? (
+                                        <div className="p-8 text-center text-gray-400 italic text-sm">
+                                            No recent top-up requests found.
+                                        </div>
+                                    ) : (
+                                        topUpRequests.map((req) => (
+                                            <div key={req.id} className="p-6 flex items-center justify-between group hover:bg-gray-50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`p-2 rounded-lg ${
+                                                        req.status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
+                                                        req.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                                                        'bg-red-100 text-red-600'
+                                                    }`}>
+                                                        {req.status === 'PENDING' ? <Clock className="w-5 h-5" /> :
+                                                         req.status === 'APPROVED' ? <CheckCircle2 className="w-5 h-5" /> :
+                                                         <XCircle className="w-5 h-5" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">₹{parseFloat(req.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                                                        <p className="text-xs text-gray-500">{new Date(req.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                                                        req.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                        req.status === 'APPROVED' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                        'bg-red-100 text-red-700 border border-red-200'
+                                                    }`}>
+                                                        {req.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

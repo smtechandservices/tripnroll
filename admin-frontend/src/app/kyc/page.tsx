@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminKYCs, updateKYCStatus, User } from '@/lib/api';
-import { Shield, ShieldCheck, ShieldAlert, Search, Check, X, User as UserIcon, Calendar, FileText } from 'lucide-react';
+import { Shield, ShieldCheck, ShieldAlert, Search, Check, X, User as UserIcon, Calendar, FileText, Eye } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function KYCManagementPage() {
@@ -147,26 +147,87 @@ export default function KYCManagementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
-                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-2 text-slate-400 mb-1">
-                                                <FileText size={14} />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">Aadhar Number</span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                                                    <FileText size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">Aadhar Number</span>
+                                                </div>
+                                                <p className="text-slate-700 font-mono font-bold tracking-widest mb-3">
+                                                    {user.profile.aadhar_number || 'N/A'}
+                                                </p>
                                             </div>
-                                            <p className="text-slate-700 font-mono font-bold tracking-widest">
-                                                {user.profile.aadhar_number || 'N/A'}
-                                            </p>
+                                            {user.profile.aadhar_card_doc && (
+                                                <a 
+                                                    href={user.profile.aadhar_card_doc} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors"
+                                                >
+                                                    <Eye size={14} />
+                                                    View Aadhar Card
+                                                </a>
+                                            )}
                                         </div>
-                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <div className="flex items-center gap-2 text-slate-400 mb-1">
-                                                <FileText size={14} />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">PAN Number</span>
+                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center gap-2 text-slate-400 mb-1">
+                                                    <FileText size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">PAN Number</span>
+                                                </div>
+                                                <p className="text-slate-700 font-mono font-bold tracking-widest uppercase mb-3">
+                                                    {user.profile.pan_number || 'N/A'}
+                                                </p>
                                             </div>
-                                            <p className="text-slate-700 font-mono font-bold tracking-widest uppercase">
-                                                {user.profile.pan_number || 'N/A'}
-                                            </p>
+                                            {user.profile.pan_card_doc && (
+                                                <a 
+                                                    href={user.profile.pan_card_doc} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors"
+                                                >
+                                                    <Eye size={14} />
+                                                    View PAN Card
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {(user.profile.gst_number || user.profile.brand_logo) && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pt-4 border-t border-slate-100">
+                                            {user.profile.gst_number && (
+                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                    <div className="flex items-center gap-2 text-slate-400 mb-1">
+                                                        <Shield size={14} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">GST Number</span>
+                                                    </div>
+                                                    <p className="text-slate-700 font-mono font-bold tracking-widest uppercase">
+                                                        {user.profile.gst_number}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {user.profile.brand_logo && (
+                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                    <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                        <UserIcon size={14} />
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Brand Identity</span>
+                                                    </div>
+                                                    <a 
+                                                        href={user.profile.brand_logo} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-3 group/logo"
+                                                    >
+                                                        <div className="w-10 h-10 rounded border border-slate-200 overflow-hidden bg-white shrink-0">
+                                                            <img src={user.profile.brand_logo} alt="Logo" className="w-full h-full object-contain" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-blue-600 group-hover/logo:text-blue-700">View Logo</span>
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                                         <div className="flex items-center gap-2 text-slate-400 text-xs">

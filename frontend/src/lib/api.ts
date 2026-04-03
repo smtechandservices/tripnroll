@@ -14,6 +14,9 @@ export interface Flight {
     stop_details?: string;
     available_seats?: number;
     is_hidden?: boolean;
+    pnr?: string;
+    baggage_allowance?: string;
+    layover_duration?: string;
 }
 
 export interface Booking {
@@ -49,7 +52,7 @@ export interface CreateBookingData {
     passport_expiry_date?: string;
     frequent_flyer_number?: string;
     travel_date: string;
-    payment_mode?: 'WALLET' | 'DIRECT';
+    payment_mode?: 'WALLET';
 }
 
 export interface CreateMultiBookingData {
@@ -66,13 +69,16 @@ export interface User {
     is_superuser: boolean;
     profile: {
         phone_number: string;
-        passport_number: string;
         address: string;
         wallet_balance?: number;
         credit_limit?: number;
         total_dues?: number;
         aadhar_number?: string;
         pan_number?: string;
+        gst_number?: string;
+        brand_logo?: string;
+        aadhar_card_doc?: string;
+        pan_card_doc?: string;
         kyc_status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
     }
 }
@@ -101,6 +107,14 @@ export interface WalletTransaction {
     dues_after: string;
 }
 
+export interface TopUpRequest {
+    id: number;
+    amount: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    created_at: string;
+    updated_at: string;
+}
+
 export async function getWalletBalance(): Promise<WalletData> {
     const res = await fetch(`${API_BASE_URL}/wallet/balance/`, {
         headers: getAuthHeaders(),
@@ -110,7 +124,7 @@ export async function getWalletBalance(): Promise<WalletData> {
     return res.json();
 }
 
-export async function topUpWallet(amount: number): Promise<{ message: string, wallet_balance: number, total_dues: number, dues_cleared: number }> {
+export async function topUpWallet(amount: number): Promise<{ message: string, request_id: number, amount: string, status: string }> {
     const res = await fetch(`${API_BASE_URL}/wallet/top-up/`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -118,6 +132,16 @@ export async function topUpWallet(amount: number): Promise<{ message: string, wa
     });
     if (!res.ok) throw new Error('Failed to top up wallet');
     return res.json();
+}
+
+export async function getTopUpRequests(): Promise<TopUpRequest[]> {
+    const res = await fetch(`${API_BASE_URL}/wallet/top-up-requests/`, {
+        headers: getAuthHeaders(),
+        cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Failed to fetch top-up requests');
+    const data: PaginatedResponse<TopUpRequest> = await res.json();
+    return data.results;
 }
 
 
@@ -131,11 +155,11 @@ function getAuthHeaders(): Record<string, string> {
     return headers;
 }
 
-export async function login(username: string, password: string): Promise<{ token: string }> {
+export async function login(email: string, password: string): Promise<{ token: string }> {
     const res = await fetch(`${API_BASE_URL}/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -143,6 +167,7 @@ export async function login(username: string, password: string): Promise<{ token
     }
     return res.json();
 }
+
 
 export async function getUserProfile(): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {
@@ -152,7 +177,7 @@ export async function getUserProfile(): Promise<User> {
     return res.json();
 }
 
-export async function updateProfile(data: { phone_number?: string; passport_number?: string; address?: string }): Promise<void> {
+export async function updateProfile(data: { username?: string; phone_number?: string; address?: string }): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/profile/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
@@ -161,17 +186,18 @@ export async function updateProfile(data: { phone_number?: string; passport_numb
     if (!res.ok) throw new Error('Failed to update profile');
 }
 
-export async function register(username: string, email: string, password: string, phone_number: string): Promise<void> {
+export async function register(email: string, password: string, phone_number: string, username?: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, phone_number }),
+        body: JSON.stringify({ username: username || email, email, password, phone_number }),
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Registration failed');
     }
 }
+
 
 export interface PaginatedResponse<T> {
     count: number;
@@ -308,12 +334,13 @@ export async function requestRefund(bookingId: string): Promise<void> {
     }
 }
 
-
-export async function submitKYC(aadhar_number: string, pan_number: string): Promise<{ message: string, kyc_status: string }> {
+export async function submitKYC(formData: FormData): Promise<{ message: string, kyc_status: string }> {
     const res = await fetch(`${API_BASE_URL}/kyc/submit/`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ aadhar_number, pan_number }),
+        headers: {
+            'Authorization': getAuthHeaders().Authorization,
+        },
+        body: formData,
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
