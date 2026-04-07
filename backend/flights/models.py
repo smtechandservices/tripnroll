@@ -16,6 +16,8 @@ class Flight(models.Model):
     pnr = models.CharField(max_length=20, blank=True, null=True)
     baggage_allowance = models.CharField(max_length=100, blank=True, null=True)
     layover_duration = models.CharField(max_length=100, blank=True, null=True)
+    departure_terminal = models.CharField(max_length=50, blank=True, null=True)
+    arrival_terminal = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.airline} {self.flight_number}: {self.origin} -> {self.destination}"
@@ -32,8 +34,8 @@ class Booking(models.Model):
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE, related_name='bookings')
     first_name = models.CharField(max_length=100, default='')
     last_name = models.CharField(max_length=100, default='')
-    passenger_email = models.EmailField()
-    passenger_phone = models.CharField(max_length=20)
+    passenger_email = models.EmailField(blank=True, null=True)
+    passenger_phone = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     passport_number = models.CharField(max_length=50, blank=True, null=True)
     passport_issue_date = models.DateField(blank=True, null=True)
@@ -46,6 +48,8 @@ class Booking(models.Model):
     pnr = models.CharField(max_length=20, blank=True, null=True)
     payment_mode = models.CharField(max_length=20, default='WALLET')
     refunded_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    is_infant = models.BooleanField(default=False)
+    charged_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -18,6 +18,11 @@ interface Flight {
     duration: string;
     price: string;
     stops: number;
+    departure_terminal?: string;
+    arrival_terminal?: string;
+    stop_details?: string;
+    layover_duration?: string;
+    baggage_allowance?: string;
 }
 
 function SearchPageContent() {

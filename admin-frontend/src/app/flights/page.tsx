@@ -6,6 +6,53 @@ import { Plus, Edit2, Trash2, Search, X, FileDigit, Download, Eye, EyeOff } from
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 
+// Helper to format ISO to dd/mm/yyyy
+const formatDateToDDMMYYYY = (isoString: string | undefined) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+};
+
+// Helper to parse dd/mm/yyyy to yyyy-mm-dd
+const parseDDMMYYYYToYYYYMMDD = (dateStr: string) => {
+    if (!dateStr || !dateStr.includes('/')) return null;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        const [d, m, y] = parts;
+        if (y.length === 4 && d.length <= 2 && m.length <= 2) {
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+    }
+    return null;
+};
+
+// Helper to safely get parts from ISO string without throwing RangeError
+const getISOPart = (isoString: string | undefined, part: 'date' | 'time') => {
+    if (!isoString) return part === 'date' ? new Date().toISOString().split('T')[0] : '00:00';
+    
+    // First try simple string split to avoid timezone/Date object issues
+    const split = isoString.split('T');
+    if (split.length === 2) {
+        if (part === 'date') return split[0];
+        const timePart = split[1].slice(0, 5);
+        if (/^\d{2}:\d{2}$/.test(timePart)) return timePart;
+    }
+
+    try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return part === 'date' ? new Date().toISOString().split('T')[0] : '00:00';
+        const fullISO = date.toISOString();
+        if (part === 'date') return fullISO.split('T')[0];
+        return fullISO.split('T')[1].slice(0, 5);
+    } catch {
+        return part === 'date' ? new Date().toISOString().split('T')[0] : '00:00';
+    }
+};
+
 export default function AdminFlightsPage() {
     const [flights, setFlights] = useState<Flight[]>([]);
     const [loading, setLoading] = useState(true);
@@ -17,6 +64,7 @@ export default function AdminFlightsPage() {
 
     // Form state
     const [formData, setFormData] = useState<Partial<Flight>>({});
+    const [modalDateStrings, setModalDateStrings] = useState({ departure: '', arrival: '' });
 
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -82,6 +130,10 @@ export default function AdminFlightsPage() {
         if (flight) {
             setEditingFlight(flight);
             setFormData(flight);
+            setModalDateStrings({
+                departure: formatDateToDDMMYYYY(flight.departure_time),
+                arrival: formatDateToDDMMYYYY(flight.arrival_time)
+            });
             // Calculate booked count: Total - Available
             const available = flight.available_seats || 0;
             const total = flight.total_seats || 0;
@@ -104,6 +156,7 @@ export default function AdminFlightsPage() {
                 baggage_allowance: '',
                 layover_duration: ''
             });
+            setModalDateStrings({ departure: '', arrival: '' });
         }
         setIsModalOpen(true);
     };
@@ -198,9 +251,9 @@ export default function AdminFlightsPage() {
                 flight_number: '6E-2134',
                 origin: 'DEL',
                 destination: 'BOM',
-                departure_date: '2026-10-25',
+                departure_date: '25/10/2026',
                 departure_time: '14:30:00',
-                arrival_date: '2026-10-25',
+                arrival_date: '25/10/2026',
                 arrival_time: '16:45:00',
                 duration: '02:15:00',
                 price: 5500,
@@ -209,16 +262,18 @@ export default function AdminFlightsPage() {
                 total_seats: 180,
                 pnr: 'DELBOM123',
                 baggage_allowance: '15kg Cabin / 7kg Hand',
-                layover_duration: ''
+                layover_duration: '',
+                'Departure Terminal': '3',
+                'Arrival Terminal': '1'
             },
             {
                 airline: 'Air India',
                 flight_number: 'AI-101',
                 origin: 'BOM',
                 destination: 'LHR',
-                departure_date: '2026-10-26',
+                departure_date: '26/10/2026',
                 departure_time: '02:00:00',
-                arrival_date: '2026-10-26',
+                arrival_date: '26/10/2026',
                 arrival_time: '07:30:00',
                 duration: '09:00:00',
                 price: 45000,
@@ -227,7 +282,9 @@ export default function AdminFlightsPage() {
                 total_seats: 250,
                 pnr: 'BOMLHR999',
                 baggage_allowance: '25kg Cabin / 7kg Hand',
-                layover_duration: '2h 30m'
+                layover_duration: '2h 30m',
+                'Departure Terminal': '2',
+                'Arrival Terminal': '4'
             }
         ];
 
@@ -254,23 +311,43 @@ export default function AdminFlightsPage() {
                     throw new Error('Excel file is empty');
                 }
 
+                // Helper to parse dd/mm/yyyy to yyyy-mm-dd
+                const parseDateStr = (dateStr: any) => {
+                    if (!dateStr) return '';
+                    if (typeof dateStr === 'string' && dateStr.includes('/')) {
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            const [d, m, y] = parts;
+                            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                        }
+                    }
+                    return dateStr;
+                };
+
                 // Map Excel data to Flight fields
-                const flightsToCreate = data.map((item: any) => ({
-                    airline: item.airline || '',
-                    flight_number: item.flight_number || '',
-                    origin: item.origin || '',
-                    destination: item.destination || '',
-                    departure_time: (item.departure_date && item.departure_time) ? `${item.departure_date}T${item.departure_time}Z` : item.departure_time || '',
-                    arrival_time: (item.arrival_date && item.arrival_time) ? `${item.arrival_date}T${item.arrival_time}Z` : item.arrival_time || '',
-                    duration: item.duration || '',
-                    price: item.price || 0,
-                    stops: item.stops || 0,
-                    stop_details: item.stop_details || '',
-                    total_seats: item.total_seats || 150,
-                    pnr: item.pnr || '',
-                    baggage_allowance: item.baggage_allowance || '',
-                    layover_duration: item.layover_duration || ''
-                }));
+                const flightsToCreate = data.map((item: any) => {
+                    const depDate = parseDateStr(item.departure_date);
+                    const arrDate = parseDateStr(item.arrival_date);
+                    
+                    return {
+                        airline: item.airline || '',
+                        flight_number: item.flight_number || '',
+                        origin: item.origin || '',
+                        destination: item.destination || '',
+                        departure_time: (depDate && item.departure_time) ? `${depDate}T${item.departure_time}Z` : item.departure_time || '',
+                        arrival_time: (arrDate && item.arrival_time) ? `${arrDate}T${item.arrival_time}Z` : item.arrival_time || '',
+                        duration: item.duration || '',
+                        price: item.price || 0,
+                        stops: item.stops || 0,
+                        stop_details: item.stop_details || '',
+                        total_seats: item.total_seats || 150,
+                        pnr: item.pnr || '',
+                        baggage_allowance: item.baggage_allowance || '',
+                        layover_duration: item.layover_duration || '',
+                        departure_terminal: item['Departure Terminal'] || item.departure_terminal || '',
+                        arrival_terminal: item['Arrival Terminal'] || item.arrival_terminal || ''
+                    };
+                });
 
                 await bulkCreateFlights(flightsToCreate);
                 fetchFlights(currentPage, debouncedSearch);
@@ -380,6 +457,7 @@ export default function AdminFlightsPage() {
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{flight.airline}</div>
                                         <div className="text-slate-500 text-xs">{flight.flight_number}</div>
+                                        {flight.departure_terminal && <div className="text-[10px] text-blue-500">T{flight.departure_terminal}</div>}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         <div className="flex flex-col">
@@ -391,7 +469,7 @@ export default function AdminFlightsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        {new Date(flight.departure_time).toLocaleDateString()}
+                                        {formatDateToDDMMYYYY(flight.departure_time)}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         {new Date(flight.departure_time).toLocaleTimeString([], { hour12: false })}
@@ -512,16 +590,21 @@ export default function AdminFlightsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Date</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Date (dd/mm/yyyy)</label>
                                     <input
-                                        type="date"
+                                        type="text"
                                         required
+                                        placeholder="dd/mm/yyyy"
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[0] : ''}
+                                        value={modalDateStrings.departure}
                                         onChange={e => {
-                                            const time = formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[1].slice(0, 5) : '00:00';
-                                            const newDate = new Date(`${e.target.value}T${time}:00`);
-                                            setFormData({ ...formData, departure_time: newDate.toISOString() });
+                                            const val = e.target.value;
+                                            setModalDateStrings({ ...modalDateStrings, departure: val });
+                                            const parsed = parseDDMMYYYYToYYYYMMDD(val);
+                                            if (parsed) {
+                                                const time = getISOPart(formData.departure_time, 'time');
+                                                setFormData({ ...formData, departure_time: `${parsed}T${time}:00.000Z` });
+                                            }
                                         }}
                                     />
                                 </div>
@@ -531,25 +614,32 @@ export default function AdminFlightsPage() {
                                         type="time"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.departure_time ? new Date(formData.departure_time).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
+                                        value={getISOPart(formData.departure_time, 'time')}
                                         onChange={e => {
-                                            const date = formData.departure_time ? new Date(formData.departure_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-                                            const newDate = new Date(`${date}T${e.target.value}:00`);
-                                            setFormData({ ...formData, departure_time: newDate.toISOString() });
+                                            const val = e.target.value || '00:00';
+                                            // Prefer the date from the text input if it's already valid, otherwise use from formData
+                                            const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.departure);
+                                            const date = manualDate || getISOPart(formData.departure_time, 'date');
+                                            setFormData({ ...formData, departure_time: `${date}T${val}:00.000Z` });
                                         }}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Date</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Date (dd/mm/yyyy)</label>
                                     <input
-                                        type="date"
+                                        type="text"
                                         required
+                                        placeholder="dd/mm/yyyy"
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[0] : ''}
+                                        value={modalDateStrings.arrival}
                                         onChange={e => {
-                                            const time = formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[1].slice(0, 5) : '00:00';
-                                            const newDate = new Date(`${e.target.value}T${time}:00`);
-                                            setFormData({ ...formData, arrival_time: newDate.toISOString() });
+                                            const val = e.target.value;
+                                            setModalDateStrings({ ...modalDateStrings, arrival: val });
+                                            const parsed = parseDDMMYYYYToYYYYMMDD(val);
+                                            if (parsed) {
+                                                const time = getISOPart(formData.arrival_time, 'time');
+                                                setFormData({ ...formData, arrival_time: `${parsed}T${time}:00.000Z` });
+                                            }
                                         }}
                                     />
                                 </div>
@@ -559,11 +649,13 @@ export default function AdminFlightsPage() {
                                         type="time"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.arrival_time ? new Date(formData.arrival_time).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}
+                                        value={getISOPart(formData.arrival_time, 'time')}
                                         onChange={e => {
-                                            const date = formData.arrival_time ? new Date(formData.arrival_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-                                            const newDate = new Date(`${date}T${e.target.value}:00`);
-                                            setFormData({ ...formData, arrival_time: newDate.toISOString() });
+                                            const val = e.target.value || '00:00';
+                                            // Prefer the date from the text input if it's already valid, otherwise use from formData
+                                            const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.arrival);
+                                            const date = manualDate || getISOPart(formData.arrival_time, 'date');
+                                            setFormData({ ...formData, arrival_time: `${date}T${val}:00.000Z` });
                                         }}
                                     />
                                 </div>
@@ -658,6 +750,28 @@ export default function AdminFlightsPage() {
                                         value={formData.layover_duration || ''}
                                         onChange={e => setFormData({ ...formData, layover_duration: e.target.value })}
                                     />
+                                </div>
+                                <div className="col-span-2 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Departure Terminal</label>
+                                        <input
+                                            type="text"
+                                            placeholder="T3"
+                                            className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                            value={formData.departure_terminal || ''}
+                                            onChange={e => setFormData({ ...formData, departure_terminal: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Terminal</label>
+                                        <input
+                                            type="text"
+                                            placeholder="T1"
+                                            className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                            value={formData.arrival_terminal || ''}
+                                            onChange={e => setFormData({ ...formData, arrival_terminal: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Flight PNR</label>

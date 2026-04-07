@@ -12,7 +12,7 @@ export function BookingSuccessWrapper({
 }: {
     flight: Flight;
     isInternational: boolean;
-    onPassengersChange?: (count: number) => void;
+    onPassengersChange?: (counts: { adults: number; infants: number }) => void;
 }) {
     const router = useRouter();
 

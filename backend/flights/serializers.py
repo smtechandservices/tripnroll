@@ -93,7 +93,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = '__all__'
-        read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr', 'payment_mode')
+        read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr', 'payment_mode', 'is_infant', 'charged_price')
 
 class AdminBookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)

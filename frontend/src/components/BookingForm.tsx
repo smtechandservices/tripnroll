@@ -23,7 +23,7 @@ interface BookingFormProps {
     departureDate: string; // ISO date string from flight
     isInternational: boolean; // Whether the flight is international
     onSuccess: (bookingId: string) => void;
-    onPassengersChange?: (count: number) => void;
+    onPassengersChange?: (counts: { adults: number; infants: number }) => void;
 }
 
 export function BookingForm({ flightId, departureDate, isInternational, onSuccess, onPassengersChange }: BookingFormProps) {
@@ -75,9 +75,21 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
     useEffect(() => {
         if (onPassengersChange) {
-            onPassengersChange(passengers.length);
+            let adults = 0;
+            let infants = 0;
+            passengers.forEach(p => {
+                const age = calculateAge(p.date_of_birth);
+                // Child is > 2, Infant is <= 2
+                // We charge child/adult same, so adults count = count of people > 2
+                if (age !== null && age <= 2) {
+                    infants++;
+                } else {
+                    adults++;
+                }
+            });
+            onPassengersChange({ adults, infants });
         }
-    }, [passengers.length, onPassengersChange]);
+    }, [passengers]); // intentional removal of onPassengersChange from deps to avoid infinite loop with parent arrow functions
 
     useEffect(() => {
         if (user && passengers.length >= 1 && !passengers[0].first_name) {
@@ -98,6 +110,27 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
         }
     }, [user]);
 
+    // Ensure primary passenger is never an infant
+    useEffect(() => {
+        const currentPrimary = passengers[primaryPassengerIndex];
+        if (currentPrimary) {
+            const age = calculateAge(currentPrimary.date_of_birth);
+            const isInfant = age !== null && age <= 2;
+            
+            if (isInfant) {
+                // Find the first non-infant to be the primary passenger
+                const firstNonInfantIndex = passengers.findIndex(p => {
+                    const a = calculateAge(p.date_of_birth);
+                    return a === null || a > 2;
+                });
+                
+                if (firstNonInfantIndex !== -1 && firstNonInfantIndex !== primaryPassengerIndex) {
+                    setPrimaryPassengerIndex(firstNonInfantIndex);
+                }
+            }
+        }
+    }, [passengers, primaryPassengerIndex]);
+
     const handleAddPassenger = () => {
         setPassengers([...passengers, {
             first_name: '',
@@ -105,6 +138,23 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
             passenger_email: '',
             passenger_phone: '',
             date_of_birth: '',
+            passport_number: '',
+            passport_issue_date: '',
+            passport_expiry_date: '',
+            frequent_flyer_number: '',
+        }]);
+    };
+
+    const handleAddInfant = () => {
+        const today = new Date();
+        // Set default DOB to today to mark as infant immediately
+        const infantDOB = today.toISOString().split('T')[0];
+        setPassengers([...passengers, {
+            first_name: '',
+            last_name: '',
+            passenger_email: '',
+            passenger_phone: '',
+            date_of_birth: infantDOB,
             passport_number: '',
             passport_issue_date: '',
             passport_expiry_date: '',
@@ -237,16 +287,21 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 flight: flightId,
                 travel_date: formattedDate,
                 payment_mode: paymentMode,
-                passengers: passengers.map(p => ({
-                    ...p,
-                    passenger_email: p.passenger_email,
-                    passenger_phone: p.passenger_phone,
-                    passport_number: p.passport_number || undefined,
-                    passport_issue_date: p.passport_issue_date || undefined,
-                    passport_expiry_date: p.passport_expiry_date || undefined,
-                    frequent_flyer_number: p.frequent_flyer_number || undefined,
-                    date_of_birth: p.date_of_birth || undefined,
-                }))
+                passengers: passengers.map(p => {
+                    const age = calculateAge(p.date_of_birth);
+                    const isInfant = age !== null && age <= 2;
+                    
+                    return {
+                        ...p,
+                        passenger_email: isInfant ? (p.passenger_email || undefined) : p.passenger_email,
+                        passenger_phone: isInfant ? (p.passenger_phone || undefined) : p.passenger_phone,
+                        passport_number: p.passport_number || undefined,
+                        passport_issue_date: p.passport_issue_date || undefined,
+                        passport_expiry_date: p.passport_expiry_date || undefined,
+                        frequent_flyer_number: p.frequent_flyer_number || undefined,
+                        date_of_birth: p.date_of_birth || undefined,
+                    };
+                })
             };
             const response = await createBooking(data);
             // If response is an array (multiple bookings), use the first one's group or ID for success message
@@ -303,11 +358,11 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                                     Passenger Information
                                     {isInfant && (
                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold ml-1">
-                                            Infant
+                                            Infant (FREE)
                                         </span>
                                     )}
                                 </h3>
-                                {passengers.length > 1 && (
+                                {passengers.length > 1 && !isInfant && (
                                     <label className="flex items-center gap-2 ml-4 cursor-pointer">
                                         <input
                                             type="radio"
@@ -351,24 +406,6 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             <FormInput
-                                label={index === primaryPassengerIndex ? "Email Address (For Booking Confirmation)" : "Email Address"}
-                                name="passenger_email"
-                                type="email"
-                                value={passenger.passenger_email}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required
-                            />
-                            <FormInput
-                                label="Phone Number"
-                                name="passenger_phone"
-                                type="tel"
-                                value={passenger.passenger_phone}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required
-                            />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <FormInput
                                 label="Date of Birth"
                                 name="date_of_birth"
                                 type="date"
@@ -386,41 +423,64 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <FormInput
-                                label={isInternational ? "Passport Number" : "Passport Number (Optional)"}
-                                name="passport_number"
-                                value={passenger.passport_number}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required={isInternational}
-                            />
-                            <FormInput
-                                label="Frequent Flyer Number (Optional)"
-                                name="frequent_flyer_number"
-                                value={passenger.frequent_flyer_number}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                placeholder="Enter if you have one"
-                            />
-                        </div>
+                        {!isInfant && (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                    <FormInput
+                                        label={index === primaryPassengerIndex ? "Email Address (For Booking Confirmation)" : "Email Address"}
+                                        name="passenger_email"
+                                        type="email"
+                                        value={passenger.passenger_email}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        required
+                                    />
+                                    <FormInput
+                                        label="Phone Number"
+                                        name="passenger_phone"
+                                        type="tel"
+                                        value={passenger.passenger_phone}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        required
+                                    />
+                                </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <FormInput
-                                label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
-                                name="passport_issue_date"
-                                type="date"
-                                value={passenger.passport_issue_date}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required={isInternational}
-                            />
-                            <FormInput
-                                label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
-                                name="passport_expiry_date"
-                                type="date"
-                                value={passenger.passport_expiry_date}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required={isInternational}
-                            />
-                        </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                    <FormInput
+                                        label={isInternational ? "Passport Number" : "Passport Number (Optional)"}
+                                        name="passport_number"
+                                        value={passenger.passport_number}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        required={isInternational}
+                                    />
+                                    <FormInput
+                                        label="Frequent Flyer Number (Optional)"
+                                        name="frequent_flyer_number"
+                                        value={passenger.frequent_flyer_number}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        placeholder="Enter if you have one"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                    <FormInput
+                                        label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
+                                        name="passport_issue_date"
+                                        type="date"
+                                        value={passenger.passport_issue_date}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        required={isInternational}
+                                    />
+                                    <FormInput
+                                        label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
+                                        name="passport_expiry_date"
+                                        type="date"
+                                        value={passenger.passport_expiry_date}
+                                        onChange={(e) => handlePassengerChange(index, e)}
+                                        required={isInternational}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                     );
                 })}
@@ -473,8 +533,8 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                 </button>
                 <button
                     type="button"
-                    onClick={handleAddPassenger}
-                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-pink-500 hover:bg-pink-50/30 transition-all flex items-center justify-center gap-2"
+                    onClick={handleAddInfant}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-pink-400 hover:text-pink-500 hover:bg-pink-50/30 transition-all flex items-center justify-center gap-2"
                 >
                     + Add Infant (0-2 Yrs)
                 </button>

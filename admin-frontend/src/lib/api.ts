@@ -18,6 +18,8 @@ export interface Flight {
     pnr?: string;
     baggage_allowance?: string;
     layover_duration?: string;
+    departure_terminal?: string;
+    arrival_terminal?: string;
 }
 
 export interface Booking {
@@ -43,8 +45,10 @@ export interface Booking {
     } | null;
     booking_group: string | null;
     pnr?: string | null;
-    payment_mode?: 'WALLET' | 'DIRECT';
+    payment_mode?: 'WALLET';
     refunded_amount?: string;
+    is_infant: boolean;
+    charged_price: string;
 }
 
 export interface TopUpRequest {

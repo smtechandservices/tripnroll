@@ -55,7 +55,10 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                 <div className="flex items-center justify-between text-sm text-slate-600 px-2 md:px-6">
                     <div className="text-center">
                         <div className="font-bold text-xl text-slate-800">{formatTime(flight.departure_time)}</div>
-                        <div className="uppercase tracking-wider text-xs font-semibold text-slate-700">{flight.origin}</div>
+                        <div className="uppercase tracking-wider text-xs font-semibold text-slate-700 flex items-center justify-center gap-1">
+                            {flight.origin}
+                            {flight.departure_terminal && <span className="text-[10px] bg-blue-50 text-blue-600 px-1 rounded">T{flight.departure_terminal}</span>}
+                        </div>
                         <div className="text-xs text-slate-400 mt-1">{formatDate(flight.departure_time)}</div>
                     </div>
 
@@ -81,7 +84,10 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
 
                     <div className="text-center">
                         <div className="font-bold text-xl text-slate-800">{formatTime(flight.arrival_time)}</div>
-                        <div className="uppercase tracking-wider text-xs font-semibold text-slate-700">{flight.destination}</div>
+                        <div className="uppercase tracking-wider text-xs font-semibold text-slate-700 flex items-center justify-center gap-1">
+                            {flight.destination}
+                            {flight.arrival_terminal && <span className="text-[10px] bg-blue-50 text-blue-600 px-1 rounded">T{flight.arrival_terminal}</span>}
+                        </div>
                         <div className="text-xs text-slate-400 mt-1">{formatDate(flight.arrival_time)}</div>
                     </div>
                 </div>

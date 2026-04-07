@@ -15,6 +15,8 @@ from rest_framework import filters
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 import uuid
+from datetime import date
+from decimal import Decimal
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -172,14 +174,31 @@ class BookingCreateView(generics.CreateAPIView):
              # For now, let's assume the new bulk format is primary.
              return super().create(request, *args, **kwargs)
         
-        # Calculate total cost
+        # Calculate total cost (Infants 0-2 yrs are free)
         flight_id = request.data.get('flight')
         try:
             flight = Flight.objects.get(id=flight_id)
         except Flight.DoesNotExist:
             return Response({'error': 'Flight not found'}, status=status.HTTP_404_NOT_FOUND)
             
-        total_cost = flight.price * len(passengers)
+        total_cost = Decimal('0.00')
+        for p in passengers:
+            dob_str = p.get('date_of_birth')
+            is_infant = False
+            if dob_str:
+                try:
+                    # dob_str is YYYY-MM-DD
+                    y, m, d = map(int, dob_str.split('-'))
+                    dob = date(y, m, d)
+                    today = date.today()
+                    age = today.year - dob.year - ((today.month, today.day) < (m, d))
+                    if age <= 2:
+                        is_infant = True
+                except (ValueError, TypeError, AttributeError):
+                    pass
+            
+            if not is_infant:
+                total_cost += flight.price
         user = request.user
         profile = user.profile
 
@@ -191,7 +210,6 @@ class BookingCreateView(generics.CreateAPIView):
                 'kyc_status': profile.kyc_status
             }, status=status.HTTP_403_FORBIDDEN)
 
-        from decimal import Decimal
         # Ensure prices are decimals
         total_cost = Decimal(str(total_cost))
 
@@ -248,12 +266,31 @@ class BookingCreateView(generics.CreateAPIView):
             
             booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
             
+            # Determine if infant to set historical price and tag correctly
+            dob_str = p_data.get('date_of_birth')
+            is_infant_passenger = False
+            passenger_charged_price = flight.price
+            
+            if dob_str:
+                try:
+                    y, m, d = map(int, dob_str.split('-'))
+                    dob = date(y, m, d)
+                    today = date.today()
+                    age = today.year - dob.year - ((today.month, today.day) < (m, d))
+                    if age <= 2:
+                        is_infant_passenger = True
+                        passenger_charged_price = Decimal('0.00')
+                except (ValueError, TypeError, AttributeError):
+                    pass
+
             serializer.save(
                 booking_id=booking_id, 
                 status='CONFIRMED',
                 booked_by=request.user,
                 booking_group=booking_group,
-                pnr=pnr
+                pnr=pnr,
+                is_infant=is_infant_passenger,
+                charged_price=passenger_charged_price
             )
             response_data.append(serializer.data)
             
@@ -268,11 +305,35 @@ class BookingCreateView(generics.CreateAPIView):
         airline = flight.airline if flight else 'TNR'
         
         pnr = flight.pnr if flight else None
+        # Determine if infant to set historical price and tag correctly
+        dob_str = serializer.validated_data.get('date_of_birth')
+        is_infant_passenger = False
+        passenger_charged_price = flight.price if flight else Decimal('0.00')
+        
+        if dob_str:
+            try:
+                from datetime import date as dt_date
+                if isinstance(dob_str, dt_date):
+                    dob = dob_str
+                else:
+                    y, m, d = map(int, str(dob_str).split('-'))
+                    dob = dt_date(y, m, d)
+                
+                today = dt_date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                if age <= 2:
+                    is_infant_passenger = True
+                    passenger_charged_price = Decimal('0.00')
+            except (ValueError, TypeError, AttributeError):
+                pass
+
         serializer.save(
             booking_id=booking_id, 
             status='CONFIRMED',
             booked_by=self.request.user,
-            pnr=pnr
+            pnr=pnr,
+            is_infant=is_infant_passenger,
+            charged_price=passenger_charged_price
         )
 
 class BookingHistoryView(generics.ListAPIView):
@@ -507,7 +568,9 @@ class AdminDashboardView(generics.GenericAPIView):
         total_revenue = Decimal('0.00')
         
         for booking in confirmed_bookings:
-            net_amount = booking.flight.price - booking.refunded_amount
+            # Fallback for old bookings that don't have charged_price set
+            price_to_use = booking.charged_price if (booking.charged_price > 0 or booking.is_infant) else booking.flight.price
+            net_amount = price_to_use - booking.refunded_amount
             total_revenue += net_amount
         
         total_bookings = Booking.objects.count()

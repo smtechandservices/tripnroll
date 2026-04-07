@@ -246,8 +246,10 @@ export default function MyBookingsPage() {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Price per Person</div>
-                                                        <div className="font-bold text-slate-800">₹{parseFloat(firstPassenger.flight_details.price).toLocaleString('en-IN')}</div>
+                                                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Group Total</div>
+                                                        <div className="font-bold text-slate-800">
+                                                            ₹{passengers.reduce((acc, p) => acc + parseFloat((parseFloat(p.charged_price) > 0 || p.is_infant) ? p.charged_price : p.flight_details.price), 0).toLocaleString('en-IN')}
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Payment Method</div>
@@ -316,12 +318,20 @@ export default function MyBookingsPage() {
                                                 <div key={passenger.booking_id} className={`p-6 ${pIdx !== passengers.length - 1 ? 'border-b border-slate-100' : ''}`}>
                                                     <div className="flex justify-between items-start mb-4">
                                                         <div>
-                                                            <div className="font-bold text-slate-800 text-lg leading-tight">
+                                                            <div className="font-bold text-slate-800 text-lg leading-tight flex items-center gap-2">
                                                                 {passenger.first_name} {passenger.last_name}
+                                                                {passenger.is_infant && (
+                                                                    <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                        Infant
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                            <div className="mt-1 flex flex-wrap gap-2">
+                                                            <div className="mt-1 flex flex-wrap gap-2 items-center">
                                                                 <div className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500 inline-block">
                                                                     ID: {passenger.booking_id}
+                                                                </div>
+                                                                <div className="text-[10px] font-bold text-slate-700">
+                                                                    Price: ₹{parseFloat((parseFloat(passenger.charged_price) > 0 || passenger.is_infant) ? passenger.charged_price : passenger.flight_details.price).toLocaleString('en-IN')}
                                                                 </div>
                                                                 {passenger.pnr ? (
                                                                     <div className="text-[10px] font-mono bg-green-100 px-2 py-0.5 rounded text-green-700 font-bold border border-green-200 inline-block">

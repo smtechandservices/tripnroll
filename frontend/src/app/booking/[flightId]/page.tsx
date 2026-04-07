@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getFlightById, Flight } from '@/lib/api';
@@ -18,7 +18,14 @@ export default function BookingPage() {
 
     const [flight, setFlight] = useState<Flight | null>(null);
     const [loading, setLoading] = useState(true);
-    const [passengerCount, setPassengerCount] = useState(1);
+    const [passengerCounts, setPassengerCounts] = useState({ adults: 1, infants: 0 });
+
+    const handlePassengersChange = useCallback((counts: { adults: number; infants: number }) => {
+        setPassengerCounts(prev => {
+            if (prev.adults === counts.adults && prev.infants === counts.infants) return prev;
+            return counts;
+        });
+    }, []);
 
     useEffect(() => {
         // Redirect to login if not authenticated
@@ -74,7 +81,8 @@ export default function BookingPage() {
     const isInternational = isInternationalFlight(flight.origin, flight.destination);
 
     const unitPrice = parseFloat(flight.price);
-    const totalPrice = unitPrice * passengerCount;
+    const totalPrice = unitPrice * passengerCounts.adults;
+
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -127,9 +135,23 @@ export default function BookingPage() {
                                     <div className="font-semibold text-slate-700 flex items-center gap-2">
                                         <Clock size={14} className="text-green-600" />
                                         {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                        {flight.departure_terminal && (
+                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">
+                                                Dep: T{flight.departure_terminal}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-sm text-slate-600 ml-6">
                                         {new Date(flight.departure_time).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                                    </div>
+                                    <div className="font-semibold text-slate-700 flex items-center gap-2 mt-2">
+                                        <Clock size={14} className="text-blue-600" />
+                                        {new Date(flight.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                        {flight.arrival_terminal && (
+                                            <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                                                Arr: T{flight.arrival_terminal}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-xs text-slate-500 mt-1 ml-6">
                                         Duration: {flight.duration}
@@ -138,11 +160,23 @@ export default function BookingPage() {
                                 <div className="pt-4 border-t">
                                     <div className="text-xs text-slate-400 uppercase">Total Price</div>
                                     <div className="text-2xl font-bold text-green-600">{`₹${totalPrice.toLocaleString('en-IN')}`}</div>
-                                    {passengerCount > 1 && (
-                                        <div className="text-[10px] text-slate-400 font-medium">
-                                            {`₹${unitPrice.toLocaleString('en-IN')} x ${passengerCount} passengers`}
-                                        </div>
-                                    )}
+                                    <div className="mt-2 space-y-1">
+                                        {passengerCounts.adults > 0 && (
+                                            <div className="text-[10px] text-slate-500 font-medium flex justify-between">
+                                                <span>Adults (₹{unitPrice.toLocaleString('en-IN')} x {passengerCounts.adults})</span>
+                                                <span>₹{(unitPrice * passengerCounts.adults).toLocaleString('en-IN')}</span>
+                                            </div>
+                                        )}
+                                        {passengerCounts.infants > 0 && (
+                                            <div className="text-[10px] text-blue-500 font-bold flex justify-between">
+                                                <span>Infants (FREE x {passengerCounts.infants})</span>
+                                                <span>₹0</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-slate-100 italic text-[14px] text-slate-400">
+                                        Note: This booking is non-refundable.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -154,7 +188,7 @@ export default function BookingPage() {
                             <BookingSuccessWrapper
                                 flight={flight}
                                 isInternational={isInternational}
-                                onPassengersChange={(count) => setPassengerCount(count)}
+                                onPassengersChange={handlePassengersChange}
                             />
                         </div>
                     </div>

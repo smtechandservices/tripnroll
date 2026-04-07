@@ -82,7 +82,8 @@ export default function AdminBookingsPage() {
                     (groups[groupId] as any).total_refunded = 0;
                 }
                 groups[groupId].passengers.push(booking);
-                groups[groupId].total_price += parseFloat(booking.flight_details.price);
+                const passengerPrice = parseFloat((parseFloat(booking.charged_price) > 0 || booking.is_infant) ? booking.charged_price : booking.flight_details.price);
+                groups[groupId].total_price += passengerPrice;
 
                 // Track refunded amount
                 if (!groups[groupId].hasOwnProperty('total_refunded')) {
@@ -306,8 +307,7 @@ export default function AdminBookingsPage() {
 
                         <div className="p-6 space-y-8 overflow-y-auto">
                             {selectedGroup.passengers.map((passenger, index) => {
-                                const age = calculateAge(passenger.date_of_birth);
-                                const isInfant = age !== null && age <= 2;
+                                const isInfant = passenger.is_infant;
                                 
                                 return (
                                 <div key={passenger.booking_id} className={`${index !== 0 ? 'pt-8 border-t border-slate-100' : ''}`}>
@@ -324,9 +324,14 @@ export default function AdminBookingsPage() {
                                                     </span>
                                                 )}
                                             </h4>
-                                            <p className="text-slate-400 text-[10px] font-mono uppercase tracking-wider">
-                                                ID: {passenger.booking_id}
-                                            </p>
+                                            <div className="flex items-center gap-4">
+                                                <p className="text-slate-400 text-[10px] font-mono uppercase tracking-wider">
+                                                    ID: {passenger.booking_id}
+                                                </p>
+                                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                                                    Price: ₹{parseFloat((parseFloat(passenger.charged_price) > 0 || passenger.is_infant) ? passenger.charged_price : passenger.flight_details.price).toLocaleString('en-IN')}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -337,11 +342,11 @@ export default function AdminBookingsPage() {
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Email</label>
-                                            <div className="text-slate-800 font-medium text-sm break-all">{passenger.passenger_email}</div>
+                                            <div className="text-slate-800 font-medium text-sm break-all">{passenger.passenger_email || '-'}</div>
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Phone</label>
-                                            <div className="text-slate-800 font-medium text-sm">{passenger.passenger_phone}</div>
+                                            <div className="text-slate-800 font-medium text-sm">{passenger.passenger_phone || '-'}</div>
                                         </div>
                                         {passenger.date_of_birth && (
                                             <div>
