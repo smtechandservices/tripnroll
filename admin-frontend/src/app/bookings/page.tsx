@@ -150,7 +150,7 @@ export default function AdminBookingsPage() {
     const handleReject = async (bookingId?: string, bookingGroup?: string) => {
         // Handle artificial IDs generated for individual bookings
         const isArtificialGroup = bookingGroup?.startsWith('IND-');
-        const effectiveBookingId = isArtificialGroup ? bookingGroup.replace('IND-', '') : bookingId;
+        const effectiveBookingId = (isArtificialGroup && bookingGroup) ? bookingGroup.replace('IND-', '') : bookingId;
         const effectiveGroup = isArtificialGroup ? undefined : bookingGroup;
 
         const isGroup = !!effectiveGroup;
