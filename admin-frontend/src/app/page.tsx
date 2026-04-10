@@ -57,8 +57,8 @@ export default function AdminDashboard() {
                 <th className="pb-3 font-medium">Passenger</th>
                 <th className="pb-3 font-medium">Flight</th>
                 <th className="pb-3 font-medium">Date</th>
-                <th className="pb-3 font-medium text-center">PNR Status</th>
-                <th className="pb-3 font-medium text-center">Payment Status</th>
+                <th className="pb-3 font-medium">PNR Status</th>
+                <th className="pb-3 font-medium">Payment Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
