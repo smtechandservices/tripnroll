@@ -10,6 +10,7 @@ export interface Flight {
     arrival_time: string;
     duration: string;
     price: string;
+    infant_price?: string;
     stops: number;
     stop_details?: string;
     available_seats?: number;
@@ -36,7 +37,9 @@ export interface Booking {
     frequent_flyer_number?: string;
     travel_date: string;
     booking_id: string;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUND_REQUESTED' | 'REFUNDED';
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REJECTED' | 'REFUND_REQUESTED' | 'REFUNDED';
+    payment_status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REJECTED' | 'REFUND REQUESTED' | 'REFUNDED';
+    flight_status: 'PENDING' | 'CONFIRMED';
     created_at: string;
     booked_by: {
         id: number;
@@ -364,11 +367,11 @@ export async function getAdminBookings(page: number = 1, search: string = '', st
     return res.json();
 }
 
-export async function processRefund(bookingId: string, amount: number): Promise<{ message: string; refunded_amount: number; new_status: string }> {
+export async function processRefund(bookingId?: string, bookingGroup?: string, amount?: number): Promise<{ message: string; total_refunded: number; processed_count: number }> {
     const res = await fetch(`${API_BASE_URL}/admin/refund/process/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ booking_id: bookingId, amount })
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup, amount })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -377,11 +380,24 @@ export async function processRefund(bookingId: string, amount: number): Promise<
     return res.json();
 }
 
-export async function cancelRefundRequest(bookingId: string): Promise<{ message: string; status: string }> {
+export async function rejectBooking(bookingId?: string, bookingGroup?: string): Promise<{ message: string; total_refunded: number; processed_count: number }> {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/reject/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to reject booking');
+    }
+    return res.json();
+}
+
+export async function cancelRefundRequest(bookingId?: string, bookingGroup?: string): Promise<{ message: string; count: number }> {
     const res = await fetch(`${API_BASE_URL}/admin/refund/cancel/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ booking_id: bookingId })
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

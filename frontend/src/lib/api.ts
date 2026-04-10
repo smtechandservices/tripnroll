@@ -10,6 +10,7 @@ export interface Flight {
     arrival_time: string;
     duration: string;
     price: string;
+    infant_price?: string;
     stops: number;
     stop_details?: string;
     available_seats?: number;
@@ -36,7 +37,9 @@ export interface Booking {
     travel_date: string;
     booking_id: string;
     booking_group?: string;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUND_REQUESTED' | 'REFUNDED';
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REJECTED' | 'REFUND_REQUESTED' | 'REFUNDED';
+    payment_status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REJECTED' | 'REFUND REQUESTED' | 'REFUNDED';
+    flight_status: 'PENDING' | 'CONFIRMED';
     created_at: string;
     pnr?: string | null;
     payment_mode?: 'WALLET';
@@ -327,10 +330,11 @@ export async function submitContactMessage(data: ContactMessage): Promise<void> 
     if (!res.ok) throw new Error('Failed to submit message');
 }
 
-export async function requestRefund(bookingId: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/bookings/refund/${bookingId}/`, {
-        method: 'PATCH',
+export async function requestRefund(bookingId?: string, bookingGroup?: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/bookings/refund/`, {
+        method: 'POST',
         headers: getAuthHeaders(),
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

@@ -27,6 +27,8 @@ class UserSerializer(serializers.ModelSerializer):
         
         # Update User fields (username, etc.)
         for attr, value in validated_data.items():
+            if attr == 'username':
+                value = value.lower()
             setattr(instance, attr, value)
         instance.save()
 
@@ -55,11 +57,13 @@ class RegisterSerializer(serializers.ModelSerializer):
             'phone_number': validated_data.pop('phone_number', ''),
             'address': validated_data.pop('address', '')
         }
-        # Use email as username for strictly email-based system
-        username = validated_data.get('username') or validated_data['email']
+        # Use email as username for strictly email-based system, always lowercase
+        email = validated_data['email'] # Keep email case as provided
+        username = (validated_data.get('username') or email).lower()
+        
         user = User.objects.create_user(
             username,
-            validated_data['email'],
+            email,
             validated_data['password']
         )
         UserProfile.objects.create(user=user, **profile_data)
@@ -89,20 +93,56 @@ class FlightSerializer(serializers.ModelSerializer):
 
 class BookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)
+    payment_status = serializers.SerializerMethodField()
+    flight_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = '__all__'
         read_only_fields = ('booking_id', 'status', 'created_at', 'booked_by', 'booking_group', 'pnr', 'payment_mode', 'is_infant', 'charged_price')
 
+    def get_payment_status(self, obj):
+        """User-facing payment/booking state."""
+        mapping = {
+            'CONFIRMED': 'CONFIRMED',
+            'PENDING': 'PENDING',
+            'CANCELLED': 'CANCELLED',
+            'REJECTED': 'REJECTED',
+            'REFUND_REQUESTED': 'REFUND REQUESTED',
+            'REFUNDED': 'REFUNDED',
+        }
+        return mapping.get(obj.status, obj.status)
+
+    def get_flight_status(self, obj):
+        """Whether the airline has assigned a PNR."""
+        return 'CONFIRMED' if obj.pnr else 'PENDING'
+
 class AdminBookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)
     booked_by = UserSerializer(read_only=True)
+    payment_status = serializers.SerializerMethodField()
+    flight_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = '__all__'
         read_only_fields = ('booking_id', 'created_at', 'booked_by', 'booking_group', 'payment_mode')
+
+    def get_payment_status(self, obj):
+        """User-facing payment/booking state."""
+        mapping = {
+            'CONFIRMED': 'CONFIRMED',
+            'PENDING': 'PENDING',
+            'CANCELLED': 'CANCELLED',
+            'REJECTED': 'REJECTED',
+            'REFUND_REQUESTED': 'REFUND REQUESTED',
+            'REFUNDED': 'REFUNDED',
+        }
+        return mapping.get(obj.status, obj.status)
+
+    def get_flight_status(self, obj):
+        """Whether the airline has assigned a PNR."""
+        return 'CONFIRMED' if obj.pnr else 'PENDING'
 
 class ContactMessageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -120,6 +160,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         profile_data = validated_data.pop('profile', {})
         password = validated_data.pop('password', 'tripnroll123') # Default password if not provided
+        
+        if 'username' in validated_data:
+            validated_data['username'] = validated_data['username'].lower()
+        # email is preserved as provided
+            
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
@@ -133,6 +178,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
         profile_data = validated_data.pop('profile', None)
         
         for attr, value in validated_data.items():
+            if attr == 'username':
+                value = value.lower()
             setattr(instance, attr, value)
         instance.save()
 

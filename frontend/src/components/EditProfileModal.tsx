@@ -76,7 +76,7 @@ export function EditProfileModal() {
 
         try {
             await updateProfile({
-                username: username,
+                username: username.toLowerCase(),
                 phone_number: phone,
                 address: address,
             });

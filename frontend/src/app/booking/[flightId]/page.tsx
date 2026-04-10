@@ -18,11 +18,11 @@ export default function BookingPage() {
 
     const [flight, setFlight] = useState<Flight | null>(null);
     const [loading, setLoading] = useState(true);
-    const [passengerCounts, setPassengerCounts] = useState({ adults: 1, infants: 0 });
+    const [passengerCounts, setPassengerCounts] = useState({ adults: 1, infants: 0, infantPrice: 0 });
 
-    const handlePassengersChange = useCallback((counts: { adults: number; infants: number }) => {
+    const handlePassengersChange = useCallback((counts: { adults: number; infants: number; infantPrice: number }) => {
         setPassengerCounts(prev => {
-            if (prev.adults === counts.adults && prev.infants === counts.infants) return prev;
+            if (prev.adults === counts.adults && prev.infants === counts.infants && prev.infantPrice === counts.infantPrice) return prev;
             return counts;
         });
     }, []);
@@ -81,7 +81,8 @@ export default function BookingPage() {
     const isInternational = isInternationalFlight(flight.origin, flight.destination);
 
     const unitPrice = parseFloat(flight.price);
-    const totalPrice = unitPrice * passengerCounts.adults;
+    const infantPriceVal = parseFloat(flight.infant_price || '0');
+    const totalPrice = (unitPrice * passengerCounts.adults) + (infantPriceVal * passengerCounts.infants);
 
 
     return (
@@ -169,13 +170,13 @@ export default function BookingPage() {
                                         )}
                                         {passengerCounts.infants > 0 && (
                                             <div className="text-[10px] text-blue-500 font-bold flex justify-between">
-                                                <span>Infants (FREE x {passengerCounts.infants})</span>
-                                                <span>₹0</span>
+                                                <span>Infants {infantPriceVal > 0 ? `(₹${infantPriceVal.toLocaleString('en-IN')} x ${passengerCounts.infants})` : `(FREE x ${passengerCounts.infants})`}</span>
+                                                <span>₹{(infantPriceVal * passengerCounts.infants).toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                     </div>
                                     <div className="mt-4 pt-4 border-t border-slate-100 italic text-[14px] text-slate-400">
-                                        Note: This booking is non-refundable.
+                                        Note: This booking is non-refundable and non-changeable.
                                     </div>
                                 </div>
                             </div>

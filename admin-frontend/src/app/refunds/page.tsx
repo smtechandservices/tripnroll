@@ -28,34 +28,43 @@ export default function RefundPage() {
         fetchRefundRequests(activeTab);
     }, [activeTab]);
 
-    const handleProcessRefund = async (booking: Booking) => {
-        const maxRefund = parseFloat(booking.flight_details.price);
+    const handleProcessRefund = async (groupKey: string, groupBookings: Booking[]) => {
+        const isGroup = !groupKey.startsWith('IND-');
+        
+        // Calculate Total Max Refund for the Group
+        let totalMaxRefund = 0;
+        groupBookings.forEach(booking => {
+            const cp = parseFloat(booking.charged_price);
+            const fp = parseFloat(booking.flight_details.price);
+            totalMaxRefund += (cp > 0 || booking.is_infant) ? cp : fp;
+        });
 
         // Custom Swal with input for refund amount
         const result = await Swal.fire({
-            title: 'Process Refund',
+            title: isGroup ? 'Process Group Refund' : 'Process Refund',
             html: `
                 <div class="text-left">
-                    <p class="mb-2 text-sm text-slate-500">Booking ID: <strong class="text-slate-900">${booking.booking_id}</strong></p>
-                    <p class="mb-2 text-sm text-slate-500">Passenger: <strong class="text-slate-900">${booking.first_name} ${booking.last_name}</strong></p>
+                    <p class="mb-2 text-sm text-slate-500">${isGroup ? 'Group ID' : 'Booking ID'}: <strong class="text-slate-900">${groupKey}</strong></p>
+                    <p class="mb-2 text-sm text-slate-500">Passengers: <strong class="text-slate-900">${groupBookings.length}</strong></p>
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
-                        <p class="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Max Refund Amount</p>
-                        <p class="text-xl font-bold text-blue-800">₹${maxRefund.toLocaleString('en-IN')}</p>
+                        <p class="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Total Group Cost</p>
+                        <p class="text-xl font-bold text-blue-800">₹${totalMaxRefund.toLocaleString('en-IN')}</p>
                     </div>
+                    <p class="text-xs text-slate-400">Total refund amount will be distributed proportionally across all passengers in this group.</p>
                 </div>
             `,
             input: 'number',
-            inputLabel: 'Refund Amount (₹)',
-            inputValue: maxRefund,
+            inputLabel: 'Total Refund Amount (₹)',
+            inputValue: totalMaxRefund,
             inputAttributes: {
                 min: '0',
-                max: maxRefund.toString(),
+                max: totalMaxRefund.toString(),
                 step: '0.01'
             },
             showCancelButton: true,
-            confirmButtonText: 'Process Refund',
-            confirmButtonColor: '#2563eb', // blue-600
-            cancelButtonColor: '#64748b', // slate-500
+            confirmButtonText: 'Process Group Refund',
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#64748b',
             showLoaderOnConfirm: true,
             preConfirm: async (amount) => {
                 if (!amount) {
@@ -63,14 +72,16 @@ export default function RefundPage() {
                     return false;
                 }
                 const numAmount = parseFloat(amount);
-                if (numAmount <= 0 || numAmount > maxRefund) {
-                    Swal.showValidationMessage(`Amount must be between 0 and ${maxRefund}`);
+                if (numAmount < 0 || numAmount > totalMaxRefund) {
+                    Swal.showValidationMessage(`Amount must be between 0 and ${totalMaxRefund}`);
                     return false;
                 }
 
                 try {
-                    const result = await processRefund(booking.booking_id, numAmount);
-                    return result;
+                    const res = isGroup 
+                        ? await processRefund(undefined, groupKey, numAmount)
+                        : await processRefund(groupBookings[0].booking_id, undefined, numAmount);
+                    return res;
                 } catch (error: any) {
                     Swal.showValidationMessage(`Request failed: ${error.message}`);
                     return false;
@@ -82,28 +93,35 @@ export default function RefundPage() {
         if (result.isConfirmed && result.value) {
             Swal.fire({
                 title: 'Refund Processed!',
-                text: `Successfully refunded ₹${parseFloat(result.value.refunded_amount).toLocaleString('en-IN')} to user wallet.`,
+                text: `Successfully refunded ₹${parseFloat(result.value.total_refunded as any).toLocaleString('en-IN')} for ${result.value.processed_count} passenger(s).`,
                 icon: 'success'
             });
             fetchRefundRequests();
         }
     };
 
-    const handleCancelRefund = async (booking: Booking) => {
+    const handleCancelRefund = async (groupKey: string, groupBookings: Booking[]) => {
+        const isGroup = !groupKey.startsWith('IND-');
         const result = await Swal.fire({
-            title: 'Reject & Cancel Refund?',
-            text: `Are you sure you want to reject the refund request for ${booking.first_name} ${booking.last_name}? The booking will revert to CONFIRMED.`,
+            title: isGroup ? 'Reject Group Refund?' : 'Reject Refund?',
+            text: isGroup 
+                ? `Are you sure you want to reject and cancel the refund requests for all ${groupBookings.length} passengers in this group?`
+                : `Are you sure you want to reject the refund request for ${groupBookings[0].first_name} ${groupBookings[0].last_name}?`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#64748b',
-            confirmButtonText: 'Yes, reject it!'
+            confirmButtonText: 'Yes, reject group!'
         });
 
         if (result.isConfirmed) {
             try {
-                await cancelRefundRequest(booking.booking_id);
-                Swal.fire('Rejected!', 'The refund request has been rejected and cancelled.', 'success');
+                if (isGroup) {
+                    await cancelRefundRequest(undefined, groupKey);
+                } else {
+                    await cancelRefundRequest(groupBookings[0].booking_id);
+                }
+                Swal.fire('Rejected!', 'The refund request(s) have been rejected.', 'success');
                 fetchRefundRequests();
             } catch (error: any) {
                 Swal.fire('Error!', error.message || 'Failed to cancel refund.', 'error');
@@ -161,7 +179,7 @@ export default function RefundPage() {
                             {activeTab === 'completed' && (
                                 <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Refunded</th>
                             )}
-                            <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs text-right">
+                            <th colSpan={2} className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs text-right">
                                 {activeTab === 'pending' ? 'Action' : 'Status'}
                             </th>
                         </tr>
@@ -261,7 +279,11 @@ export default function RefundPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 font-bold text-slate-900">
-                                                            ₹{parseFloat(booking.flight_details.price).toLocaleString('en-IN')}
+                                                            ₹{(() => {
+                                                                const cp = parseFloat(booking.charged_price);
+                                                                const fp = parseFloat(booking.flight_details.price);
+                                                                return ((cp > 0 || booking.is_infant) ? cp : fp).toLocaleString('en-IN');
+                                                            })()}
                                                         </td>
                                                         {activeTab === 'completed' && (
                                                             <td className="px-6 py-4">
@@ -270,24 +292,8 @@ export default function RefundPage() {
                                                                 </span>
                                                             </td>
                                                         )}
-                                                        <td className="px-6 py-4 text-right">
-                                                            {activeTab === 'pending' ? (
-                                                                <div className="flex items-center justify-end gap-2">
-                                                                    <button
-                                                                        onClick={() => handleCancelRefund(booking)}
-                                                                        className="cursor-pointer inline-flex items-center px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-50 transition-colors shadow-sm"
-                                                                        title="Reject & Cancel Refund"
-                                                                    >
-                                                                        Reject
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleProcessRefund(booking)}
-                                                                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:translate-y-0.5"
-                                                                    >
-                                                                        Process Refund
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
+                                                        <td colSpan={2} className="px-6 py-4 text-right">
+                                                            {activeTab === 'completed' && (
                                                                 <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                                                                     ✓ Refunded
                                                                 </span>
@@ -296,6 +302,57 @@ export default function RefundPage() {
                                                     </tr>
                                                 );
                                             })}
+                                            {/* Group Summary Row */}
+                                            <tr className={`${groupBgClass} border-b-2 border-slate-200`}>
+                                                <td colSpan={4} className="px-6 py-4 text-slate-500 font-medium italic">
+                                                    Group Total Summary
+                                                </td>
+                                                <td className="px-6 py-4 font-bold text-slate-900">
+                                                    ₹{(() => {
+                                                        let total = 0;
+                                                        groupBookings.forEach(b => {
+                                                            const cp = parseFloat(b.charged_price);
+                                                            const fp = parseFloat(b.flight_details.price);
+                                                            total += (cp > 0 || b.is_infant) ? cp : fp;
+                                                        });
+                                                        return total.toLocaleString('en-IN');
+                                                    })()}
+                                                </td>
+                                                {activeTab === 'completed' && (
+                                                    <td className="px-6 py-4 font-bold text-red-600">
+                                                        -₹{(() => {
+                                                            let total = 0;
+                                                            groupBookings.forEach(b => {
+                                                                total += parseFloat(b.refunded_amount || '0');
+                                                            });
+                                                            return total.toLocaleString('en-IN');
+                                                        })()}
+                                                    </td>
+                                                )}
+                                                <td colSpan={2} className="px-6 py-4 text-right">
+                                                    {activeTab === 'pending' ? (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleCancelRefund(groupKey, groupBookings)}
+                                                                className="cursor-pointer inline-flex items-center px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg text-[10px] font-bold hover:bg-red-50 transition-colors shadow-sm"
+                                                            >
+                                                                Reject Group
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleProcessRefund(groupKey, groupBookings)}
+                                                                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                                                            >
+                                                                Process Group Refund
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 text-green-700 font-bold text-[10px] uppercase tracking-wider bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
+                                                            <CheckCircle className="w-3.5 h-3.5" />
+                                                            Group Fully Processed
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
                                         </Fragment>
                                     );
                                 });

@@ -306,6 +306,67 @@
         "country": "Finland"
     },
     {
+        "code": "HKT",
+        "name": "Phuket International Airport",
+        "city": "Phuket",
+        "country": "Thailand"
+    },
+    {
+        "code": "HAN",
+        "name": "Noi Bai International Airport",
+        "city": "Hanoi",
+        "country": "Vietnam"
+    },
+    {
+        "code": "AMD",
+        "name": "Sardar Vallabhbhai Patel International Airport",
+        "city": "Ahemdabad",
+        "country": "India"
+    },
+    {
+        "code": "HYD",
+        "name": "Rajiv Gandhi International Airport",
+        "city": "Hyderabad",
+        "country": "India"
+    },
+    
+    {
+        "code": "BLR",
+        "name": "Kempegowda International Airport",
+        "city": "Bengaluru",
+        "country": "India"
+    },
+    {
+        "code": "GOI",
+        "name": "Dabolim Airport",
+        "city": "Goa",
+        "country": "India"
+    },
+    {
+        "code": "GOX",
+        "name": "Manohar International Airport",
+        "city": "North Goa",
+        "country": "India"
+    },
+    {
+        "code": "MAA",
+        "name": "Chennai International Airport",
+        "city": "Chennai",
+        "country": "India"
+    },
+    {
+        "code": "LEH",
+        "name": "Kushok Bakula Rimpochee Airport",
+        "city": "Leh",
+        "country": "India"
+    },
+    {
+        "code": "SXR",
+        "name": "Sheikh ul-Alam International Airport",
+        "city": "Srinagar",
+        "country": "India"
+    },
+    {
         "code": "DUB",
         "name": "Dublin Airport",
         "city": "Dublin",

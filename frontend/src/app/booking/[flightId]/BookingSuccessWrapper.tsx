@@ -12,15 +12,17 @@ export function BookingSuccessWrapper({
 }: {
     flight: Flight;
     isInternational: boolean;
-    onPassengersChange?: (counts: { adults: number; infants: number }) => void;
+    onPassengersChange?: (counts: { adults: number; infants: number; infantPrice: number }) => void;
 }) {
     const router = useRouter();
+    const infantPrice = parseFloat(flight.infant_price || '0');
 
     return (
         <BookingForm
             flightId={flight.id}
             departureDate={flight.departure_time}
             isInternational={isInternational}
+            infantPrice={infantPrice}
             onPassengersChange={onPassengersChange}
             onSuccess={(bookingId) => {
                 Swal.fire({

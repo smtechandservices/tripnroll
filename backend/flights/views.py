@@ -197,7 +197,9 @@ class BookingCreateView(generics.CreateAPIView):
                 except (ValueError, TypeError, AttributeError):
                     pass
             
-            if not is_infant:
+            if is_infant:
+                total_cost += flight.infant_price
+            else:
                 total_cost += flight.price
         user = request.user
         profile = user.profile
@@ -279,7 +281,7 @@ class BookingCreateView(generics.CreateAPIView):
                     age = today.year - dob.year - ((today.month, today.day) < (m, d))
                     if age <= 2:
                         is_infant_passenger = True
-                        passenger_charged_price = Decimal('0.00')
+                        passenger_charged_price = flight.infant_price
                 except (ValueError, TypeError, AttributeError):
                     pass
 
@@ -323,7 +325,7 @@ class BookingCreateView(generics.CreateAPIView):
                 age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
                 if age <= 2:
                     is_infant_passenger = True
-                    passenger_charged_price = Decimal('0.00')
+                    passenger_charged_price = flight.infant_price
             except (ValueError, TypeError, AttributeError):
                 pass
 
@@ -527,12 +529,15 @@ class AdminBookingListView(generics.ListAPIView):
         from django.db.models import Sum, F, Q
         from decimal import Decimal
         
-        # Net revenue = Sum of (flight price - refunded amount) for CONFIRMED and REFUNDED bookings
-        confirmed_bookings = Booking.objects.filter(Q(status='CONFIRMED') | Q(status='REFUNDED'))
+        # Calculate net revenue (price - refunded_amount) for the FILTERED queryset
+        # Include CONFIRMED, REFUNDED, and REFUND_REQUESTED
+        revenue_queryset = queryset.filter(status__in=['CONFIRMED', 'REFUNDED', 'REFUND_REQUESTED'])
         total_revenue = Decimal('0.00')
         
-        for booking in confirmed_bookings:
-            net_amount = booking.flight.price - booking.refunded_amount
+        for booking in revenue_queryset:
+            # Fallback for old bookings that don't have charged_price set
+            price_to_use = booking.charged_price if (booking.charged_price > 0 or booking.is_infant) else booking.flight.price
+            net_amount = price_to_use - booking.refunded_amount
             total_revenue += net_amount
 
         page = self.paginate_queryset(queryset)
@@ -562,9 +567,9 @@ class AdminDashboardView(generics.GenericAPIView):
         from django.utils import timezone
         from decimal import Decimal
         
-        # Calculate net revenue (price - refunded_amount) for CONFIRMED and REFUNDED bookings
+        # Calculate net revenue (price - refunded_amount) for CONFIRMED, REFUNDED, and REFUND_REQUESTED bookings
         # Revenue should arguably include past flights too, so we keep this as is for total lifetime revenue
-        confirmed_bookings = Booking.objects.filter(Q(status='CONFIRMED') | Q(status='REFUNDED'))
+        confirmed_bookings = Booking.objects.filter(status__in=['CONFIRMED', 'REFUNDED', 'REFUND_REQUESTED'])
         total_revenue = Decimal('0.00')
         
         for booking in confirmed_bookings:
@@ -621,6 +626,7 @@ class LoginView(ObtainAuthToken):
             # Fallback for username-based login if needed, but the requirement is email
             username = request.data.get('username')
             if username:
+                username = username.lower()
                 try:
                     user = User.objects.get(username=username)
                     email = user.email
@@ -629,6 +635,7 @@ class LoginView(ObtainAuthToken):
             else:
                 return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        email = email # Preserve email case
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -800,23 +807,76 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
         user = self.get_object()
         profile = user.profile
         
+        from decimal import Decimal
+        old_balance = profile.wallet_balance
+        old_limit = profile.credit_limit
+        old_dues = profile.total_dues
+        
+        # Current working values
+        curr_balance = old_balance
+        curr_limit = old_limit
+        curr_dues = old_dues
+        
+        any_change = False
+
+        # 1. Credit Limit
         credit_limit = request.data.get('credit_limit')
         if credit_limit is not None:
-            profile.credit_limit = credit_limit
+            new_limit = Decimal(str(credit_limit))
+            if new_limit != old_limit:
+                diff = new_limit - old_limit
+                curr_limit = new_limit
+                WalletTransaction.objects.create(
+                    user=user,
+                    amount=abs(diff),
+                    transaction_type='CREDIT' if diff >= 0 else 'DEBIT',
+                    description=f"Admin Adjustment: Credit limit from {old_limit} to {new_limit}",
+                    balance_after=curr_balance,
+                    dues_after=curr_dues
+                )
+                any_change = True
         
-        # Admin can also manually adjust balance/dues if needed, 
-        # but primarily this is for credit limit.
-        # Let's allow manual adjustment for now.
+        # 2. Wallet Balance
         wallet_balance = request.data.get('wallet_balance')
         if wallet_balance is not None:
-            profile.wallet_balance = wallet_balance
+            new_balance = Decimal(str(wallet_balance))
+            if new_balance != old_balance:
+                diff = new_balance - old_balance
+                curr_balance = new_balance
+                WalletTransaction.objects.create(
+                    user=user,
+                    amount=abs(diff),
+                    transaction_type='CREDIT' if diff >= 0 else 'DEBIT',
+                    description=f"Admin Adjustment: Wallet balance from {old_balance} to {new_balance}",
+                    balance_after=curr_balance,
+                    dues_after=curr_dues
+                )
+                any_change = True
             
+        # 3. Total Dues
         total_dues = request.data.get('total_dues')
         if total_dues is not None:
-            profile.total_dues = total_dues
+            new_dues = Decimal(str(total_dues))
+            if new_dues != old_dues:
+                diff = new_dues - old_dues
+                curr_dues = new_dues
+                # Note: Increase in dues is a DEBIT to spending power
+                WalletTransaction.objects.create(
+                    user=user,
+                    amount=abs(diff),
+                    transaction_type='DEBIT' if diff >= 0 else 'CREDIT',
+                    description=f"Admin Adjustment: Total dues from {old_dues} to {new_dues}",
+                    balance_after=curr_balance,
+                    dues_after=curr_dues
+                )
+                any_change = True
 
-        profile.save()
-        
+        if any_change:
+            profile.credit_limit = curr_limit
+            profile.wallet_balance = curr_balance
+            profile.total_dues = curr_dues
+            profile.save()
+            
         return Response({
             'message': 'Wallet updated successfully',
             'wallet_balance': profile.wallet_balance,
@@ -824,127 +884,257 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
             'total_dues': profile.total_dues
         })
 
-class RefundRequestView(generics.UpdateAPIView):
+class RefundRequestView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = BookingSerializer
-    queryset = Booking.objects.all()
-    lookup_field = 'booking_id'
-
-    def update(self, request, *args, **kwargs):
-        booking = self.get_object()
+    
+    def post(self, request):
+        booking_id = request.data.get('booking_id')
+        booking_group = request.data.get('booking_group')
         
-        # Verify ownership
-        if booking.booked_by != request.user:
-            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        if not booking_id and not booking_group:
+            return Response({'error': 'Booking ID or Booking Group required'}, status=status.HTTP_400_BAD_REQUEST)
             
-        if booking.status != 'CONFIRMED':
-            return Response({'error': 'Only confirmed bookings can be refunded'}, status=status.HTTP_400_BAD_REQUEST)
+        if booking_group:
+            bookings = Booking.objects.filter(booking_group=booking_group, booked_by=request.user)
+        else:
+            bookings = Booking.objects.filter(booking_id=booking_id, booked_by=request.user)
             
-        booking.status = 'REFUND_REQUESTED'
-        booking.save()
+        if not bookings.exists():
+            return Response({'error': 'No matching bookings found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        eligible_bookings = bookings.filter(status='CONFIRMED')
+        if not eligible_bookings.exists():
+            # Check if they are already requested
+            if bookings.filter(status='REFUND_REQUESTED').exists():
+                 return Response({'error': 'Refund already requested for this group/booking'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'No confirmed bookings found to refund'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        count = eligible_bookings.update(status='REFUND_REQUESTED')
         
-        return Response({'message': 'Refund requested successfully', 'status': booking.status})
+        return Response({
+            'message': f'Refund requested successfully for {count} passenger(s)',
+            'count': count
+        })
 
 class AdminCancelRefundView(generics.GenericAPIView):
     permission_classes = [IsAdminType]
     
     def post(self, request):
         booking_id = request.data.get('booking_id')
-        if not booking_id:
-            return Response({'error': 'Booking ID required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            booking = Booking.objects.get(booking_id=booking_id)
-        except Booking.DoesNotExist:
-            return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
-            
-        if booking.status != 'REFUND_REQUESTED':
-            return Response({'error': 'No active refund request to cancel'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        booking.status = 'CONFIRMED'
-        booking.save()
+        booking_group = request.data.get('booking_group')
         
-        return Response({'message': 'Refund request cancelled successfully', 'status': booking.status})
+        if not booking_id and not booking_group:
+            return Response({'error': 'Booking ID or Booking Group required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if booking_group:
+            bookings = Booking.objects.filter(booking_group=booking_group, status='REFUND_REQUESTED')
+        else:
+            bookings = Booking.objects.filter(booking_id=booking_id, status='REFUND_REQUESTED')
+            
+        if not bookings.exists():
+            return Response({'error': 'No active refund requests found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        count = bookings.update(status='CONFIRMED')
+        
+        return Response({
+            'message': f'Refund request(s) cancelled successfully for {count} passenger(s)',
+            'count': count
+        })
 
 class RefundProcessView(generics.GenericAPIView):
     permission_classes = [IsAdminType]
     
     def post(self, request):
         booking_id = request.data.get('booking_id')
-        refund_amount = request.data.get('amount')
+        booking_group = request.data.get('booking_group')
+        total_refund_amount = request.data.get('amount')
         
-        if not booking_id or not refund_amount:
-            return Response({'error': 'Booking ID and amount required'}, status=status.HTTP_400_BAD_REQUEST)
+        if (not booking_id and not booking_group) or total_refund_amount is None:
+            return Response({'error': 'Booking ID/Group and amount required'}, status=status.HTTP_400_BAD_REQUEST)
             
-        try:
-            booking = Booking.objects.get(booking_id=booking_id)
-        except Booking.DoesNotExist:
-            return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+        if booking_group:
+            bookings = Booking.objects.filter(booking_group=booking_group).exclude(status__in=['REFUNDED', 'REJECTED'])
+        else:
+            bookings = Booking.objects.filter(booking_id=booking_id).exclude(status__in=['REFUNDED', 'REJECTED'])
             
-        if booking.status == 'REFUNDED':
-             return Response({'error': 'Booking already refunded'}, status=status.HTTP_400_BAD_REQUEST)
+        if not bookings.exists():
+            return Response({'error': 'No eligible bookings found for refund'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Credit User Wallet
-        user = booking.booked_by
-        if not user:
-             return Response({'error': 'No user associated with this booking'}, status=status.HTTP_400_BAD_REQUEST)
-             
-        profile = user.profile
         from decimal import Decimal
         try:
-            refund_amount = Decimal(str(refund_amount))
+            total_refund_amount = Decimal(str(total_refund_amount))
         except:
              return Response({'error': 'Invalid amount format'}, status=status.HTTP_400_BAD_REQUEST)
              
-        if refund_amount <= 0:
-            return Response({'error': 'Refund amount must be positive'}, status=status.HTTP_400_BAD_REQUEST)
+        if total_refund_amount < 0:
+            return Response({'error': 'Refund amount cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if refund_amount > booking.flight.price:
+        # Calculate Total Cost of selected bookings
+        total_group_cost = Decimal('0.00')
+        individual_costs = []
+        for b in bookings:
+            cost = b.charged_price if (b.charged_price > 0 or b.is_infant) else b.flight.price
+            total_group_cost += cost
+            individual_costs.append({'booking': b, 'cost': cost})
+
+        if total_refund_amount > total_group_cost:
             return Response({
-                'error': f'Refund amount ({refund_amount}) cannot exceed booking cost ({booking.flight.price})'
+                'error': f'Refund amount ({total_refund_amount}) cannot exceed total cost ({total_group_cost})'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Logic: Clear dues first
-        dues_cleared = Decimal('0.00')
-        wallet_added = Decimal('0.00')
 
-        if profile.total_dues > 0:
-            if refund_amount >= profile.total_dues:
-                dues_cleared = profile.total_dues
-                remaining_amount = refund_amount - profile.total_dues
-                profile.total_dues = Decimal('0.00')
-                profile.wallet_balance += remaining_amount
-                wallet_added = remaining_amount
+        # All bookings in a group should ideally belong to the same user who booked them
+        # We take the user from the first booking
+        main_booking = bookings.first()
+        user = main_booking.booked_by
+        if not user:
+             return Response({'error': 'No user associated with this booking'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        # Atomic Transaction for Database Consistency
+        from django.db import transaction
+        with transaction.atomic():
+            # Logic: Clear dues first
+            dues_cleared = Decimal('0.00')
+            wallet_added = Decimal('0.00')
+
+            # Re-fetch profile to prevent race conditions
+            profile = user.profile
+
+            if profile.total_dues > 0:
+                if total_refund_amount >= profile.total_dues:
+                    dues_cleared = profile.total_dues
+                    remaining_amount = total_refund_amount - profile.total_dues
+                    profile.total_dues = Decimal('0.00')
+                    profile.wallet_balance += remaining_amount
+                    wallet_added = remaining_amount
+                else:
+                    dues_cleared = total_refund_amount
+                    profile.total_dues -= total_refund_amount
+                    wallet_added = Decimal('0.00')
             else:
-                dues_cleared = refund_amount
-                profile.total_dues -= refund_amount
-                wallet_added = Decimal('0.00')
-        else:
-            profile.wallet_balance += refund_amount
-            wallet_added = refund_amount
+                profile.wallet_balance += total_refund_amount
+                wallet_added = total_refund_amount
 
-        profile.save()
-        
-        # Update Booking Status and Refunded Amount
-        booking.refunded_amount = refund_amount
-        booking.status = 'REFUNDED'
-        booking.save()
-        
-        # Create Transaction
-        WalletTransaction.objects.create(
-            user=user,
-            amount=refund_amount,
-            transaction_type='CREDIT',
-            description=f"Refund for booking {booking_id}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
-            balance_after=profile.wallet_balance,
-            dues_after=profile.total_dues
-        )
+            profile.save()
+            
+            # Distribute refund amount proportionally across passengers
+            remaining_to_distribute = total_refund_amount
+            for i, item in enumerate(individual_costs):
+                b = item['booking']
+                cost = item['cost']
+                
+                if i == len(individual_costs) - 1:
+                    # Last passenger gets the remainder to avoid rounding issues
+                    p_refund = remaining_to_distribute
+                else:
+                    if total_group_cost > 0:
+                        p_refund = (total_refund_amount * cost / total_group_cost).quantize(Decimal('0.01'))
+                    else:
+                        p_refund = Decimal('0.00')
+                    remaining_to_distribute -= p_refund
+
+                b.refunded_amount = p_refund
+                b.status = 'REFUNDED'
+                b.save()
+            
+            # Create a single transaction log for auditing
+            from .models import WalletTransaction
+            WalletTransaction.objects.create(
+                user=user,
+                amount=total_refund_amount,
+                transaction_type='CREDIT',
+                description=f"Group Refund for {bookings.count()} booking(s). Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+                balance_after=profile.wallet_balance,
+                dues_after=profile.total_dues
+            )
         
         return Response({
-            'message': 'Refund processed successfully', 
-            'refunded_amount': refund_amount,
-            'new_status': booking.status
+            'message': f'Successfully refunded {bookings.count()} booking(s)', 
+            'total_refunded': total_refund_amount,
+            'processed_count': bookings.count()
         })
+
+class AdminBookingRejectView(generics.GenericAPIView):
+    permission_classes = [IsAdminType]
+    
+    def post(self, request):
+        booking_id = request.data.get('booking_id')
+        booking_group = request.data.get('booking_group')
+        
+        if not booking_id and not booking_group:
+            return Response({'error': 'Booking ID or Booking Group required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if booking_group:
+            bookings = Booking.objects.filter(booking_group=booking_group).exclude(status__in=['REJECTED', 'CANCELLED', 'REFUNDED'])
+            if not bookings.exists():
+                return Response({'error': 'No eligible bookings found in this group'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            try:
+                bookings = [Booking.objects.get(booking_id=booking_id)]
+                if bookings[0].status in ['REJECTED', 'CANCELLED', 'REFUNDED']:
+                    return Response({'error': f'Booking already {bookings[0].status.lower()}'}, status=status.HTTP_400_BAD_REQUEST)
+            except Booking.DoesNotExist:
+                return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        from decimal import Decimal
+        total_refunded = Decimal('0.00')
+        processed_count = 0
+
+        for booking in bookings:
+            # Credit User Wallet (Full Refund)
+            user = booking.booked_by
+            if not user:
+                 continue
+                 
+            profile = user.profile
+            
+            # Use charged_price (what was actually paid at booking)
+            refund_amount = booking.charged_price if (booking.charged_price > 0 or booking.is_infant) else booking.flight.price
+
+            # Logic: Clear dues first
+            dues_cleared = Decimal('0.00')
+            wallet_added = Decimal('0.00')
+
+            if profile.total_dues > 0:
+                if refund_amount >= profile.total_dues:
+                    dues_cleared = profile.total_dues
+                    remaining_amount = refund_amount - profile.total_dues
+                    profile.total_dues = Decimal('0.00')
+                    profile.wallet_balance += remaining_amount
+                    wallet_added = remaining_amount
+                else:
+                    dues_cleared = refund_amount
+                    profile.total_dues -= refund_amount
+                    wallet_added = Decimal('0.00')
+            else:
+                profile.wallet_balance += refund_amount
+                wallet_added = refund_amount
+
+            profile.save()
+            
+            # Update Booking Status and Refunded Amount
+            booking.refunded_amount = refund_amount
+            booking.status = 'REJECTED'
+            booking.save()
+            
+            # Create Transaction
+            WalletTransaction.objects.create(
+                user=user,
+                amount=refund_amount,
+                transaction_type='CREDIT',
+                description=f"Refund for REJECTED booking {booking.booking_id}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+                balance_after=profile.wallet_balance,
+                dues_after=profile.total_dues
+            )
+            
+            total_refunded += refund_amount
+            processed_count += 1
+        
+        return Response({
+            'message': f'Successfully rejected {processed_count} booking(s)', 
+            'total_refunded': total_refunded,
+            'processed_count': processed_count
+        })
+
 
 
 class AdminContactMessageListView(generics.ListAPIView):
@@ -963,6 +1153,23 @@ class SubmitKYCView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         profile = self.get_object()
+        
+        # Mandatory fields check
+        required_fields = ['aadhar_number', 'pan_number', 'gst_number']
+        required_files = ['brand_logo', 'aadhar_card_doc', 'pan_card_doc']
+        
+        errors = {}
+        for field in required_fields:
+            if not request.data.get(field):
+                errors[field] = ["This field is required."]
+        
+        for file_field in required_files:
+            if not request.FILES.get(file_field) and not getattr(profile, file_field):
+                errors[file_field] = ["Document upload is required."]
+        
+        if errors:
+            return Response({'error': 'Missing mandatory KYC data', 'details': errors}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(profile, data=request.data, partial=True)
         
         if serializer.is_valid():

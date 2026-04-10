@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAdminBookings, updateBooking, Booking } from '@/lib/api';
+import { getAdminBookings, updateBooking, rejectBooking, Booking } from '@/lib/api';
 import { Search, X } from 'lucide-react';
 // import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
@@ -28,6 +28,8 @@ interface GroupedBooking {
     travel_date: string;
     created_at: string;
     status: string;
+    payment_status: string;
+    flight_status: string;
     passengers: Booking[];
     total_price: number;
     payment_mode: string;
@@ -75,6 +77,8 @@ export default function AdminBookingsPage() {
                         travel_date: booking.travel_date,
                         created_at: booking.created_at,
                         status: booking.status,
+                        payment_status: booking.payment_status,
+                        flight_status: booking.flight_status,
                         passengers: [],
                         total_price: 0,
                         payment_mode: booking.payment_mode || 'WALLET',
@@ -143,6 +147,50 @@ export default function AdminBookingsPage() {
         }
     };
 
+    const handleReject = async (bookingId?: string, bookingGroup?: string) => {
+        // Handle artificial IDs generated for individual bookings
+        const isArtificialGroup = bookingGroup?.startsWith('IND-');
+        const effectiveBookingId = isArtificialGroup ? bookingGroup.replace('IND-', '') : bookingId;
+        const effectiveGroup = isArtificialGroup ? undefined : bookingGroup;
+
+        const isGroup = !!effectiveGroup;
+
+        const result = await Swal.fire({
+            title: isGroup ? 'Reject Entire Group?' : 'Are you sure?',
+            text: isGroup 
+                ? "All eligible passengers in this group will be rejected and the user will be refunded the full amount."
+                : "This booking will be rejected and the user will be refunded the full amount.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: isGroup ? 'Yes, reject group!' : 'Yes, reject it!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const data = await rejectBooking(effectiveBookingId, effectiveGroup);
+                
+                // Refresh list to update all states correctly
+                fetchBookings(currentPage, debouncedSearch);
+                if (selectedGroup) {
+                    setSelectedGroup(null);
+                }
+
+                Swal.fire(
+                    'Rejected!',
+                    isGroup 
+                        ? `Successfully rejected ${data.processed_count} booking(s) and refunded ₹${parseFloat(data.total_refunded as any).toLocaleString('en-IN')}.`
+                        : `Successfully rejected the booking and refunded ₹${parseFloat(data.total_refunded as any).toLocaleString('en-IN')}.`,
+                    'success'
+                );
+            } catch (error: any) {
+                console.error('Failed to reject booking', error);
+                Swal.fire('Error', error.message || 'Failed to reject booking', 'error');
+            }
+        }
+    };
+
     if (loading && groupedBookings.length === 0) return <div>Loading bookings...</div>;
 
     return (
@@ -180,8 +228,8 @@ export default function AdminBookingsPage() {
                                 <th className="px-6 py-4 font-medium text-slate-500">Passengers</th>
                                 <th className="px-6 py-4 font-medium text-slate-500">Total Price</th>
                                 <th className="px-6 py-4 font-medium text-slate-500">Refunded</th>
-                                <th className="px-6 py-4 font-medium text-slate-500">Payment</th>
-                                <th className="px-6 py-4 font-medium text-slate-500">Status</th>
+                                <th className="px-6 py-4 font-medium text-slate-500 text-center">PNR Status</th>
+                                <th className="px-6 py-4 font-medium text-slate-500 text-center">Payment Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -244,15 +292,21 @@ export default function AdminBookingsPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${group.payment_mode === 'WALLET' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                                {group.payment_mode}
-                                            </span>
+                                            {/* Flight Status Badge */}
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
+                                                group.flight_status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {group.flight_status}
+                                            </span>                     
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${group.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                                                group.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
+                                            {/* Payment Status Badge */}
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
+                                                group.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
+                                                group.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                                                group.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                'bg-slate-100 text-slate-700'
+                                            }`}>
                                                 {group.status}
                                             </span>
                                         </td>
@@ -331,6 +385,14 @@ export default function AdminBookingsPage() {
                                                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
                                                     Price: ₹{parseFloat((parseFloat(passenger.charged_price) > 0 || passenger.is_infant) ? passenger.charged_price : passenger.flight_details.price).toLocaleString('en-IN')}
                                                 </p>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
+                                                    passenger.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
+                                                    passenger.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                                                    passenger.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                    'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                    {passenger.status}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -416,7 +478,17 @@ export default function AdminBookingsPage() {
                             )})}
                         </div>
 
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center px-6">
+                            <div className="flex gap-2">
+                                {selectedGroup.passengers.some(p => p.status !== 'REJECTED' && p.status !== 'CANCELLED' && p.status !== 'REFUNDED') && (
+                                    <button
+                                        onClick={() => handleReject(undefined, selectedGroup.booking_group)}
+                                        className="cursor-pointer px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-all text-xs border border-red-100"
+                                    >
+                                        Reject Group
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 onClick={() => setSelectedGroup(null)}
                                 className="cursor-pointer px-8 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm text-sm"

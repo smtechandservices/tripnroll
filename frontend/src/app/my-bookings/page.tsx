@@ -48,10 +48,15 @@ export default function MyBookingsPage() {
         setIsRefreshing(false);
     };
 
-    const handleRequestRefund = async (passengersToRefund: Booking[]) => {
+    const handleRequestRefund = async (groupKey: string, passengers: Booking[]) => {
+        const isGroup = !groupKey.startsWith('IND-');
+        const count = passengers.filter(p => p.status === 'CONFIRMED').length;
+
         const result = await Swal.fire({
-            title: 'Request Refund?',
-            text: `Are you sure you want to request a refund for ${passengersToRefund.length} passenger(s) in this booking?`,
+            title: isGroup ? 'Request Group Refund?' : 'Request Refund?',
+            text: isGroup 
+                ? `Are you sure you want to request a refund for all ${count} eligible passenger(s) in this group?`
+                : "Are you sure you want to request a refund for this booking?",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -61,10 +66,15 @@ export default function MyBookingsPage() {
 
         if (result.isConfirmed) {
             try {
-                await Promise.all(passengersToRefund.map(p => requestRefund(p.booking_id)));
+                if (isGroup) {
+                    await requestRefund(undefined, groupKey);
+                } else {
+                    await requestRefund(passengers[0].booking_id);
+                }
+
                 Swal.fire(
                     'Requested!',
-                    'Your refund request has been submitted.',
+                    'Your refund request has been submitted for the entire group.',
                     'success'
                 );
                 fetchBookings(); // Refresh list
@@ -142,7 +152,8 @@ export default function MyBookingsPage() {
 
                         // Check if flight has expired (departure time has passed)
                         const isExpired = new Date(firstPassenger.flight_details.departure_time) < new Date();
-                        const displayStatus = isExpired ? 'EXPIRED' : firstPassenger.status;
+                        const paymentStatus = isExpired ? 'EXPIRED' : firstPassenger.payment_status;
+                        const flightStatus = isExpired ? 'EXPIRED' : firstPassenger.flight_status;
 
                         return (
                             <div
@@ -158,7 +169,7 @@ export default function MyBookingsPage() {
                                             {/* Header with Airline and Status */}
                                             <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' :
                                                 firstPassenger.status === 'REFUNDED' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-                                                    firstPassenger.status === 'CANCELLED' ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                                                    (firstPassenger.status === 'CANCELLED' || firstPassenger.status === 'REJECTED') ? 'bg-gradient-to-r from-red-500 to-red-600' :
                                                         firstPassenger.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
                                                             'bg-gradient-to-r from-green-600 to-emerald-600'
                                                 } text-white px-6 py-4 flex justify-between items-center`}>
@@ -166,17 +177,28 @@ export default function MyBookingsPage() {
                                                     <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
                                                     <div className="text-2xl font-bold">{firstPassenger.flight_details.airline}</div>
                                                 </div>
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex flex-col md:flex-row items-end md:items-center gap-2 md:gap-4">
                                                     {isMulti && (
-                                                        <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold">
+                                                        <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold">
                                                             {passengers.length} Passengers
                                                         </div>
                                                     )}
-                                                    <div className={`${isExpired ? 'bg-red-500/90' :
-                                                        firstPassenger.status === 'PENDING' ? 'bg-yellow-700/30' :
-                                                            'bg-white/20'
-                                                        } backdrop-blur-sm px-4 py-2 rounded-full text-right`}>
-                                                        <div className="font-bold">{displayStatus}</div>
+                                                    
+                                                    {/* Status Badges Container */}
+                                                    <div className="flex gap-2">
+                                                        {/* Payment Status Badge */}
+                                                        <div className={`${isExpired ? 'bg-slate-700/50' : 'bg-white/20'} backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
+                                                            <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Payment</div>
+                                                            <div className="font-bold text-xs uppercase">{paymentStatus}</div>
+                                                        </div>
+                                                        
+                                                        {/* Flight Status Badge */}
+                                                        <div className={`${isExpired ? 'bg-slate-700/50' : 
+                                                            flightStatus === 'PENDING' ? 'bg-yellow-400/30' : 'bg-white/20'
+                                                        } backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
+                                                            <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Flight</div>
+                                                            <div className="font-bold text-xs uppercase">{flightStatus === 'CONFIRMED' ? 'Confirmed' : 'Pending'}</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -276,12 +298,27 @@ export default function MyBookingsPage() {
                                                 </div>
                                             </div>
 
+                                            {/* Pending Confirmation Note */}
+                                            {!isExpired && flightStatus === 'PENDING' && (
+                                                <div className="border-t border-yellow-100 px-6 py-3 bg-yellow-50 flex items-start gap-3">
+                                                    <svg className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                                    </svg>
+                                                    <p className="text-xs text-yellow-700 leading-relaxed">
+                                                        <span className="font-semibold">Booking Pending:</span> Your PNR generation may take up to <span className="font-semibold">60 minutes</span>. Please check back shortly.
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             {/* Refund Action */}
                                             {!isExpired && passengers.some(p => p.status === 'CONFIRMED') && (
-                                                <div className="border-t border-slate-100 p-4">
+                                                <div className="border-t border-slate-100 p-4 bg-slate-50/50 flex justify-between items-center">
+                                                    <div className="text-xs text-slate-500 font-medium">
+                                                        Refund request will apply to all eligible passengers.
+                                                    </div>
                                                     <button
-                                                        onClick={() => handleRequestRefund(passengers.filter(p => p.status === 'CONFIRMED'))}
-                                                        className="cursor-pointer text-sm text-red-500 hover:text-red-700 font-medium underline decoration-red-200 hover:decoration-red-500 underline-offset-4 transition-all"
+                                                        onClick={() => handleRequestRefund(groupKey, passengers)}
+                                                        className="cursor-pointer text-sm text-red-500 hover:text-red-700 font-bold px-4 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-all"
                                                     >
                                                         Request Refund
                                                     </button>
@@ -301,14 +338,21 @@ export default function MyBookingsPage() {
                                                     </span>
                                                 </div>
                                             )}
+                                            {passengers.some(p => p.status === 'REJECTED') && !passengers.some(p => p.status === 'CONFIRMED') && !passengers.some(p => p.status === 'REFUND_REQUESTED') && (
+                                                <div className="border-t border-red-100 p-4 bg-red-50/50">
+                                                    <span className="text-sm text-red-600 font-bold">
+                                                        Booking Rejected & Fully Refunded
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Passenger Details Card - Right (1/3 width) */}
                                 <div className="lg:col-span-1">
-                                    <div className={`bg-white rounded-2xl overflow-hidden h-full shadow-sm border-y-2 ${isExpired ? 'border-slate-400 opacity-75' : 'border-slate-700'}`}>
-                                        <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white px-6 py-4`}>
+                                    <div className={`bg-white rounded-2xl overflow-hidden h-full shadow-sm border-y-2 ${isExpired ? 'border-slate-400 opacity-75' : (firstPassenger.status === 'REJECTED' || firstPassenger.status === 'CANCELLED') ? 'border-red-600' : 'border-slate-700'}`}>
+                                        <div className={`${isExpired ? 'bg-gradient-to-r from-slate-500 to-slate-600' : (firstPassenger.status === 'REJECTED' || firstPassenger.status === 'CANCELLED') ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-green-600 to-emerald-600'} text-white px-6 py-4`}>
                                             <div className="text-xs uppercase tracking-wider opacity-90">Passenger List</div>
                                             <div className="text-lg font-bold mt-1">{passengers.length} Passenger{passengers.length !== 1 ? 's' : ''}</div>
                                         </div>

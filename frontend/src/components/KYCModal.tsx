@@ -44,6 +44,14 @@ export function KYCModal() {
             Swal.fire('Error', 'PAN number must be 10 characters', 'error');
             return;
         }
+        if (!formData.gst_number || formData.gst_number.length !== 15) {
+            Swal.fire('Error', 'Please enter a valid 15-character GST number', 'error');
+            return;
+        }
+        if (!files.aadhar_card_doc || !files.pan_card_doc || !files.brand_logo) {
+            Swal.fire('Error', 'All documents (Aadhar, PAN, and Brand Logo) are mandatory', 'error');
+            return;
+        }
 
         setLoading(true);
         try {
@@ -110,8 +118,9 @@ export function KYCModal() {
                                 className="text-slate-800 w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:border-blue-500 outline-none transition-all"
                             />
                             <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase">Aadhar Card Copy (Optional)</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Aadhar Card Copy <span className="text-red-500">*</span></span>
                                 <input 
+                                    required
                                     type="file" 
                                     accept="image/*,.pdf"
                                     onChange={(e) => handleFileChange(e, 'aadhar_card_doc')}
@@ -133,8 +142,9 @@ export function KYCModal() {
                                 className="text-slate-800 w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:border-blue-500 outline-none transition-all uppercase"
                             />
                             <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase">PAN Card Copy (Optional)</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">PAN Card Copy <span className="text-red-500">*</span></span>
                                 <input 
+                                    required
                                     type="file" 
                                     accept="image/*,.pdf"
                                     onChange={(e) => handleFileChange(e, 'pan_card_doc')}
@@ -145,8 +155,9 @@ export function KYCModal() {
 
                         {/* GST */}
                         <div className="space-y-3">
-                            <label className="block text-sm font-bold text-slate-700">GST Details</label>
+                            <label className="block text-sm font-bold text-slate-700">GST Details <span className="text-red-500">*</span></label>
                             <input
+                                required
                                 type="text"
                                 maxLength={15}
                                 placeholder="15-character GST Number"
@@ -158,10 +169,11 @@ export function KYCModal() {
 
                         {/* Brand Logo */}
                         <div className="space-y-3">
-                            <label className="block text-sm font-bold text-slate-700">Brand Identity</label>
+                            <label className="block text-sm font-bold text-slate-700">Brand Identity <span className="text-red-500">*</span></label>
                             <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase">Brand Logo (Optional)</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Brand Logo <span className="text-red-500">*</span></span>
                                 <input 
+                                    required
                                     type="file" 
                                     accept="image/*"
                                     onChange={(e) => handleFileChange(e, 'brand_logo')}
@@ -175,7 +187,7 @@ export function KYCModal() {
                     <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
                         <AlertCircle className="text-amber-500 shrink-0" size={18} />
                         <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                            Please ensure all provided details and documents are clear and legible. Incorrect or blurred uploads may result in rejection. Uploading supporting documents is recommended but optional.
+                            Please ensure all provided details and documents are clear and legible. All fields and document uploads are mandatory. Incorrect or blurred uploads may result in rejection.
                         </p>
                     </div>
 

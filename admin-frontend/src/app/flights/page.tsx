@@ -147,6 +147,7 @@ export default function AdminFlightsPage() {
                 origin: '',
                 destination: '',
                 price: '',
+                infant_price: '0',
                 stops: 0,
                 stop_details: '',
                 total_seats: 150,
@@ -257,6 +258,7 @@ export default function AdminFlightsPage() {
                 arrival_time: '16:45:00',
                 duration: '02:15:00',
                 price: 5500,
+                infant_price: 500,
                 stops: 0,
                 stop_details: '',
                 total_seats: 180,
@@ -277,6 +279,7 @@ export default function AdminFlightsPage() {
                 arrival_time: '07:30:00',
                 duration: '09:00:00',
                 price: 45000,
+                infant_price: 4500,
                 stops: 1,
                 stop_details: 'DXB',
                 total_seats: 250,
@@ -338,6 +341,7 @@ export default function AdminFlightsPage() {
                         arrival_time: (arrDate && item.arrival_time) ? `${arrDate}T${item.arrival_time}Z` : item.arrival_time || '',
                         duration: item.duration || '',
                         price: item.price || 0,
+                        infant_price: item.infant_price ?? 0,
                         stops: item.stops || 0,
                         stop_details: item.stop_details || '',
                         total_seats: item.total_seats || 150,
@@ -662,7 +666,7 @@ export default function AdminFlightsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Price</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Price (Adult)</label>
                                     <input
                                         type="number"
                                         required
@@ -670,6 +674,18 @@ export default function AdminFlightsPage() {
                                         value={formData.price || ''}
                                         onChange={e => setFormData({ ...formData, price: e.target.value })}
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Infant Price (0-2 Yrs)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="0 for free"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        value={formData.infant_price ?? ''}
+                                        onChange={e => setFormData({ ...formData, infant_price: e.target.value })}
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">Leave 0 for free infant seats</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Duration (hh:mm:ss)</label>

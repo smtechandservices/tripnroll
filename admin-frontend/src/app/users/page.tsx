@@ -142,9 +142,15 @@ export default function UserManagementPage() {
         if (!result.isConfirmed) return;
 
         try {
+            const finalData = {
+                ...formData,
+                username: formData.username.toLowerCase(),
+                email: formData.email
+            };
+
             if (editingUser) {
                 // Remove password from update if empty
-                const updateData = { ...formData };
+                const updateData = { ...finalData };
                 if (!updateData.password) delete (updateData as any).password;
                 await updateAdminUser(editingUser.id, updateData);
                 Swal.fire({
@@ -154,7 +160,7 @@ export default function UserManagementPage() {
                     showConfirmButton: false
                 });
             } else {
-                await createAdminUser(formData);
+                await createAdminUser(finalData);
                 Swal.fire({
                     icon: 'success',
                     title: 'User created successfully',

@@ -53,7 +53,7 @@ export default function SignupPage() {
         }
 
         try {
-            await register(email, password, phone, username);
+            await register(email, password, phone, username.toLowerCase());
             router.push('/login');
 
         } catch (err: unknown) {

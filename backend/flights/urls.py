@@ -8,7 +8,7 @@ from .views import (
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
     UserTopUpRequestListView, AdminTopUpRequestListView, AdminTopUpRequestActionView,
-    RefundRequestView, RefundProcessView, AdminCancelRefundView,
+    RefundRequestView, RefundProcessView, AdminCancelRefundView, AdminBookingRejectView,
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView
 )
@@ -21,7 +21,7 @@ urlpatterns = [
     path('flights/', FlightListView.as_view(), name='flight-list'),
     path('bookings/', BookingCreateView.as_view(), name='booking-create'),
     path('bookings/history/', BookingHistoryView.as_view(), name='booking-history'),
-    path('bookings/refund/<str:booking_id>/', RefundRequestView.as_view(), name='refund-request'),
+    path('bookings/refund/', RefundRequestView.as_view(), name='refund-request'),
     path('contact/', ContactCreateView.as_view(), name='contact-create'),
     path('search-meta/', SearchMetaView.as_view(), name='search-meta'),
     path('available-airlines/', AvailableAirlinesView.as_view(), name='available-airlines'),
@@ -38,6 +38,7 @@ urlpatterns = [
     path('admin/flights/bulk/', AdminFlightBulkCreateView.as_view(), name='admin-flight-bulk-create'),
     path('admin/flights/<int:pk>/', AdminFlightDetailView.as_view(), name='admin-flight-detail'),
     path('admin/bookings/', AdminBookingListView.as_view(), name='admin-booking-list'),
+    path('admin/bookings/reject/', AdminBookingRejectView.as_view(), name='admin-booking-reject'),
     path('admin/bookings/<str:booking_id>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
     path('admin/refund/process/', RefundProcessView.as_view(), name='admin-refund-process'),
     path('admin/refund/cancel/', AdminCancelRefundView.as_view(), name='admin-refund-cancel'),

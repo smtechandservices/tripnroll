@@ -9,6 +9,7 @@ class Flight(models.Model):
     arrival_time = models.DateTimeField()
     duration = models.DurationField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    infant_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     stops = models.IntegerField(default=0)
     stop_details = models.CharField(max_length=255, blank=True, null=True)
     total_seats = models.IntegerField(default=10)
@@ -27,6 +28,7 @@ class Booking(models.Model):
         ('PENDING', 'Pending'),
         ('CONFIRMED', 'Confirmed'),
         ('CANCELLED', 'Cancelled'),
+        ('REJECTED', 'Rejected'),
         ('REFUND_REQUESTED', 'Refund Requested'),
         ('REFUNDED', 'Refunded'),
     ]

@@ -22,11 +22,12 @@ interface BookingFormProps {
     flightId: number;
     departureDate: string; // ISO date string from flight
     isInternational: boolean; // Whether the flight is international
+    infantPrice?: number; // Price for infants (0-2 yrs). Defaults to 0 (free)
     onSuccess: (bookingId: string) => void;
-    onPassengersChange?: (counts: { adults: number; infants: number }) => void;
+    onPassengersChange?: (counts: { adults: number; infants: number; infantPrice: number }) => void;
 }
 
-export function BookingForm({ flightId, departureDate, isInternational, onSuccess, onPassengersChange }: BookingFormProps) {
+export function BookingForm({ flightId, departureDate, isInternational, infantPrice = 0, onSuccess, onPassengersChange }: BookingFormProps) {
     const { user } = useAuth();
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
@@ -87,7 +88,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                     adults++;
                 }
             });
-            onPassengersChange({ adults, infants });
+            onPassengersChange({ adults, infants, infantPrice });
         }
     }, [passengers]); // intentional removal of onPassengersChange from deps to avoid infinite loop with parent arrow functions
 
@@ -358,7 +359,7 @@ export function BookingForm({ flightId, departureDate, isInternational, onSucces
                                     Passenger Information
                                     {isInfant && (
                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold ml-1">
-                                            Infant (FREE)
+                                            Infant {infantPrice > 0 ? `(₹${infantPrice.toLocaleString('en-IN')})` : '(FREE)'}
                                         </span>
                                     )}
                                 </h3>
