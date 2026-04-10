@@ -5,6 +5,7 @@ import { Booking, getBookingHistory, requestRefund } from '@/lib/api';
 import Swal from 'sweetalert2';
 import { Loader2, User as UserIcon, Mail, Phone, Calendar as CalendarIcon, FileText, RefreshCw, Wallet, CreditCard } from 'lucide-react';
 import { RipplesBackground } from '@/components/RipplesBackground';
+import { getAirlineLogo } from '@/lib/airlines';
 
 export default function MyBookingsPage() {
     const { user, isAuthenticated } = useAuth();
@@ -173,9 +174,16 @@ export default function MyBookingsPage() {
                                                         firstPassenger.status === 'PENDING' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
                                                             'bg-gradient-to-r from-green-600 to-emerald-600'
                                                 } text-white px-6 py-4 flex justify-between items-center`}>
-                                                <div>
-                                                    <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
-                                                    <div className="text-2xl font-bold">{firstPassenger.flight_details.airline}</div>
+                                                <div className="flex items-center gap-4">
+                                                    {getAirlineLogo(firstPassenger.flight_details.airline) && (
+                                                        <div className="h-10 w-10 bg-white rounded-full flex mx-auto items-center justify-center p-1 border border-white/20 shadow-sm overflow-hidden flex-shrink-0">
+                                                            <img src={getAirlineLogo(firstPassenger.flight_details.airline)!} alt={firstPassenger.flight_details.airline} className="w-full h-full object-contain" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div className="text-xs uppercase tracking-wider opacity-90">Flight Ticket</div>
+                                                        <div className="text-2xl font-bold">{firstPassenger.flight_details.airline}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="flex flex-col md:flex-row items-end md:items-center gap-2 md:gap-4">
                                                     {isMulti && (

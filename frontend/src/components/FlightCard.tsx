@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
+import { getAirlineLogo } from '@/lib/airlines';
+
 interface FlightCardProps {
     flight: Flight;
     passengers?: number;
@@ -31,14 +33,24 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
 
     const unitPrice = parseFloat(flight.price);
     const totalPrice = unitPrice * passengers;
+    const airlineLogo = getAirlineLogo(flight.airline);
 
     return (
-        <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex-1">
+        <div className="relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
+            <div className="absolute top-0 right-0 bg-slate-50 border-b border-l border-slate-100 px-3 py-1 text-[9px] uppercase tracking-wider text-slate-400 font-semibold rounded-bl-lg">
+                Non-refundable & Non-changeable
+            </div>
+            <div className="flex-1 mt-4 md:mt-0">
                 <div className="flex items-center space-x-4 mb-4">
-                    <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 font-bold text-xl">
-                        {flight.airline[0]}
-                    </div>
+                    {airlineLogo ? (
+                        <div className="h-12 w-12">
+                            <img src={airlineLogo} alt={flight.airline} className="w-full h-full object-contain" />
+                        </div>
+                    ) : (
+                        <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 font-bold text-xl">
+                            {flight.airline[0]}
+                        </div>
+                    )}
                     <div>
                         <h3 className="font-bold text-slate-800">{flight.airline}</h3>
                         <div className="flex items-center gap-2 mt-1">
@@ -126,6 +138,6 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 }

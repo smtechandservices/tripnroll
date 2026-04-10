@@ -317,14 +317,31 @@ export async function getAdminFlights(page: number = 1, search: string = ''): Pr
     return res.json();
 }
 
-export async function bulkCreateFlights(flights: Partial<Flight>[]): Promise<void> {
+export async function bulkCreateFlights(flights: Partial<Flight>[]): Promise<{created: Flight[], duplicate_details: string[]}> {
     const res = await fetch(`${API_BASE_URL}/admin/flights/bulk/`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(flights)
     });
     if (!res.ok) throw new Error('Failed to bulk upload flights');
+    return res.json();
 }
+
+const extractErrorMessage = async (res: Response, defaultMessage: string) => {
+    try {
+        const err = await res.json();
+        const values = Object.values(err);
+        if (values.length > 0) {
+            const firstVal = values[0];
+            if (Array.isArray(firstVal) && typeof firstVal[0] === 'string') {
+                return firstVal[0];
+            } else if (typeof firstVal === 'string') {
+                return firstVal;
+            }
+        }
+    } catch (e) {}
+    return defaultMessage;
+};
 
 export async function createFlight(data: Partial<Flight>): Promise<Flight> {
     const res = await fetch(`${API_BASE_URL}/admin/flights/`, {
@@ -332,7 +349,10 @@ export async function createFlight(data: Partial<Flight>): Promise<Flight> {
         headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to create flight');
+    if (!res.ok) {
+        const msg = await extractErrorMessage(res, 'Failed to create flight');
+        throw new Error(msg);
+    }
     return res.json();
 }
 
@@ -342,7 +362,10 @@ export async function updateFlight(id: number, data: Partial<Flight>): Promise<F
         headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to update flight');
+    if (!res.ok) {
+        const msg = await extractErrorMessage(res, 'Failed to update flight');
+        throw new Error(msg);
+    }
     return res.json();
 }
 

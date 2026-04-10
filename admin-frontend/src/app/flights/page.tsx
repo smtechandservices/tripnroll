@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminFlights, createFlight, updateFlight, deleteFlight, bulkCreateFlights, Flight } from '@/lib/api';
+import { getAirlineLogo, PREDEFINED_AIRLINES } from '@/lib/airlines';
 import { Plus, Edit2, Trash2, Search, X, FileDigit, Download, Eye, EyeOff } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -33,7 +34,7 @@ const parseDDMMYYYYToYYYYMMDD = (dateStr: string) => {
 // Helper to safely get parts from ISO string without throwing RangeError
 const getISOPart = (isoString: string | undefined, part: 'date' | 'time') => {
     if (!isoString) return part === 'date' ? new Date().toISOString().split('T')[0] : '00:00';
-    
+
     // First try simple string split to avoid timezone/Date object issues
     const split = isoString.split('T');
     if (split.length === 2) {
@@ -61,6 +62,7 @@ export default function AdminFlightsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingFlight, setEditingFlight] = useState<Flight | null>(null);
     const [bookedCount, setBookedCount] = useState(0);
+    const [isAirlineDropdownOpen, setIsAirlineDropdownOpen] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState<Partial<Flight>>({});
@@ -167,7 +169,7 @@ export default function AdminFlightsPage() {
             const newHiddenStatus = !flight.is_hidden;
             await updateFlight(flight.id, { is_hidden: newHiddenStatus });
             setFlights(flights.map(f => f.id === flight.id ? { ...f, is_hidden: newHiddenStatus } : f));
-            
+
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -235,11 +237,11 @@ export default function AdminFlightsPage() {
                 timer: 2000,
                 showConfirmButton: false
             });
-        } catch (error) {
+        } catch (error: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Save Failed',
-                text: 'Failed to save flight details.',
+                text: error.message || 'Failed to save flight details.',
             });
         }
     };
@@ -248,8 +250,8 @@ export default function AdminFlightsPage() {
     const downloadSampleExcel = () => {
         const sampleData = [
             {
-                airline: 'Indigo',
-                flight_number: '6E-2134',
+                airline: 'INDIGO',
+                flight_number: '6E 2134',
                 origin: 'DEL',
                 destination: 'BOM',
                 departure_date: '25/10/2026',
@@ -269,8 +271,8 @@ export default function AdminFlightsPage() {
                 'Arrival Terminal': '1'
             },
             {
-                airline: 'Air India',
-                flight_number: 'AI-101',
+                airline: 'AIR INDIA',
+                flight_number: 'AI101',
                 origin: 'BOM',
                 destination: 'LHR',
                 departure_date: '26/10/2026',
@@ -331,7 +333,7 @@ export default function AdminFlightsPage() {
                 const flightsToCreate = data.map((item: any) => {
                     const depDate = parseDateStr(item.departure_date);
                     const arrDate = parseDateStr(item.arrival_date);
-                    
+
                     return {
                         airline: item.airline || '',
                         flight_number: item.flight_number || '',
@@ -353,14 +355,29 @@ export default function AdminFlightsPage() {
                     };
                 });
 
-                await bulkCreateFlights(flightsToCreate);
+                const responseData = await bulkCreateFlights(flightsToCreate);
                 fetchFlights(currentPage, debouncedSearch);
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Upload Successful',
-                    text: `Created ${flightsToCreate.length} flights!`,
-                    timer: 3000
-                });
+
+                if (responseData.duplicate_details.length > 0 && responseData.created.length > 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Partially Successful',
+                        html: `Created ${responseData.created.length} flights.<br/><br/><b>${responseData.duplicate_details.length} flights skipped:</b><br/><div class="text-sm mt-2 max-h-32 overflow-y-auto text-left pl-4">${responseData.duplicate_details.join('<br/>')}</div>`
+                    });
+                } else if (responseData.duplicate_details.length > 0 && responseData.created.length === 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Upload Failed',
+                        html: `All flights were skipped/invalid:<br/><div class="text-sm mt-2 max-h-32 overflow-y-auto text-left pl-4">${responseData.duplicate_details.join('<br/>')}</div>`,
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Upload Successful',
+                        text: `Created ${responseData.created.length} flights!`,
+                        timer: 3000
+                    });
+                }
             } catch (error: any) {
                 console.error('Excel parse failed', error);
                 Swal.fire({
@@ -458,10 +475,21 @@ export default function AdminFlightsPage() {
                         ) : (
                             flights.map((flight) => (
                                 <tr key={flight.id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-slate-900">{flight.airline}</div>
-                                        <div className="text-slate-500 text-xs">{flight.flight_number}</div>
-                                        {flight.departure_terminal && <div className="text-[10px] text-blue-500">T{flight.departure_terminal}</div>}
+                                    <td className="px-6 py-4 flex items-center gap-3">
+                                        {getAirlineLogo(flight.airline) ? (
+                                            <div className="h-8 w-8">
+                                                <img src={getAirlineLogo(flight.airline)!} alt={flight.airline} className="w-full h-full object-contain" />
+                                            </div>
+                                        ) : (
+                                            <div className="h-8 w-8 bg-green-50 rounded flex items-center justify-center text-green-600 font-bold text-sm flex-shrink-0">
+                                                {flight.airline[0]}
+                                            </div>
+                                        )}
+                                        <div>
+                                            <div className="font-medium text-slate-900 leading-tight">{flight.airline}</div>
+                                            <div className="text-slate-500 text-[11px] mt-0.5">{flight.flight_number}</div>
+                                            {flight.departure_terminal && <div className="text-[10px] text-blue-500 mt-0.5">T{flight.departure_terminal}</div>}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
                                         <div className="flex flex-col">
@@ -549,15 +577,56 @@ export default function AdminFlightsPage() {
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
+                                <div className="relative">
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Airline</label>
                                     <input
                                         type="text"
                                         required
-                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition shadow-sm outline-none"
+                                        placeholder="Type or select airline..."
                                         value={formData.airline || ''}
-                                        onChange={e => setFormData({ ...formData, airline: e.target.value })}
+                                        onChange={e => {
+                                            setFormData({ ...formData, airline: e.target.value.toUpperCase() });
+                                            setIsAirlineDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setIsAirlineDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setIsAirlineDropdownOpen(false), 200)}
+                                        autoComplete="off"
                                     />
+                                    {isAirlineDropdownOpen && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] shadow-green-900/10 max-h-60 overflow-y-auto overflow-x-hidden p-1.5 scrollbar-thin scrollbar-thumb-slate-200">
+                                            {PREDEFINED_AIRLINES.filter(a => a.toLowerCase().includes((formData.airline || '').toLowerCase())).length > 0 ? (
+                                                PREDEFINED_AIRLINES
+                                                    .filter(a => a.toLowerCase().includes((formData.airline || '').toLowerCase()))
+                                                    .map((airline) => (
+                                                        <div
+                                                            key={airline}
+                                                            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-green-50 hover:text-green-800 rounded-lg text-slate-700 transition duration-150"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault(); // Prevent input onBlur from firing first
+                                                                setFormData({ ...formData, airline });
+                                                                setIsAirlineDropdownOpen(false);
+                                                            }}
+                                                        >
+                                                            {getAirlineLogo(airline) ? (
+                                                                <div className="h-7 w-7 bg-white rounded border border-slate-100 flex items-center justify-center p-0.5 shadow-sm flex-shrink-0">
+                                                                    <img src={getAirlineLogo(airline)!} alt={airline} className="w-full h-full object-contain" />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="h-7 w-7 bg-green-100/50 border border-green-100 rounded flex items-center justify-center text-green-700 font-bold text-xs flex-shrink-0">
+                                                                    {airline[0]}
+                                                                </div>
+                                                            )}
+                                                            <span className="font-medium text-[13px]">{airline}</span>
+                                                        </div>
+                                                    ))
+                                            ) : (
+                                                <div className="px-3 py-4 text-xs text-slate-400 italic text-center rounded-lg bg-slate-50/50">
+                                                    Will be created as a custom airline
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Flight Number</label>
@@ -565,6 +634,7 @@ export default function AdminFlightsPage() {
                                         type="text"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        placeholder="AI101"
                                         value={formData.flight_number || ''}
                                         onChange={e => setFormData({ ...formData, flight_number: e.target.value })}
                                     />
@@ -577,6 +647,7 @@ export default function AdminFlightsPage() {
                                         type="text"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        placeholder="DEL"
                                         value={formData.origin || ''}
                                         onChange={e => setFormData({ ...formData, origin: e.target.value })}
                                     />
@@ -587,6 +658,7 @@ export default function AdminFlightsPage() {
                                         type="text"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        placeholder="BOM"
                                         value={formData.destination || ''}
                                         onChange={e => setFormData({ ...formData, destination: e.target.value })}
                                     />
@@ -671,6 +743,7 @@ export default function AdminFlightsPage() {
                                         type="number"
                                         required
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                                        placeholder="12345"
                                         value={formData.price || ''}
                                         onChange={e => setFormData({ ...formData, price: e.target.value })}
                                     />
@@ -687,14 +760,29 @@ export default function AdminFlightsPage() {
                                     />
                                     <p className="text-[10px] text-slate-400 mt-1">Leave 0 for free infant seats</p>
                                 </div>
-                                <div>
+                                <div className='hidden'>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Duration (hh:mm:ss)</label>
                                     <input
                                         type="text"
-                                        placeholder="02:30:00"
-                                        className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={formData.duration || ''}
-                                        onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                                        disabled
+                                        placeholder="Auto-calculated"
+                                        className="text-slate-500 bg-slate-100 w-full px-3 py-2 border border-slate-300 rounded-lg cursor-not-allowed"
+                                        title="Duration is automatically computed by the system"
+                                        value={(() => {
+                                            if (formData.departure_time && formData.arrival_time) {
+                                                const start = new Date(formData.departure_time).getTime();
+                                                const end = new Date(formData.arrival_time).getTime();
+                                                if (!isNaN(start) && !isNaN(end) && end > start) {
+                                                    const diffSecs = Math.floor((end - start) / 1000);
+                                                    const h = Math.floor(diffSecs / 3600).toString().padStart(2, '0');
+                                                    const m = Math.floor((diffSecs % 3600) / 60).toString().padStart(2, '0');
+                                                    const s = (diffSecs % 60).toString().padStart(2, '0');
+                                                    return `${h}:${m}:${s}`;
+                                                }
+                                            }
+                                            return formData.duration || '';
+                                        })()}
+                                        onChange={() => {}}
                                     />
                                 </div>
                                 <div>

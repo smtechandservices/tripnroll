@@ -501,15 +501,46 @@ class AdminFlightBulkCreateView(generics.CreateAPIView):
                     val = item.get(field)
                     if val and isinstance(val, str) and '/' in val:
                         date_part, time_part = val.split('/')
-                        # Replace dashes with colons in time if necessary (handles both 14:30:00 and 14-30-00)
+                        # Replace dashes with colons in time if necessary
                         time_part = time_part.replace('-', ':')
                         item[field] = f"{date_part}T{time_part}"
-        
-        serializer = self.get_serializer(data=data, many=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            
+            created_data = []
+            duplicate_details = []
+            for item in data:
+                serializer = self.get_serializer(data=item)
+                if serializer.is_valid():
+                    self.perform_create(serializer)
+                    created_data.append(serializer.data)
+                else:
+                    airline = item.get('airline', 'Unknown Airline')
+                    flight_num = item.get('flight_number', 'Unknown Flight')
+                    
+                    # Extract the first error message to be clear
+                    err_msgs = []
+                    is_duplicate = False
+                    for field, errors in serializer.errors.items():
+                        if field == 'non_field_errors' and any("already exists" in str(e) for e in errors):
+                            is_duplicate = True
+                        else:
+                            err_msgs.append(f"{field}: {errors[0]}")
+                            
+                    if is_duplicate and not err_msgs:
+                        duplicate_details.append(f"{airline} {flight_num} (Already exists)")
+                    else:
+                        err_str = ", ".join(err_msgs)
+                        if is_duplicate:
+                            duplicate_details.append(f"{airline} {flight_num} (Already exists & {err_str})")
+                        else:
+                            duplicate_details.append(f"{airline} {flight_num} ({err_str})")
+            
+            return Response({'created': created_data, 'duplicate_details': duplicate_details}, status=status.HTTP_201_CREATED)
+        else:
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class AdminBookingListView(generics.ListAPIView):
     queryset = Booking.objects.all().order_by('-created_at')

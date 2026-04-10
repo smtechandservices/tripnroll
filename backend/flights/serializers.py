@@ -72,24 +72,78 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class FlightSerializer(serializers.ModelSerializer):
     available_seats = serializers.SerializerMethodField()
+    duration = serializers.DurationField(required=False)
 
     class Meta:
         model = Flight
         fields = '__all__'
 
+    def validate_airline(self, value):
+        if value:
+            return value.upper()
+        return value
+
+    def validate_flight_number(self, value):
+        if value:
+            import re
+            if re.search(r'[\s\-]', value):
+                raise serializers.ValidationError("Flight number must not contain spaces or hyphens.")
+            return value.upper()
+        return value
+
+    def validate_origin(self, value):
+        if value:
+            value = value.strip().upper()
+            if len(value) != 3 or not value.isalpha():
+                raise serializers.ValidationError("Origin must be exactly 3 letters (e.g., DEL).")
+        return value
+
+    def validate_destination(self, value):
+        if value:
+            value = value.strip().upper()
+            if len(value) != 3 or not value.isalpha():
+                raise serializers.ValidationError("Destination must be exactly 3 letters (e.g., BOM).")
+        return value
+
     def get_available_seats(self, obj):
         from django.db.models import Q
-        # Calculate available seats
-        # We count CONFIRMED and PENDING bookings as taking up a seat
         booked_filter = Q(status='CONFIRMED') | Q(status='PENDING')
-        
-        # If the object is annotated from the view, use that to save a query
         if hasattr(obj, 'booked_seats_count'):
             booked = obj.booked_seats_count
         else:
             booked = obj.bookings.filter(booked_filter).count()
-            
         return max(0, obj.total_seats - booked)
+
+    def validate(self, attrs):
+        departure_time = attrs.get('departure_time')
+        arrival_time = attrs.get('arrival_time')
+
+        if departure_time and arrival_time:
+            diff = arrival_time - departure_time
+            if diff.total_seconds() <= 0:
+                raise serializers.ValidationError({"arrival_time": "Arrival time must be strictly after departure time."})
+            attrs['duration'] = diff
+
+        if not self.instance:
+            flight_number = attrs.get('flight_number')
+            departure_time = attrs.get('departure_time')
+            airline = attrs.get('airline')
+            origin = attrs.get('origin')
+            destination = attrs.get('destination')
+
+            if all([flight_number, departure_time, airline, origin, destination]):
+                # Check for existing flight with exact same details
+                from .models import Flight
+                if Flight.objects.filter(
+                    flight_number=flight_number,
+                    departure_time=departure_time,
+                    airline=airline,
+                    origin=origin,
+                    destination=destination
+                ).exists():
+                    raise serializers.ValidationError("A flight with these exact details already exists.")
+        
+        return attrs
 
 class BookingSerializer(serializers.ModelSerializer):
     flight_details = FlightSerializer(source='flight', read_only=True)
