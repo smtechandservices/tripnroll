@@ -57,7 +57,7 @@ export default function AdminDashboard() {
                 <th className="pb-3 font-medium">Passenger</th>
                 <th className="pb-3 font-medium">Flight</th>
                 <th className="pb-3 font-medium">Date</th>
-                <th className="pb-3 font-medium text-center">Flight Status</th>
+                <th className="pb-3 font-medium text-center">PNR Status</th>
                 <th className="pb-3 font-medium text-center">Payment Status</th>
               </tr>
             </thead>
@@ -69,23 +69,22 @@ export default function AdminDashboard() {
                   <td className="py-4 text-slate-600">{booking.flight_details.airline} {booking.flight_details.flight_number}</td>
                   <td className="py-4 text-slate-600">{new Date(booking.created_at).toLocaleDateString()}</td>
                   <td className="py-4">
-                    <div className="flex flex-col items-center gap-1.5">
-                      {/* Flight Status Badge */}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
-                        booking.flight_status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {booking.flight_status}
-                      </span>
-                      
-                      {/* Payment Status Badge */}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
-                        booking.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
-                        booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {booking.payment_status}
-                      </span>
-                    </div>
+                    {/* Flight Status Badge */}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
+                      booking.flight_status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {booking.flight_status}
+                    </span>
+                  </td>
+                  <td className='py-4'>
+                    {/* Payment Status Badge */}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${
+                      booking.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
+                      booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {booking.payment_status}
+                    </span>
                   </td>
                 </tr>
               ))}
