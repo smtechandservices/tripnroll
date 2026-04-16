@@ -31,7 +31,11 @@ class UserKYCSerializer(serializers.ModelSerializer):
             from django.urls import reverse
             url = reverse('serve-kyc-doc', kwargs={'doc_type': doc_type, 'user_id': obj.user.id})
             if request:
-                return request.build_absolute_uri(url)
+                absolute_uri = request.build_absolute_uri(url)
+                # If the request is over HTTPS or behind an HTTPS proxy, ensure the URL uses https
+                if request.is_secure() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' or 'tripnrolltravel.com' in request.get_host():
+                    return absolute_uri.replace('http://', 'https://')
+                return absolute_uri
             return url
         return None
 

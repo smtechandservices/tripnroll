@@ -323,7 +323,12 @@ function DocumentModal({
             setError(null);
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(url, {
+                // Ensure HTTPS in production to avoid mixed content issues
+                const securedUrl = (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) 
+                    ? url.replace('http://', 'https://') 
+                    : url;
+
+                const response = await fetch(securedUrl, {
                     headers: {
                         'Authorization': `Token ${token}`
                     }
