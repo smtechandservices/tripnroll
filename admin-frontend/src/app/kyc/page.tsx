@@ -161,7 +161,7 @@ export default function KYCManagementPage() {
                                             </div>
                                             {user.profile.aadhar_card_doc && (
                                                 <button 
-                                                    onClick={() => setSelectedDoc({ url: user.profile.aadhar_card_doc, title: `Aadhar Card - ${user.username}` })}
+                                                    onClick={() => setSelectedDoc({ url: user.profile.aadhar_card_doc as string, title: `Aadhar Card - ${user.username}` })}
                                                     className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors cursor-pointer"
                                                 >
                                                     <Eye size={14} />
@@ -181,7 +181,7 @@ export default function KYCManagementPage() {
                                             </div>
                                             {user.profile.pan_card_doc && (
                                                 <button 
-                                                    onClick={() => setSelectedDoc({ url: user.profile.pan_card_doc, title: `PAN Card - ${user.username}` })}
+                                                    onClick={() => setSelectedDoc({ url: user.profile.pan_card_doc as string, title: `PAN Card - ${user.username}` })}
                                                     className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors cursor-pointer"
                                                 >
                                                     <Eye size={14} />
@@ -211,7 +211,7 @@ export default function KYCManagementPage() {
                                                         <span className="text-[10px] font-bold uppercase tracking-widest">Brand Identity</span>
                                                     </div>
                                                     <button 
-                                                        onClick={() => setSelectedDoc({ url: user.profile.brand_logo, title: `Brand Logo - ${user.username}` })}
+                                                        onClick={() => setSelectedDoc({ url: user.profile.brand_logo as string, title: `Brand Logo - ${user.username}` })}
                                                         className="flex items-center gap-3 group/logo text-blue-600 cursor-pointer w-full text-left"
                                                     >
                                                         <Eye size={14} />
