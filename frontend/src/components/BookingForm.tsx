@@ -133,6 +133,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
     }, [passengers, primaryPassengerIndex]);
 
     const handleAddPassenger = () => {
+        if (passengers.length >= 9) return;
         setPassengers([...passengers, {
             first_name: '',
             last_name: '',
@@ -147,6 +148,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
     };
 
     const handleAddInfant = () => {
+        if (passengers.length >= 9) return;
         const today = new Date();
         // Set default DOB to today to mark as infant immediately
         const infantDOB = today.toISOString().split('T')[0];
@@ -236,6 +238,50 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
             }
         }
 
+        // Passport Validity Validation
+        for (let i = 0; i < passengers.length; i++) {
+            const p = passengers[i];
+            if (p.passport_issue_date && p.passport_expiry_date) {
+                const issue = new Date(p.passport_issue_date);
+                const expiry = new Date(p.passport_expiry_date);
+                const age = calculateAge(p.date_of_birth);
+                
+                // Calculate difference in partial years
+                const diffTime = expiry.getTime() - issue.getTime();
+                const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+                
+                const maxValidity = (age !== null && age >= 18) ? 10 : 5;
+                console.log(diffYears, maxValidity);
+                if (diffYears > maxValidity) {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Passport Validity',
+                        text: `Passenger ${i + 1}: Passport validity cannot exceed ${maxValidity} years for ${maxValidity === 10 ? 'adults' : 'minors'}.`,
+                        confirmButtonColor: '#2563eb',
+                        customClass: {
+                            popup: 'rounded-3xl',
+                            confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                        }
+                    });
+                    return;
+                }
+
+                if (diffTime < 0) {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Passport Dates',
+                        text: `Passenger ${i + 1}: Passport expiry date cannot be before the issue date.`,
+                        confirmButtonColor: '#2563eb',
+                        customClass: {
+                            popup: 'rounded-3xl',
+                            confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                        }
+                    });
+                    return;
+                }
+            }
+        }
+
         const result = await Swal.fire({
             title: 'Complete Your Booking',
             text: `Are you sure you want to book for ${passengers.length} passenger(s)?`,
@@ -277,6 +323,26 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 }
             });
             return;
+        }
+
+        // Duplicate Name Validation
+        const passengerNames = new Set();
+        for (let i = 0; i < passengers.length; i++) {
+            const fullName = `${passengers[i].first_name.trim().toLowerCase()} ${passengers[i].last_name.trim().toLowerCase()}`;
+            if (passengerNames.has(fullName)) {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Duplicate Passenger Name',
+                    text: `Each passenger in a booking must have a unique name. Duplicate name found: "${passengers[i].first_name} ${passengers[i].last_name}"`,
+                    confirmButtonColor: '#2563eb',
+                    customClass: {
+                        popup: 'rounded-3xl',
+                        confirmButton: 'rounded-xl px-6 py-3 font-bold'
+                    }
+                });
+                return;
+            }
+            passengerNames.add(fullName);
         }
 
         setLoading(true);
@@ -528,18 +594,26 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 <button
                     type="button"
                     onClick={handleAddPassenger}
-                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
+                    disabled={passengers.length >= 9}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-slate-200"
                 >
                     + Add Passenger
                 </button>
                 <button
                     type="button"
                     onClick={handleAddInfant}
-                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-pink-400 hover:text-pink-500 hover:bg-pink-50/30 transition-all flex items-center justify-center gap-2"
+                    disabled={passengers.length >= 9}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold hover:border-pink-400 hover:text-pink-500 hover:bg-pink-50/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-slate-200"
                 >
                     + Add Infant (0-2 Yrs)
                 </button>
             </div>
+            
+            {passengers.length >= 9 && (
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 text-sm font-bold text-center">
+                    Maximum limit of 9 travelers per booking has been reached.
+                </div>
+            )}
 
             <button
                 type="submit"

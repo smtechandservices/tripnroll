@@ -6,6 +6,8 @@ import Swal from 'sweetalert2';
 import { Loader2, User as UserIcon, Mail, Phone, Calendar as CalendarIcon, FileText, RefreshCw, Wallet, CreditCard } from 'lucide-react';
 import { RipplesBackground } from '@/components/RipplesBackground';
 import { getAirlineLogo } from '@/lib/airlines';
+import { generateTicketPDF } from '@/lib/ticketGenerator';
+import { Download } from 'lucide-react';
 
 export default function MyBookingsPage() {
     const { user, isAuthenticated } = useAuth();
@@ -89,6 +91,15 @@ export default function MyBookingsPage() {
         }
     };
 
+    const handleDownloadTicket = async (groupBookings: Booking[]) => {
+        try {
+            await generateTicketPDF(groupBookings, user);
+        } catch (error) {
+            console.error('PDF Generation failed:', error);
+            Swal.fire('Error', 'Failed to generate PDF ticket.', 'error');
+        }
+    };
+
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -124,6 +135,18 @@ export default function MyBookingsPage() {
         const dateB = new Date(groupedBookings[b][0].created_at).getTime();
         return dateB - dateA;
     });
+
+    const calculateAge = (dob: string | undefined) => {
+        if (!dob) return null;
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -193,20 +216,33 @@ export default function MyBookingsPage() {
                                                     )}
                                                     
                                                     {/* Status Badges Container */}
-                                                    <div className="flex gap-2">
-                                                        {/* Payment Status Badge */}
-                                                        <div className={`${isExpired ? 'bg-slate-700/50' : 'bg-white/20'} backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
-                                                            <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Payment</div>
-                                                            <div className="font-bold text-xs uppercase">{paymentStatus}</div>
-                                                        </div>
-                                                        
-                                                        {/* Flight Status Badge */}
-                                                        <div className={`${isExpired ? 'bg-slate-700/50' : 
-                                                            flightStatus === 'PENDING' ? 'bg-yellow-400/30' : 'bg-white/20'
-                                                        } backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
-                                                            <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Flight</div>
-                                                            <div className="font-bold text-xs uppercase">{flightStatus === 'CONFIRMED' ? 'Confirmed' : 'Pending'}</div>
-                                                        </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex gap-2">
+                                                            {/* Payment Status Badge */}
+                                                            <div className={`${isExpired ? 'bg-slate-700/50' : 'bg-white/20'} backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
+                                                                <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Payment</div>
+                                                                <div className="font-bold text-xs uppercase">{paymentStatus}</div>
+                                                            </div>
+                                                            
+                                                            {/* Flight Status Badge */}
+                                                            <div className={`${isExpired ? 'bg-slate-700/50' : 
+                                                                flightStatus === 'PENDING' ? 'bg-yellow-400/30' : 'bg-white/20'
+                                                            } backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
+                                                                <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Flight</div>
+                                                                <div className="font-bold text-xs uppercase">{flightStatus === 'CONFIRMED' ? 'Confirmed' : 'Pending'}</div>
+                                                            </div>
+
+                                                            {/* Download Button */}
+                                                            {paymentStatus === 'CONFIRMED' && flightStatus === 'CONFIRMED' && (
+                                                                <button
+                                                                    onClick={() => handleDownloadTicket(passengers)}
+                                                                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 rounded-lg transition-colors border border-white/10 group/btn"
+                                                                    title="Download Ticket PDF"
+                                                                >
+                                                                    <Download size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                                                </button>
+                                                            )}
+                                                    </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -219,7 +255,7 @@ export default function MyBookingsPage() {
                                                         <div className="text-3xl md:text-4xl font-bold text-slate-800">{firstPassenger.flight_details.origin}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Origin</div>
                                                         <div className="text-sm text-slate-400 mt-1">
-                                                            {new Date(firstPassenger.flight_details.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {new Date(firstPassenger.flight_details.departure_time).toLocaleDateString('en-GB')} {new Date(firstPassenger.flight_details.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                                                         </div>
                                                     </div>
 
@@ -251,7 +287,7 @@ export default function MyBookingsPage() {
                                                         <div className="text-3xl md:text-4xl font-bold text-slate-800">{firstPassenger.flight_details.destination}</div>
                                                         <div className="text-sm text-slate-500 mt-1">Destination</div>
                                                         <div className="text-sm text-slate-400 mt-1">
-                                                            {new Date(firstPassenger.flight_details.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {new Date(firstPassenger.flight_details.arrival_time).toLocaleDateString('en-GB')} {new Date(firstPassenger.flight_details.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -372,6 +408,11 @@ export default function MyBookingsPage() {
                                                         <div>
                                                             <div className="font-bold text-slate-800 text-lg leading-tight flex items-center gap-2">
                                                                 {passenger.first_name} {passenger.last_name}
+                                                                {passenger.date_of_birth && (
+                                                                    <span className="text-slate-500 font-medium text-sm">
+                                                                        ({calculateAge(passenger.date_of_birth)}Y)
+                                                                    </span>
+                                                                )}
                                                                 {passenger.is_infant && (
                                                                     <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                                                                         Infant
@@ -379,8 +420,8 @@ export default function MyBookingsPage() {
                                                                 )}
                                                             </div>
                                                             <div className="mt-1 flex flex-wrap gap-2 items-center">
-                                                                <div className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500 inline-block">
-                                                                    ID: {passenger.booking_id}
+                                                                <div className="text-xs font-mono bg-slate-100 px-3 py-1 rounded text-slate-600 font-bold border border-slate-200 inline-block">
+                                                                    TXN ID: {passenger.booking_id}
                                                                 </div>
                                                                 <div className="text-[10px] font-bold text-slate-700">
                                                                     Price: ₹{parseFloat((parseFloat(passenger.charged_price) > 0 || passenger.is_infant) ? passenger.charged_price : passenger.flight_details.price).toLocaleString('en-IN')}
@@ -425,9 +466,16 @@ export default function MyBookingsPage() {
                                                             </div>
                                                         )}
                                                         {passenger.passport_number && (
-                                                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                                <FileText size={14} className="text-slate-400" />
-                                                                <span>Passport: <span className="font-mono">{passenger.passport_number}</span></span>
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                                    <FileText size={14} className="text-slate-400" />
+                                                                    <span>Passport: <span className="font-mono">{passenger.passport_number}</span></span>
+                                                                </div>
+                                                                {passenger.passport_expiry_date && (
+                                                                    <div className="flex items-center gap-2 text-[10px] text-slate-500 ml-6">
+                                                                        <span>Expires: {new Date(passenger.passport_expiry_date).toLocaleDateString()}</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -462,6 +510,6 @@ export default function MyBookingsPage() {
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 }

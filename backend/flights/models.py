@@ -77,15 +77,30 @@ class UserProfile(models.Model):
     wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total_dues = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_dues = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     
-    # KYC Fields
+    def __str__(self):
+        return f"Profile for {self.user.username}"
+
+class UserKYC(models.Model):
+    user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='kyc')
+    
     aadhar_number = models.CharField(max_length=12, blank=True, null=True)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
     gst_number = models.CharField(max_length=15, blank=True, null=True)
     
-    brand_logo = models.ImageField(upload_to='docs/brand_logos/', blank=True, null=True)
-    aadhar_card_doc = models.FileField(upload_to='docs/aadhar/', blank=True, null=True)
-    pan_card_doc = models.FileField(upload_to='docs/pan/', blank=True, null=True)
+    # Binary storage for documents
+    brand_logo_data = models.BinaryField(null=True, blank=True)
+    brand_logo_name = models.CharField(max_length=255, null=True, blank=True)
+    brand_logo_mimetype = models.CharField(max_length=100, null=True, blank=True)
+
+    aadhar_card_doc_data = models.BinaryField(null=True, blank=True)
+    aadhar_card_doc_name = models.CharField(max_length=255, null=True, blank=True)
+    aadhar_card_doc_mimetype = models.CharField(max_length=100, null=True, blank=True)
+
+    pan_card_doc_data = models.BinaryField(null=True, blank=True)
+    pan_card_doc_name = models.CharField(max_length=255, null=True, blank=True)
+    pan_card_doc_mimetype = models.CharField(max_length=100, null=True, blank=True)
 
     kyc_status = models.CharField(
         max_length=20,
@@ -97,9 +112,12 @@ class UserProfile(models.Model):
         ],
         default='PENDING'
     )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Profile for {self.user.username}"
+        return f"KYC for {self.user.username}"
 
 class WalletTransaction(models.Model):
     TRANSACTION_TYPE_CHOICES = (

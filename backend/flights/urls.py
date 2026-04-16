@@ -10,7 +10,8 @@ from .views import (
     UserTopUpRequestListView, AdminTopUpRequestListView, AdminTopUpRequestActionView,
     RefundRequestView, RefundProcessView, AdminCancelRefundView, AdminBookingRejectView,
     AdminContactMessageListView,
-    SubmitKYCView, AdminKYCListView, AdminKYCActionView
+    SubmitKYCView, AdminKYCListView, AdminKYCActionView,
+    ServeKYCDocumentView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -53,4 +54,5 @@ urlpatterns = [
     path('kyc/submit/', SubmitKYCView.as_view(), name='kyc-submit'),
     path('admin/kyc/', AdminKYCListView.as_view(), name='admin-kyc-list'),
     path('admin/kyc/action/', AdminKYCActionView.as_view(), name='admin-kyc-action'),
+    path('kyc/document/<str:doc_type>/<int:user_id>/', ServeKYCDocumentView.as_view(), name='serve-kyc-doc'),
 ]

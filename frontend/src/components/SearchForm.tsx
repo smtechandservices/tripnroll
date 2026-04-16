@@ -491,7 +491,17 @@ export function SearchForm({
                                 max="9"
                                 className="w-full bg-transparent outline-none text-slate-800 font-medium text-lg md:text-xl"
                                 value={passengers}
-                                onChange={(e) => setPassengers(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                        setPassengers('');
+                                        return;
+                                    }
+                                    const num = parseInt(val);
+                                    if (num > 9) setPassengers(9);
+                                    else if (num < 1) setPassengers(1);
+                                    else setPassengers(num);
+                                }}
                                 onBlur={() => {
                                     if (passengers === '' || parseInt(passengers as string) < 1) {
                                         setPassengers(1);

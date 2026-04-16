@@ -1,3 +1,5 @@
+from django.http import HttpResponse, Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
@@ -14,6 +16,7 @@ from .permissions import IsAdminType
 from rest_framework import filters
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -37,14 +40,6 @@ class FlightListView(generics.ListAPIView):
         from django.db.models import Count, F, Q
         from django.utils import timezone
         from datetime import timedelta
-
-        # Automatic Cleanup: Delete flights older than 30 days
-        try:
-            cutoff_date = timezone.now() - timedelta(days=30)
-            Flight.objects.filter(departure_time__lt=cutoff_date).delete()
-        except Exception as e:
-            # Log error but don't stop the request
-            print(f"Error during auto-cleanup: {e}")
         
         origin = self.request.query_params.get('origin')
         destination = self.request.query_params.get('destination')
@@ -205,11 +200,14 @@ class BookingCreateView(generics.CreateAPIView):
         profile = user.profile
 
         # KYC Verification Check
-        if profile.kyc_status != 'VERIFIED':
+        from .models import UserKYC
+        kyc, created = UserKYC.objects.get_or_create(user=user)
+        
+        if kyc.kyc_status != 'VERIFIED':
             return Response({
                 'error': 'KYC Verification Required',
                 'details': 'Please complete your KYC verification (Aadhar and PAN) to book flights.',
-                'kyc_status': profile.kyc_status
+                'kyc_status': kyc.kyc_status
             }, status=status.HTTP_403_FORBIDDEN)
 
         # Ensure prices are decimals
@@ -1180,10 +1178,12 @@ class SubmitKYCView(generics.UpdateAPIView):
     serializer_class = UserProfileSerializer
 
     def get_object(self):
-        return self.request.user.profile
+        from .models import UserKYC
+        kyc, created = UserKYC.objects.get_or_create(user=self.request.user)
+        return kyc
 
     def update(self, request, *args, **kwargs):
-        profile = self.get_object()
+        kyc = self.get_object()
         
         # Mandatory fields check
         required_fields = ['aadhar_number', 'pan_number', 'gst_number']
@@ -1195,36 +1195,46 @@ class SubmitKYCView(generics.UpdateAPIView):
                 errors[field] = ["This field is required."]
         
         for file_field in required_files:
-            if not request.FILES.get(file_field) and not getattr(profile, file_field):
+            if not request.FILES.get(file_field) and not getattr(kyc, f"{file_field}_data"):
                 errors[file_field] = ["Document upload is required."]
         
         if errors:
             return Response({'error': 'Missing mandatory KYC data', 'details': errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = self.get_serializer(profile, data=request.data, partial=True)
-        
-        if serializer.is_valid():
-            serializer.save(kyc_status='SUBMITTED')
-            return Response({
-                'message': 'KYC submitted successfully',
-                'kyc_status': 'SUBMITTED',
-                'details': serializer.data
-            })
-        
-        return Response({'error': 'Invalid KYC data', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        # We pass request data to the serializer
+        # Note: we need to update the serializer to handle UserKYC mapping
+        # For now, we'll manually handle the binary fields here as a fallback if serializer isn't ready
+        if request.FILES:
+            for file_key in ['brand_logo', 'aadhar_card_doc', 'pan_card_doc']:
+                uploaded_file = request.FILES.get(file_key)
+                if uploaded_file:
+                    setattr(kyc, f"{file_key}_data", uploaded_file.read())
+                    setattr(kyc, f"{file_key}_name", uploaded_file.name)
+                    setattr(kyc, f"{file_key}_mimetype", uploaded_file.content_type)
+
+        kyc.aadhar_number = request.data.get('aadhar_number', kyc.aadhar_number)
+        kyc.pan_number = request.data.get('pan_number', kyc.pan_number)
+        kyc.gst_number = request.data.get('gst_number', kyc.gst_number)
+        kyc.kyc_status = 'SUBMITTED'
+        kyc.save()
+
+        return Response({
+            'message': 'KYC submitted successfully',
+            'kyc_status': 'SUBMITTED'
+        })
 
 class AdminKYCListView(generics.ListAPIView):
-    queryset = User.objects.filter(profile__kyc_status__in=['SUBMITTED', 'VERIFIED', 'REJECTED']).order_by('-date_joined')
+    queryset = User.objects.filter(kyc__kyc_status__in=['SUBMITTED', 'VERIFIED', 'REJECTED']).order_by('-date_joined')
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminType]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'email', 'profile__aadhar_number', 'profile__pan_number']
+    search_fields = ['username', 'email', 'kyc__aadhar_number', 'kyc__pan_number']
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         status_param = request.query_params.get('status')
         if status_param:
-            queryset = queryset.filter(profile__kyc_status=status_param)
+            queryset = queryset.filter(kyc__kyc_status=status_param)
         
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -1245,20 +1255,68 @@ class AdminKYCActionView(generics.GenericAPIView):
             return Response({'error': 'User ID and action are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            from .models import UserKYC
             user = User.objects.get(id=user_id)
-            profile = user.profile
+            kyc, created = UserKYC.objects.get_or_create(user=user)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if action == 'APPROVE':
-            profile.kyc_status = 'VERIFIED'
+            kyc.kyc_status = 'VERIFIED'
         elif action == 'REJECT':
-            profile.kyc_status = 'REJECTED'
+            kyc.kyc_status = 'REJECTED'
         else:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-        profile.save()
+        kyc.save()
         return Response({
             'message': f'KYC {action.lower()}d successfully',
-            'kyc_status': profile.kyc_status
+            'kyc_status': kyc.kyc_status
         })
+
+class QueryParamsTokenAuthentication(TokenAuthentication):
+    def authenticate(self, request):
+        token = request.query_params.get('token')
+        if token:
+            return self.authenticate_credentials(token)
+        return super().authenticate(request)
+
+class ServeKYCDocumentView(generics.GenericAPIView):
+    authentication_classes = [QueryParamsTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, doc_type, user_id):
+        """
+        Serves the binary content of a KYC document from the database.
+        """
+        # Allow only the owner or an admin to access
+        is_admin = request.user.is_staff or request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.usertype in ['admin', 'superadmin'])
+        if not is_admin and request.user.id != int(user_id):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        user = get_object_or_404(User, id=user_id)
+        from .models import UserKYC
+        kyc, created = UserKYC.objects.get_or_create(user=user)
+
+        if doc_type == 'brand_logo':
+            data = kyc.brand_logo_data
+            name = kyc.brand_logo_name
+            mimetype = kyc.brand_logo_mimetype
+        elif doc_type == 'aadhar':
+            data = kyc.aadhar_card_doc_data
+            name = kyc.aadhar_card_doc_name
+            mimetype = kyc.aadhar_card_doc_mimetype
+        elif doc_type == 'pan':
+            data = kyc.pan_card_doc_data
+            name = kyc.pan_card_doc_name
+            mimetype = kyc.pan_card_doc_mimetype
+        else:
+            raise Http404("Document type not found")
+
+        if not data:
+            raise Http404(f"Document {doc_type} content not found for this user")
+
+        response = HttpResponse(data, content_type=mimetype)
+        # Suggest filename for browser
+        response['Content-Disposition'] = f'inline; filename="{name or (doc_type + ".png")}"'
+        return response

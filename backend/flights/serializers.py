@@ -1,12 +1,78 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest, UserKYC
+
+class UserKYCSerializer(serializers.ModelSerializer):
+    brand_logo = serializers.SerializerMethodField()
+    aadhar_card_doc = serializers.SerializerMethodField()
+    pan_card_doc = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserKYC
+        fields = ('aadhar_number', 'pan_number', 'gst_number', 'brand_logo', 'aadhar_card_doc', 'pan_card_doc', 'kyc_status')
+
+    def get_brand_logo(self, obj):
+        return self._get_doc_url(obj, 'brand_logo')
+
+    def get_aadhar_card_doc(self, obj):
+        return self._get_doc_url(obj, 'aadhar')
+
+    def get_pan_card_doc(self, obj):
+        return self._get_doc_url(obj, 'pan')
+
+    def _get_doc_url(self, obj, doc_type):
+        request = self.context.get('request')
+        has_data = False
+        if doc_type == 'brand_logo': has_data = bool(obj.brand_logo_data)
+        elif doc_type == 'aadhar': has_data = bool(obj.aadhar_card_doc_data)
+        elif doc_type == 'pan': has_data = bool(obj.pan_card_doc_data)
+
+        if has_data:
+            from django.urls import reverse
+            url = reverse('serve-kyc-doc', kwargs={'doc_type': doc_type, 'user_id': obj.user.id})
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return None
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # Map KYC fields for frontend compatibility
+    aadhar_number = serializers.CharField(source='user.kyc.aadhar_number', read_only=True)
+    pan_number = serializers.CharField(source='user.kyc.pan_number', read_only=True)
+    gst_number = serializers.CharField(source='user.kyc.gst_number', read_only=True)
+    kyc_status = serializers.CharField(source='user.kyc.kyc_status', read_only=True)
+    
+    brand_logo = serializers.SerializerMethodField()
+    aadhar_card_doc = serializers.SerializerMethodField()
+    pan_card_doc = serializers.SerializerMethodField()
+
     class Meta:
         model = UserProfile
-        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues', 'aadhar_number', 'pan_number', 'gst_number', 'brand_logo', 'aadhar_card_doc', 'pan_card_doc', 'kyc_status')
+        fields = ('phone_number', 'address', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues', 
+                 'aadhar_number', 'pan_number', 'gst_number', 'brand_logo', 'aadhar_card_doc', 'pan_card_doc', 'kyc_status')
         read_only_fields = ('wallet_balance', 'credit_limit', 'total_dues', 'kyc_status')
+
+    def _get_kyc_obj(self, obj):
+        return getattr(obj.user, 'kyc', None)
+
+    def get_brand_logo(self, obj):
+        kyc = self._get_kyc_obj(obj)
+        if not kyc: return None
+        return UserKYCSerializer(context=self.context).get_brand_logo(kyc)
+
+    def get_aadhar_card_doc(self, obj):
+        kyc = self._get_kyc_obj(obj)
+        if not kyc: return None
+        return UserKYCSerializer(context=self.context).get_aadhar_card_doc(kyc)
+
+    def get_pan_card_doc(self, obj):
+        kyc = self._get_kyc_obj(obj)
+        if not kyc: return None
+        return UserKYCSerializer(context=self.context).get_pan_card_doc(kyc)
+
+    def update(self, instance, validated_data):
+        # Handle user profile updates as usual
+        return super().update(instance, validated_data)
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:

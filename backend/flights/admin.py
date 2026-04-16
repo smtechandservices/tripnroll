@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction
+from django.utils.html import format_html
+from django.urls import reverse
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, UserKYC
 
 @admin.register(Flight)
 class FlightAdmin(admin.ModelAdmin):
@@ -77,7 +79,7 @@ class ContactMessageAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'usertype', 'phone_number', 'wallet_balance', 'credit_limit', 'total_dues')
+    list_display = ('user', 'usertype', 'wallet_balance', 'credit_limit', 'total_dues')
     list_filter = ('usertype',)
     search_fields = ('user__username', 'user__email', 'phone_number', 'passport_number')
     ordering = ('user__username',)
@@ -96,6 +98,55 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('passport_number',)
         }),
     )
+
+@admin.register(UserKYC)
+class UserKYCAdmin(admin.ModelAdmin):
+    list_display = ('user', 'kyc_status', 'aadhar_number', 'pan_number', 'updated_at')
+    list_filter = ('kyc_status', 'updated_at')
+    search_fields = ('user__username', 'user__email', 'aadhar_number', 'pan_number')
+    readonly_fields = ('brand_logo_preview', 'aadhar_doc_preview', 'pan_doc_preview', 'created_at', 'updated_at')
+    
+    fieldsets = (
+        ('User Reflection', {
+            'fields': ('user', 'kyc_status')
+        }),
+        ('KYC Data', {
+            'fields': ('aadhar_number', 'pan_number', 'gst_number')
+        }),
+        ('Document Previews', {
+            'fields': ('brand_logo_preview', 'aadhar_doc_preview', 'pan_doc_preview')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def _get_doc_link(self, obj, doc_type, label):
+        has_data = False
+        if doc_type == 'brand_logo' and obj.brand_logo_data:
+            has_data = True
+        elif doc_type == 'aadhar' and obj.aadhar_card_doc_data:
+            has_data = True
+        elif doc_type == 'pan' and obj.pan_card_doc_data:
+            has_data = True
+
+        if has_data:
+            url = reverse('serve-kyc-doc', kwargs={'doc_type': doc_type, 'user_id': obj.user.id})
+            return format_html('<a href="{}" target="_blank">View {}</a>', url, label)
+        return "Not Uploaded"
+
+    def brand_logo_preview(self, obj):
+        return self._get_doc_link(obj, 'brand_logo', 'Logo')
+    brand_logo_preview.short_description = 'Brand Logo'
+
+    def aadhar_doc_preview(self, obj):
+        return self._get_doc_link(obj, 'aadhar', 'Aadhar Card')
+    aadhar_doc_preview.short_description = 'Aadhar Card'
+
+    def pan_doc_preview(self, obj):
+        return self._get_doc_link(obj, 'pan', 'PAN Card')
+    pan_doc_preview.short_description = 'PAN Card'
 
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(admin.ModelAdmin):

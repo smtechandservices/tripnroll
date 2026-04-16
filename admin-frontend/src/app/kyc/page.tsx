@@ -13,6 +13,7 @@ export default function KYCManagementPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [filterStatus, setFilterStatus] = useState<string>('SUBMITTED');
+    const [selectedDoc, setSelectedDoc] = useState<{ url: string, title: string } | null>(null);
     const pageSize = 10;
 
     useEffect(() => {
@@ -159,15 +160,13 @@ export default function KYCManagementPage() {
                                                 </p>
                                             </div>
                                             {user.profile.aadhar_card_doc && (
-                                                <a 
-                                                    href={user.profile.aadhar_card_doc} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors"
+                                                <button 
+                                                    onClick={() => setSelectedDoc({ url: user.profile.aadhar_card_doc, title: `Aadhar Card - ${user.username}` })}
+                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors cursor-pointer"
                                                 >
                                                     <Eye size={14} />
                                                     View Aadhar Card
-                                                </a>
+                                                </button>
                                             )}
                                         </div>
                                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
@@ -181,15 +180,13 @@ export default function KYCManagementPage() {
                                                 </p>
                                             </div>
                                             {user.profile.pan_card_doc && (
-                                                <a 
-                                                    href={user.profile.pan_card_doc} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors"
+                                                <button 
+                                                    onClick={() => setSelectedDoc({ url: user.profile.pan_card_doc, title: `PAN Card - ${user.username}` })}
+                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-xs font-bold transition-colors cursor-pointer"
                                                 >
                                                     <Eye size={14} />
                                                     View PAN Card
-                                                </a>
+                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -213,17 +210,13 @@ export default function KYCManagementPage() {
                                                         <UserIcon size={14} />
                                                         <span className="text-[10px] font-bold uppercase tracking-widest">Brand Identity</span>
                                                     </div>
-                                                    <a 
-                                                        href={user.profile.brand_logo} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 group/logo"
+                                                    <button 
+                                                        onClick={() => setSelectedDoc({ url: user.profile.brand_logo, title: `Brand Logo - ${user.username}` })}
+                                                        className="flex items-center gap-3 group/logo text-blue-600 cursor-pointer w-full text-left"
                                                     >
-                                                        <div className="w-10 h-10 rounded border border-slate-200 overflow-hidden bg-white shrink-0">
-                                                            <img src={user.profile.brand_logo} alt="Logo" className="w-full h-full object-contain" />
-                                                        </div>
+                                                        <Eye size={14} />
                                                         <span className="text-xs font-bold text-blue-600 group-hover/logo:text-blue-700">View Logo</span>
-                                                    </a>
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -293,6 +286,127 @@ export default function KYCManagementPage() {
                     </div>
                 </div>
             )}
+
+            {selectedDoc && (
+                <DocumentModal 
+                    url={selectedDoc.url} 
+                    title={selectedDoc.title} 
+                    onClose={() => setSelectedDoc(null)} 
+                />
+            )}
+        </div>
+    );
+}
+
+// ─── Document Viewer Modal ───────────────────────────────────────────────────
+
+function DocumentModal({ 
+    url, 
+    title, 
+    onClose 
+}: { 
+    url: string; 
+    title: string; 
+    onClose: () => void; 
+}) {
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isPdf, setIsPdf] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        let currentBlobUrl: string | null = null;
+
+        async function fetchFile() {
+            setLoading(true);
+            setError(null);
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Token ${token}`
+                    }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const blob = await response.blob();
+                if (active) {
+                    setIsPdf(blob.type === 'application/pdf');
+                    currentBlobUrl = URL.createObjectURL(blob);
+                    setBlobUrl(currentBlobUrl);
+                }
+            } catch (err) {
+                if (active) {
+                    console.error('Document fetch failed:', err);
+                    setError('Failed to load document. Please check your connection or login again.');
+                }
+            } finally {
+                if (active) setLoading(false);
+            }
+        }
+
+        fetchFile();
+
+        return () => {
+            active = false;
+            if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+            }
+        };
+    }, [url]);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div 
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
+                onClick={onClose}
+            />
+            <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white z-10">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <FileText size={18} className="text-blue-600" />
+                        {title}
+                    </h3>
+                    <button 
+                        onClick={onClose}
+                        className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="flex-1 bg-slate-50 overflow-auto p-4 flex items-center justify-center">
+                    {loading ? (
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-sm font-bold text-slate-400 animate-pulse uppercase tracking-widest">Securely loading...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="bg-white p-8 rounded-2xl border border-red-100 text-center max-w-sm">
+                            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <ShieldAlert size={24} />
+                            </div>
+                            <p className="text-slate-800 font-bold mb-2">Access Error</p>
+                            <p className="text-slate-500 text-sm leading-relaxed">{error}</p>
+                        </div>
+                    ) : (
+                        isPdf ? (
+                            <iframe 
+                                src={blobUrl!} 
+                                className="w-full h-full rounded-xl border border-slate-200 bg-white" 
+                                title={title}
+                            />
+                        ) : (
+                            <img 
+                                src={blobUrl!} 
+                                alt={title} 
+                                className="max-w-full max-h-full object-contain shadow-sm rounded-[2rem] bg-white p-2 border border-slate-200" 
+                            />
+                        )
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
