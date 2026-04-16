@@ -223,7 +223,7 @@ export function EditProfileModal() {
                             </div>
                         </div>
                         
-                        {(user?.profile?.kyc_status === 'PENDING' || user?.profile?.kyc_status === 'REJECTED') && (
+                        {user?.profile?.kyc_status !== 'VERIFIED' && user?.profile?.kyc_status !== 'SUBMITTED' && (
                             <button
                                 type="button"
                                 onClick={() => {
