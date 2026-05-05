@@ -13,6 +13,8 @@ interface SearchFormProps {
     initialReturnDate?: string;
     initialTripType?: 'one-way' | 'round-trip';
     initialPassengers?: number;
+    initialAdults?: number;
+    initialChildren?: number;
 }
 
 export function SearchForm({
@@ -21,7 +23,9 @@ export function SearchForm({
     initialDate,
     initialReturnDate,
     initialTripType = 'one-way',
-    initialPassengers = 1
+    initialPassengers = 1,
+    initialAdults,
+    initialChildren
 }: SearchFormProps) {
     const router = useRouter();
     const [originQuery, setOriginQuery] = useState(initialOrigin);
@@ -31,7 +35,9 @@ export function SearchForm({
     const [showDepartureOptions, setShowDepartureOptions] = useState(false);
     const [showReturnOptions, setShowReturnOptions] = useState(false);
     const [tripType, setTripType] = useState<'one-way' | 'round-trip'>(initialTripType);
-    const [passengers, setPassengers] = useState<number | string>(initialPassengers);
+    const [adults, setAdults] = useState<number>(initialAdults || initialPassengers || 1);
+    const [children, setChildren] = useState<number>(initialChildren || 0);
+    const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
 
     // Parse initial dates
     const parseDate = (d?: string) => {
@@ -50,7 +56,7 @@ export function SearchForm({
     const [availableReturnDates, setAvailableReturnDates] = useState<Date[]>([]);
 
     const fetchMetadata = (origin?: string, dest?: string) => {
-        const passCount = typeof passengers === 'string' ? parseInt(passengers) : passengers;
+        const passCount = adults + children;
         getSearchMeta(origin, dest, passCount).then(data => {
             // Only update what we need based on context to avoid clearing user's current valid selection view
             // actually, we should update everything that is downstream.
@@ -93,7 +99,7 @@ export function SearchForm({
 
     useEffect(() => {
         fetchMetadata(originQuery, destQuery);
-    }, [passengers]);
+    }, [adults, children]);
 
     useEffect(() => {
         fetchMetadata(initialOrigin, initialDestination);
@@ -129,7 +135,9 @@ export function SearchForm({
         const params = new URLSearchParams();
         if (originQuery) params.append('origin', originQuery);
         if (destQuery) params.append('destination', destQuery);
-        params.append('passengers', (parseInt(passengers as string) || 1).toString());
+        params.append('passengers', (adults + children).toString());
+        params.append('adults', adults.toString());
+        params.append('children', children.toString());
 
         if (departureDate) {
             // Format as YYYY-MM-DD manually to avoid timezone issues with toISOString
@@ -480,40 +488,86 @@ export function SearchForm({
                     )}
                 </div>
 
-                <div className="w-full md:w-40 relative">
-                    <div className="bg-slate-50 p-4 md:p-6 rounded-2xl flex items-center space-x-3 border border-slate-200 focus-within:border-green-400 transition-colors">
+                <div className="w-full md:w-56 relative">
+                    <div
+                        className="bg-slate-50 p-4 md:p-6 rounded-2xl flex items-center space-x-3 border border-slate-200 focus-within:border-green-400 transition-colors cursor-pointer"
+                        onClick={() => { setShowDestSuggestions(false); setShowOriginSuggestions(false); setShowDepartureOptions(false); setShowReturnOptions(false); setShowPassengerDropdown(!showPassengerDropdown); }}
+                    >
                         <Users className="text-slate-400 shrink-0" />
                         <div className="flex-1">
-                            <label className="block text-xs md:text-base font-semibold text-slate-400 uppercase tracking-wider">Pass</label>
-                            <input
-                                type="number"
-                                min="1"
-                                max="9"
-                                className="w-full bg-transparent outline-none text-slate-800 font-medium text-lg md:text-xl"
-                                value={passengers}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '') {
-                                        setPassengers('');
-                                        return;
-                                    }
-                                    const num = parseInt(val);
-                                    if (num > 9) setPassengers(9);
-                                    else if (num < 1) setPassengers(1);
-                                    else setPassengers(num);
-                                }}
-                                onBlur={() => {
-                                    if (passengers === '' || parseInt(passengers as string) < 1) {
-                                        setPassengers(1);
-                                    }
-                                }}
-                            />
+                            <label className="block text-xs md:text-base font-semibold text-slate-400 uppercase tracking-wider">Travelers</label>
+                            <div className="text-slate-800 font-medium text-md">
+                                {adults + children} Traveler{(adults + children) !== 1 ? 's' : ''}
+                            </div>
                         </div>
+                        <ChevronDown className={`text-slate-400 w-4 h-4 transition-transform shrink-0 ${showPassengerDropdown ? 'rotate-180' : ''}`} />
                     </div>
+
+                    {showPassengerDropdown && (
+                        <div className="absolute top-full left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 mt-2 z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="font-bold text-slate-800">Adults</div>
+                                        <div className="text-[10px] text-slate-400 font-semibold uppercase">12+ years</div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setAdults(Math.max(1, adults - 1)); }}
+                                            className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 disabled:opacity-30"
+                                            disabled={adults <= 1}
+                                        >
+                                            -
+                                        </button>
+                                        <span className="font-bold text-slate-800 w-4 text-center">{adults}</span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setAdults(Math.min(9 - children, adults + 1)); }}
+                                            className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 disabled:opacity-30"
+                                            disabled={adults + children >= 9}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="font-bold text-slate-800">Children</div>
+                                        <div className="text-[10px] text-slate-400 font-semibold uppercase">2-12 years</div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setChildren(Math.max(0, children - 1)); }}
+                                            className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 disabled:opacity-30"
+                                            disabled={children <= 0}
+                                        >
+                                            -
+                                        </button>
+                                        <span className="font-bold text-slate-800 w-4 text-center">{children}</span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setChildren(Math.min(9 - adults, children + 1)); }}
+                                            className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 disabled:opacity-30"
+                                            disabled={adults + children >= 9}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-medium italic">
+                                    Max 9 travelers total. Infants (0-2 yrs) can be added during booking.
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {(showDepartureOptions || showReturnOptions) && (
-                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => { setShowDepartureOptions(false); setShowReturnOptions(false); }} />
+                { (showDepartureOptions || showReturnOptions || showPassengerDropdown) && (
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => { setShowDepartureOptions(false); setShowReturnOptions(false); setShowPassengerDropdown(false); }} />
                 )}
 
                 <button type="submit" className="cursor-pointer w-full md:w-auto h-20 md:h-24 px-8 md:px-12 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-xl md:text-2xl hover:shadow-lg hover:shadow-green-600/30 transition-all flex items-center justify-center space-x-2 shrink-0">

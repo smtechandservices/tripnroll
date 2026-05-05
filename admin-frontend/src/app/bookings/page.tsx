@@ -361,7 +361,9 @@ export default function AdminBookingsPage() {
 
                         <div className="p-6 space-y-8 overflow-y-auto">
                             {selectedGroup.passengers.map((passenger, index) => {
-                                const isInfant = passenger.is_infant;
+                                const age = calculateAge(passenger.date_of_birth);
+                                const isInfant = passenger.is_infant || (age !== null && age <= 2);
+                                const isChild = age !== null && age > 2 && age < 12;
                                 
                                 return (
                                 <div key={passenger.booking_id} className={`${index !== 0 ? 'pt-8 border-t border-slate-100' : ''}`}>
@@ -372,6 +374,11 @@ export default function AdminBookingsPage() {
                                         <div>
                                             <h4 className="font-bold text-slate-900 flex items-center gap-2">
                                                 {passenger.first_name} {passenger.last_name}
+                                                {isChild && (
+                                                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] uppercase tracking-wider rounded border border-green-200 font-bold">
+                                                        Child
+                                                    </span>
+                                                )}
                                                 {isInfant && (
                                                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold">
                                                         Infant

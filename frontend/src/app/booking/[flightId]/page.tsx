@@ -7,7 +7,8 @@ import { BookingForm } from '@/components/BookingForm';
 import { Plane, Clock, Calendar, Loader2 } from 'lucide-react';
 import { BookingSuccessWrapper } from './BookingSuccessWrapper';
 import { BackButton } from '@/components/BackButton';
-import { isInternationalFlight } from '@/lib/flightUtils';
+import { isInternationalFlight, parseFlightLegs } from '@/lib/flightUtils';
+import { getAirlineLogo } from '@/lib/airlines';
 
 
 export default function BookingPage() {
@@ -102,9 +103,15 @@ export default function BookingPage() {
                                 <div>
                                     <div className="text-xs text-slate-400 uppercase mb-1">Airline</div>
                                     <div className="font-semibold text-slate-700 flex items-center gap-2">
-                                        <div className="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xs font-bold">
-                                            {flight.airline[0]}
-                                        </div>
+                                        {getAirlineLogo(flight.airline) ? (
+                                            <div className="h-6 w-6 bg-white rounded border border-slate-100 flex items-center justify-center p-0.5 shadow-sm">
+                                                <img src={getAirlineLogo(flight.airline)!} alt={flight.airline} className="w-full h-full object-contain" />
+                                            </div>
+                                        ) : (
+                                            <div className="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xs font-bold">
+                                                {flight.airline[0]}
+                                            </div>
+                                        )}
                                         {flight.airline}
                                     </div>
                                 </div>
@@ -130,34 +137,97 @@ export default function BookingPage() {
                                     {isInternational && (
                                         <div className="text-xs text-blue-600 mt-1 font-medium">International Flight</div>
                                     )}
+                                </div>                                 <div>
+                                    <div className="text-xs text-slate-400 uppercase mb-3">Flight Itinerary</div>
+                                    {(() => {
+                                        const legs = parseFlightLegs(flight.stop_info, flight.stop_details);
+                                        if (legs) {
+                                            return (
+                                                <div className="space-y-6 relative ml-2">
+                                                    {/* Vertical connection line */}
+                                                    <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-slate-100 border-l-2 border-dashed border-slate-200"></div>
+                                                    
+                                                    {legs.map((leg, idx) => (
+                                                        <div key={idx} className="relative pl-6 space-y-2">
+                                                            {/* Point marker */}
+                                                            <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-4 border-green-600"></div>
+                                                            
+                                                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                    {leg.airline && (
+                                                                        <div className="flex items-center gap-1 min-w-0">
+                                                                            {getAirlineLogo(leg.airline) ? (
+                                                                                <img src={getAirlineLogo(leg.airline)!} className="w-3.5 h-3.5 object-contain" alt="" />
+                                                                            ) : (
+                                                                                <Plane size={10} className="text-slate-400" />
+                                                                            )}
+                                                                            <span className="text-[10px] font-bold text-slate-600 truncate">{leg.airline}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">• {leg.flight_number}</div>
+                                                                </div>
+                                                                <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium shrink-0">
+                                                                    {leg.duration || ''}
+                                                                </div>
+                                                            
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex flex-col">
+                                                                    <div className="text-sm font-bold text-slate-800">{leg.origin}</div>
+                                                                    <div className="text-[11px] text-slate-500">{new Date(leg.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                                                                    {leg.departure_terminal && <div className="text-[9px] text-blue-600 font-bold uppercase mt-0.5">Terminal {leg.departure_terminal}</div>}
+                                                                </div>
+                                                                
+                                                                <div className="flex flex-col items-end">
+                                                                    <div className="text-sm font-bold text-slate-800">{leg.destination}</div>
+                                                                    <div className="text-[11px] text-slate-500">{new Date(leg.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                                                                    {leg.arrival_terminal && <div className="text-[9px] text-blue-600 font-bold uppercase mt-0.5">Terminal {leg.arrival_terminal}</div>}
+                                                                </div>
+                                                            </div>
+
+                                                            {idx < legs.length - 1 && (
+                                                                <div className="bg-blue-50/50 p-2 rounded-lg border border-blue-100/50 my-2">
+                                                                    <div className="text-[9px] text-blue-500 font-bold flex items-center justify-center gap-1">
+                                                                        <Clock size={10} /> LAYOVER AT {leg.destination}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Fallback for legacy format or non-stop
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="font-semibold text-slate-700 flex items-center gap-2">
+                                                    <Clock size={14} className="text-green-600" />
+                                                    {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                    {flight.departure_terminal && (
+                                                        <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">
+                                                            Dep: T{flight.departure_terminal}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-sm text-slate-600 ml-6">
+                                                    {new Date(flight.departure_time).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                                                </div>
+                                                <div className="font-semibold text-slate-700 flex items-center gap-2 mt-2">
+                                                    <Clock size={14} className="text-blue-600" />
+                                                    {new Date(flight.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                    {flight.arrival_terminal && (
+                                                        <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                                                            Arr: T{flight.arrival_terminal}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-1 ml-6">
+                                                    Duration: {flight.duration}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
-                                <div>
-                                    <div className="text-xs text-slate-400 uppercase mb-1">Schedule</div>
-                                    <div className="font-semibold text-slate-700 flex items-center gap-2">
-                                        <Clock size={14} className="text-green-600" />
-                                        {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                                        {flight.departure_terminal && (
-                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">
-                                                Dep: T{flight.departure_terminal}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-sm text-slate-600 ml-6">
-                                        {new Date(flight.departure_time).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
-                                    </div>
-                                    <div className="font-semibold text-slate-700 flex items-center gap-2 mt-2">
-                                        <Clock size={14} className="text-blue-600" />
-                                        {new Date(flight.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                                        {flight.arrival_terminal && (
-                                            <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
-                                                Arr: T{flight.arrival_terminal}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-xs text-slate-500 mt-1 ml-6">
-                                        Duration: {flight.duration}
-                                    </div>
-                                </div>
+
                                 <div className="pt-4 border-t">
                                     <div className="text-xs text-slate-400 uppercase">Total Price</div>
                                     <div className="text-2xl font-bold text-green-600">{`₹${totalPrice.toLocaleString('en-IN')}`}</div>

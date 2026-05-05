@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 import { getAirlineLogo } from '@/lib/airlines';
+import { parseFlightLegs } from '@/lib/flightUtils';
 
 interface FlightCardProps {
     flight: Flight;
@@ -54,7 +55,14 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                     <div>
                         <h3 className="font-bold text-slate-800">{flight.airline}</h3>
                         <div className="flex items-center gap-2 mt-1">
-                            <p className="text-sm text-slate-500">{flight.flight_number}</p>
+                            {(() => {
+                                const legs = parseFlightLegs(flight.stop_info, flight.stop_details);
+                                if (legs) {
+                                    const allNumbers = legs.map(l => l.flight_number).filter((v, i, a) => a.indexOf(v) === i);
+                                    return <p className="text-sm text-slate-500">{allNumbers.join(' / ')}</p>;
+                                }
+                                return <p className="text-sm text-slate-500">{flight.flight_number}</p>;
+                            })()}
                             {flight.baggage_allowance && (
                                 <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                                     {flight.baggage_allowance}
@@ -86,7 +94,14 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                                 <span>{flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}</span>
                                 {flight.stops > 0 && (
                                     <div className="text-[10px] text-slate-500 font-medium whitespace-nowrap flex flex-col items-center">
-                                        {flight.stop_details && <span>via {flight.stop_details}</span>}
+                                        {(() => {
+                                            const legs = parseFlightLegs(flight.stop_info, flight.stop_details);
+                                            if (legs) {
+                                                const via = legs.slice(0, -1).map(l => l.destination).join(', ');
+                                                return <span>via {via}</span>;
+                                            }
+                                            return flight.stop_details && <span>via {flight.stop_details}</span>;
+                                        })()}
                                         {flight.layover_duration && <span className="text-blue-500/80 mt-0.5">Layover: {flight.layover_duration}</span>}
                                     </div>
                                 )}
@@ -117,7 +132,7 @@ export function FlightCard({ flight, passengers = 1 }: FlightCardProps) {
                     )}
                 </div>
                 <Link
-                    href={`/booking/${flight.id}?passengers=${passengers}`}
+                    href={`/booking/${flight.id}?passengers=${passengers}${window.location.search.includes('adults=') ? `&${new URLSearchParams(window.location.search).toString()}` : ''}`}
                     onClick={handleBookNow}
                     className="w-full bg-green-600 text-center text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"
                 >

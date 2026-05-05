@@ -12,6 +12,7 @@ class Flight(models.Model):
     infant_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     stops = models.IntegerField(default=0)
     stop_details = models.CharField(max_length=255, blank=True, null=True)
+    stop_info = models.TextField(blank=True, null=True)
     total_seats = models.IntegerField(default=10)
     is_hidden = models.BooleanField(default=False)
     pnr = models.CharField(max_length=20, blank=True, null=True)

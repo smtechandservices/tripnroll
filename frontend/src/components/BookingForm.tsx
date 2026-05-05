@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CreateBookingData, createBooking, getWalletBalance, WalletData } from '@/lib/api';
+import { CreateBookingData, createBooking, getWalletBalance, WalletData, checkDuplicateBooking } from '@/lib/api';
 import { Loader2, Wallet, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
@@ -345,7 +345,49 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
             passengerNames.add(fullName);
         }
 
+        // Backend Duplicate Check (Existing Bookings)
+        try {
+            const bookingData = {
+                flight: flightId,
+                travel_date: formattedDate,
+                passengers: passengers.map(p => ({
+                    ...p,
+                    passenger_email: p.passenger_email || undefined,
+                    passenger_phone: p.passenger_phone || undefined,
+                    passport_number: p.passport_number || undefined,
+                    passport_issue_date: p.passport_issue_date || undefined,
+                    passport_expiry_date: p.passport_expiry_date || undefined,
+                    frequent_flyer_number: p.frequent_flyer_number || undefined,
+                    date_of_birth: p.date_of_birth || undefined,
+                }))
+            };
+            
+            const duplicateCheck = await checkDuplicateBooking(bookingData);
+            if (duplicateCheck.has_duplicates) {
+                const duplicateList = duplicateCheck.duplicates.map(d => `${d.first_name} ${d.last_name}`).join(', ');
+                const confirmResult = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Existing Booking Detected',
+                    text: `A booking for ${duplicateList} already exists for this flight. Do you want to proceed with another booking?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Proceed Anyway',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#f59e0b', // orange-500
+                    cancelButtonColor: '#64748b',
+                    customClass: {
+                        popup: 'rounded-3xl',
+                        confirmButton: 'rounded-xl px-6 py-3 font-bold',
+                        cancelButton: 'rounded-xl px-6 py-3 font-bold'
+                    }
+                });
+                if (!confirmResult.isConfirmed) return;
+            }
+        } catch (err) {
+            console.error('Duplicate check failed:', err);
+        }
+
         setLoading(true);
+
         setError(null);
 
         try {
@@ -414,6 +456,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 {passengers.map((passenger, index) => {
                     const age = calculateAge(passenger.date_of_birth);
                     const isInfant = age !== null && age <= 2;
+                    const isChild = age !== null && age > 2 && age < 12;
 
                     return (
                         <div key={index} className="relative p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-2">
@@ -423,6 +466,11 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                         {index + 1}
                                     </span>
                                     Passenger Information
+                                    {isChild && (
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] uppercase tracking-wider rounded border border-green-200 font-bold ml-1">
+                                            Child
+                                        </span>
+                                    )}
                                     {isInfant && (
                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] uppercase tracking-wider rounded border border-blue-200 font-bold ml-1">
                                             Infant {infantPrice > 0 ? `(₹${infantPrice.toLocaleString('en-IN')})` : '(FREE)'}

@@ -91,9 +91,9 @@ export default function MyBookingsPage() {
         }
     };
 
-    const handleDownloadTicket = async (groupBookings: Booking[]) => {
+    const handleDownloadTicket = async (groupBookings: Booking[], includePrice: boolean = true) => {
         try {
-            await generateTicketPDF(groupBookings, user);
+            await generateTicketPDF(groupBookings, user, includePrice);
         } catch (error) {
             console.error('PDF Generation failed:', error);
             Swal.fire('Error', 'Failed to generate PDF ticket.', 'error');
@@ -224,24 +224,12 @@ export default function MyBookingsPage() {
                                                                 <div className="font-bold text-xs uppercase">{paymentStatus}</div>
                                                             </div>
                                                             
-                                                            {/* Flight Status Badge */}
-                                                            <div className={`${isExpired ? 'bg-slate-700/50' : 
-                                                                flightStatus === 'PENDING' ? 'bg-yellow-400/30' : 'bg-white/20'
-                                                            } backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
-                                                                <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Flight</div>
-                                                                <div className="font-bold text-xs uppercase">{flightStatus === 'CONFIRMED' ? 'Confirmed' : 'Pending'}</div>
-                                                            </div>
-
-                                                            {/* Download Button */}
-                                                            {paymentStatus === 'CONFIRMED' && flightStatus === 'CONFIRMED' && (
-                                                                <button
-                                                                    onClick={() => handleDownloadTicket(passengers)}
-                                                                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 rounded-lg transition-colors border border-white/10 group/btn"
-                                                                    title="Download Ticket PDF"
-                                                                >
-                                                                    <Download size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                                </button>
-                                                            )}
+                                                                 <div className={`${isExpired ? 'bg-slate-700/50' : 
+                                                                 flightStatus === 'PENDING' ? 'bg-yellow-400/30' : 'bg-white/20'
+                                                             } backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/10`}>
+                                                                 <div className="text-[8px] uppercase tracking-tighter opacity-70 leading-none mb-1">Flight</div>
+                                                                 <div className="font-bold text-xs uppercase">{flightStatus === 'CONFIRMED' ? 'Confirmed' : 'Pending'}</div>
+                                                             </div>
                                                     </div>
                                                     </div>
                                                 </div>
@@ -354,20 +342,49 @@ export default function MyBookingsPage() {
                                                 </div>
                                             )}
 
-                                            {/* Refund Action */}
-                                            {!isExpired && passengers.some(p => p.status === 'CONFIRMED') && (
-                                                <div className="border-t border-slate-100 p-4 bg-slate-50/50 flex justify-between items-center">
-                                                    <div className="text-xs text-slate-500 font-medium">
-                                                        Refund request will apply to all eligible passengers.
+                                            {/* Action Footer (Download & Refund) */}
+                                            {(() => {
+                                                const isDownloadable = firstPassenger.payment_status === 'CONFIRMED' && firstPassenger.flight_status === 'CONFIRMED';
+                                                const isRefundable = !isExpired && passengers.some(p => p.status === 'CONFIRMED');
+                                                
+                                                if (!isDownloadable && !isRefundable) return null;
+                                                
+                                                return (
+                                                    <div className="border-t border-slate-100 p-4 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                                        <div className="flex flex-wrap items-center gap-3">
+                                                            {isDownloadable && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleDownloadTicket(passengers, true)}
+                                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-[10px] md:text-xs font-bold border border-blue-100 transition-all group/dl"
+                                                                        title="Download Ticket with Price"
+                                                                    >
+                                                                        <Download size={14} className="group-hover/dl:scale-110 transition-transform" />
+                                                                        Ticket with Price
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDownloadTicket(passengers, false)}
+                                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg text-[10px] md:text-xs font-bold border border-slate-200 transition-all group/dl"
+                                                                        title="Download Ticket without Price"
+                                                                    >
+                                                                        <Download size={14} className="group-hover/dl:scale-110 transition-transform" />
+                                                                        Ticket (No Price)
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {isRefundable && (
+                                                            <button
+                                                                onClick={() => handleRequestRefund(groupKey, passengers)}
+                                                                className="cursor-pointer text-[10px] md:text-xs text-red-500 hover:text-red-700 font-bold px-4 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-all whitespace-nowrap ml-auto sm:ml-0"
+                                                            >
+                                                                Request Refund
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleRequestRefund(groupKey, passengers)}
-                                                        className="cursor-pointer text-sm text-red-500 hover:text-red-700 font-bold px-4 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-all"
-                                                    >
-                                                        Request Refund
-                                                    </button>
-                                                </div>
-                                            )}
+                                                );
+                                            })()}
                                             {!isExpired && passengers.some(p => p.status === 'REFUND_REQUESTED') && !passengers.some(p => p.status === 'CONFIRMED') && (
                                                 <div className="border-t border-slate-100 p-4">
                                                     <span className="text-sm text-orange-500 font-medium">

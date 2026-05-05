@@ -32,6 +32,8 @@ function SearchPageContent() {
     const date = searchParams.get('date');
     const returnDate = searchParams.get('returnDate');
     const passengers = Number(searchParams.get('passengers')) || 1;
+    const adults = Number(searchParams.get('adults')) || (searchParams.get('children') ? 0 : passengers);
+    const children = Number(searchParams.get('children')) || 0;
     const currentPage = Number(searchParams.get('page')) || 1;
 
     const [outboundFlights, setOutboundFlights] = useState<Flight[]>([]);
@@ -198,6 +200,8 @@ function SearchPageContent() {
                                 initialReturnDate={returnDate || undefined}
                                 initialTripType={returnDate ? 'round-trip' : 'one-way'}
                                 initialPassengers={passengers}
+                                initialAdults={adults}
+                                initialChildren={children}
                             />
                         </div>
                     </div>

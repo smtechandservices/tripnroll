@@ -13,6 +13,7 @@ export interface Flight {
     infant_price?: string;
     stops: number;
     stop_details?: string;
+    stop_info?: string;
     available_seats?: number;
     is_hidden?: boolean;
     pnr?: string;
@@ -306,6 +307,23 @@ export async function createBooking(data: CreateBookingData | CreateMultiBooking
     }
     return res.json();
 }
+
+export async function checkDuplicateBooking(data: CreateMultiBookingData): Promise<{ has_duplicates: boolean; duplicates: any[] }> {
+    const res = await fetch(`${API_BASE_URL}/bookings/check-duplicate/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        if (errorData) {
+            throw new Error(JSON.stringify(errorData));
+        }
+        throw new Error('Failed to check for duplicate bookings');
+    }
+    return res.json();
+}
+
 
 export async function getBookingHistory(email?: string): Promise<Booking[]> {
     const url = email

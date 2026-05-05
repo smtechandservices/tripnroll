@@ -13,6 +13,7 @@ export interface Flight {
     infant_price?: string;
     stops: number;
     stop_details?: string;
+    stop_info?: string;
     available_seats?: number;
     total_seats?: number;
     is_hidden?: boolean;

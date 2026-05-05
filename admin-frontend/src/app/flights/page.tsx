@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getAdminFlights, createFlight, updateFlight, deleteFlight, bulkCreateFlights, Flight } from '@/lib/api';
 import { getAirlineLogo, PREDEFINED_AIRLINES } from '@/lib/airlines';
-import { Plus, Edit2, Trash2, Search, X, FileDigit, Download, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, FileDigit, Download, Eye, EyeOff, Map } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 
@@ -64,9 +64,15 @@ export default function AdminFlightsPage() {
     const [bookedCount, setBookedCount] = useState(0);
     const [isAirlineDropdownOpen, setIsAirlineDropdownOpen] = useState(false);
 
+    // Stop Details State
+    const [isStopModalOpen, setIsStopModalOpen] = useState(false);
+    const [stopFlightId, setStopFlightId] = useState<number | null>(null);
+    const [legInputs, setLegInputs] = useState<any[]>([]);
+
     // Form state
     const [formData, setFormData] = useState<Partial<Flight>>({});
     const [modalDateStrings, setModalDateStrings] = useState({ departure: '', arrival: '' });
+    const [modalTimeStrings, setModalTimeStrings] = useState({ departure: '', arrival: '' });
 
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -136,6 +142,10 @@ export default function AdminFlightsPage() {
                 departure: formatDateToDDMMYYYY(flight.departure_time),
                 arrival: formatDateToDDMMYYYY(flight.arrival_time)
             });
+            setModalTimeStrings({
+                departure: getISOPart(flight.departure_time, 'time'),
+                arrival: getISOPart(flight.arrival_time, 'time')
+            });
             // Calculate booked count: Total - Available
             const available = flight.available_seats || 0;
             const total = flight.total_seats || 0;
@@ -160,13 +170,50 @@ export default function AdminFlightsPage() {
                 layover_duration: ''
             });
             setModalDateStrings({ departure: '', arrival: '' });
+            setModalTimeStrings({ departure: '', arrival: '' });
         }
         setIsModalOpen(true);
+    };
+
+    const isItineraryComplete = (stopInfo: string | null | undefined, stops: number): boolean => {
+        if (stops === 0) return true;
+        if (!stopInfo) return false;
+        try {
+            const legs = JSON.parse(stopInfo);
+            if (!Array.isArray(legs) || legs.length !== stops + 1) return false;
+            return legs.every(leg => 
+                leg.flight_number?.trim() && 
+                leg.origin?.trim() && 
+                leg.destination?.trim() && 
+                leg.date_departure?.trim() && 
+                leg.time_departure?.trim() && 
+                leg.date_arrival?.trim() && 
+                leg.time_arrival?.trim()
+            );
+        } catch {
+            return false;
+        }
     };
 
     const toggleVisibility = async (flight: Flight) => {
         try {
             const newHiddenStatus = !flight.is_hidden;
+            
+            // Guard: Cannot show flight if itinerary is missing or incomplete
+            if (!newHiddenStatus && flight.stops > 0 && !isItineraryComplete(flight.stop_info, flight.stops)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Configuration Required',
+                    text: 'This flight has incomplete or mismatched itinerary details. Please ensure all legs are fully configured before making it visible.',
+                    confirmButtonText: 'Configure Now',
+                    showCancelButton: true,
+                    confirmButtonColor: '#16a34a',
+                }).then((res) => {
+                    if (res.isConfirmed) openStopModal(flight);
+                });
+                return;
+            }
+
             await updateFlight(flight.id, { is_hidden: newHiddenStatus });
             setFlights(flights.map(f => f.id === flight.id ? { ...f, is_hidden: newHiddenStatus } : f));
 
@@ -224,24 +271,181 @@ export default function AdminFlightsPage() {
         if (!result.isConfirmed) return;
 
         try {
-            if (editingFlight) {
-                await updateFlight(editingFlight.id, formData);
-            } else {
-                await createFlight(formData);
+            const dataToSave = { ...formData };
+            const currentStops = dataToSave.stops || 0;
+            
+            // Strictly enforce: if stops > 0, check if the EXISTING stop_info is complete
+            // Note: We use editingFlight.stop_info because stop_info isn't in formData
+            let hasValidItinerary = isItineraryComplete(editingFlight?.stop_info, currentStops);
+
+            if (currentStops > 0 && !hasValidItinerary) {
+                dataToSave.is_hidden = true;
             }
+
+            if (editingFlight) {
+                await updateFlight(editingFlight.id, dataToSave);
+            } else {
+                await createFlight(dataToSave);
+            }
+
             setIsModalOpen(false);
             fetchFlights(currentPage);
+            
+            const isActuallyHidden = dataToSave.is_hidden === true;
+            const needsSetup = currentStops > 0 && !hasValidItinerary;
+
             Swal.fire({
                 icon: 'success',
-                title: editingFlight ? 'Flight Updated' : 'Flight Created',
-                timer: 2000,
-                showConfirmButton: false
+                title: editingFlight 
+                    ? `Flight Updated (${isActuallyHidden ? 'Hidden' : 'Visible'})` 
+                    : `Flight Created (${isActuallyHidden ? 'Hidden' : 'Visible'})`,
+                text: needsSetup 
+                    ? 'Flight is forcibly hidden until the itinerary matches the stop count and all fields are filled.' 
+                    : (isActuallyHidden ? 'Flight is manually set to hidden.' : 'Flight is now visible for bookings.'),
+                timer: 3000,
+                showConfirmButton: true
             });
         } catch (error: any) {
             Swal.fire({
                 icon: 'error',
                 title: 'Save Failed',
                 text: error.message || 'Failed to save flight details.',
+            });
+        }
+    };
+
+    const updateLegInput = (idx: number, field: string, value: any) => {
+        const newLegs = [...legInputs];
+        newLegs[idx][field] = value;
+        
+        // Propagation logic: Source fields update dependent fields in the next leg
+        if (newLegs[idx + 1]) {
+            if (field === 'destination') newLegs[idx + 1].origin = value;
+            if (field === 'arrival_terminal') newLegs[idx + 1].departure_terminal = value;
+            if (field === 'date_arrival') newLegs[idx + 1].date_departure = value;
+            if (field === 'time_arrival') newLegs[idx + 1].time_departure = value;
+        }
+        
+        setLegInputs(newLegs);
+    };
+
+    const openStopModal = (flight: Flight) => {
+        setStopFlightId(flight.id);
+        const numStops = flight.stops || 0;
+        const numLegs = numStops + 1;
+        
+        let existingLegs: any[] = [];
+        try {
+            if (flight.stop_info && flight.stop_info.startsWith('[')) {
+                existingLegs = JSON.parse(flight.stop_info);
+            } else if (flight.stop_details && flight.stop_details.startsWith('[')) {
+                existingLegs = JSON.parse(flight.stop_details);
+            }
+        } catch (e) {
+            console.error("Failed to parse existing stop info", e);
+        }
+
+        const stopAirports = flight.stop_details ? flight.stop_details.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const fullRoute = [flight.origin, ...stopAirports, flight.destination];
+
+        // Initialize legs with strict Master Flight enforcement for start/end
+        const initialLegs = Array(numLegs).fill(0).map((_, i) => {
+            const existing = existingLegs[i] || {};
+            
+            let origin = existing.origin || '';
+            let destination = existing.destination || '';
+            
+            if (!origin && i < fullRoute.length) origin = fullRoute[i];
+            if (!destination && (i + 1) < fullRoute.length) destination = fullRoute[i + 1];
+
+            // Pinned fields: Leg 1 start and Leg Last end MUST match master flight
+            const isFirst = i === 0;
+            const isLast = i === numLegs - 1;
+
+            return {
+                flight_number: isFirst ? flight.flight_number : (existing.flight_number || ''),
+                airline: existing.airline || flight.airline, 
+                origin: isFirst ? flight.origin : origin,
+                destination: isLast ? flight.destination : destination,
+                departure_time: isFirst ? flight.departure_time : (existing.departure_time || ''),
+                arrival_time: isLast ? flight.arrival_time : (existing.arrival_time || ''),
+                departure_terminal: isFirst ? flight.departure_terminal : (existing.departure_terminal || ''),
+                arrival_terminal: isLast ? flight.arrival_terminal : (existing.arrival_terminal || ''),
+                
+                date_departure: formatDateToDDMMYYYY(isFirst ? flight.departure_time : (existing.departure_time || '')),
+                time_departure: getISOPart(isFirst ? flight.departure_time : (existing.departure_time || ''), 'time'),
+                date_arrival: formatDateToDDMMYYYY(isLast ? flight.arrival_time : (existing.arrival_time || '')),
+                time_arrival: getISOPart(isLast ? flight.arrival_time : (existing.arrival_time || ''), 'time')
+            };
+        });
+        
+        setLegInputs(initialLegs);
+        setIsStopModalOpen(true);
+    };
+
+    const handleSaveStops = async () => {
+        if (!stopFlightId) return;
+        
+        // Validation: Verify all fields for all legs
+        const incomplete = legInputs.some(leg => 
+            !leg.flight_number?.trim() || 
+            !leg.origin?.trim() || 
+            !leg.destination?.trim() || 
+            !leg.date_departure?.trim() || 
+            !leg.time_departure?.trim() || 
+            !leg.date_arrival?.trim() || 
+            !leg.time_arrival?.trim()
+        );
+
+        if (incomplete) {
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'Incomplete Details', 
+                text: 'Please fill all flight numbers, airports, dates, and times for all legs.' 
+            });
+            return;
+        }
+
+        try {
+            // Reconcile date/time strings back to ISO for each leg
+            const finishedLegs = legInputs.map(leg => {
+                const depDate = parseDDMMYYYYToYYYYMMDD(leg.date_departure);
+                const arrDate = parseDDMMYYYYToYYYYMMDD(leg.date_arrival);
+                
+                // Keep existing ISO if date/time hasn't changed or is invalid
+                const departure_time = (depDate && leg.time_departure) ? `${depDate}T${leg.time_departure}:00.000Z` : leg.departure_time;
+                const arrival_time = (arrDate && leg.time_arrival) ? `${arrDate}T${leg.time_arrival}:00.000Z` : leg.arrival_time;
+
+                return {
+                    ...leg,
+                    departure_time,
+                    arrival_time
+                };
+            });
+
+            const legData = JSON.stringify(finishedLegs);
+            // Comma separated list for stop_details (compatible with old fields)
+            const stopAirports = finishedLegs.slice(0, -1).map(leg => leg.destination).join(', ');
+
+            await updateFlight(stopFlightId, { 
+                stop_details: stopAirports,
+                stop_info: legData,
+                is_hidden: false 
+            });
+            setIsStopModalOpen(false);
+            fetchFlights(currentPage);
+            Swal.fire({
+                icon: 'success',
+                title: 'Itinerary Updated',
+                text: 'The full flight itinerary and airport list have been saved.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } catch (error: any) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Failed to update stops',
+                text: error.message
             });
         }
     };
@@ -494,9 +698,17 @@ export default function AdminFlightsPage() {
                                     <td className="px-6 py-4 text-slate-600">
                                         <div className="flex flex-col">
                                             <span>{flight.origin} → {flight.destination}</span>
-                                            <div className="text-[10px] text-slate-500">
+                                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
                                                 {flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)`}
-                                                {flight.stops > 0 && flight.stop_details && <span className="ml-1">via {flight.stop_details}</span>}
+                                                {flight.stops > 0 && (flight.stop_info || flight.stop_details) ? (
+                                                    <span className="text-blue-600 font-medium flex items-center gap-1">
+                                                        <Map className="w-3 h-3" /> via {flight.stop_details || 'Detailed Itinerary'}
+                                                    </span>
+                                                ) : flight.stops > 0 ? (
+                                                    <span className="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-full border border-amber-200 flex items-center gap-1.5 animate-pulse text-[10px] uppercase tracking-wider">
+                                                        <X className="w-3 h-3" /> Pending Itinerary
+                                                    </span>
+                                                ) : null}
                                             </div>
                                         </div>
                                     </td>
@@ -532,6 +744,15 @@ export default function AdminFlightsPage() {
                                         >
                                             <Trash2 className="cursor-pointer w-4 h-4" />
                                         </button>
+                                        {flight.stops > 0 && (
+                                            <button
+                                                onClick={() => openStopModal(flight)}
+                                                className={`ml-2 p-1 rounded transition-colors ${!(flight.stop_info || flight.stop_details) ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'text-blue-500 hover:text-blue-700 hover:bg-blue-50'}`}
+                                                title="Manage Itinerary/Stops"
+                                            >
+                                                <Map className="cursor-pointer w-4 h-4" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))
@@ -685,18 +906,22 @@ export default function AdminFlightsPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Time</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Departure Time (HH:mm - 24h)</label>
                                     <input
-                                        type="time"
+                                        type="text"
                                         required
+                                        placeholder="HH:mm"
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={getISOPart(formData.departure_time, 'time')}
+                                        value={modalTimeStrings.departure}
                                         onChange={e => {
-                                            const val = e.target.value || '00:00';
-                                            // Prefer the date from the text input if it's already valid, otherwise use from formData
-                                            const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.departure);
-                                            const date = manualDate || getISOPart(formData.departure_time, 'date');
-                                            setFormData({ ...formData, departure_time: `${date}T${val}:00.000Z` });
+                                            const val = e.target.value;
+                                            setModalTimeStrings({ ...modalTimeStrings, departure: val });
+                                            
+                                            if (/^\d{2}:\d{2}$/.test(val)) {
+                                                const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.departure);
+                                                const date = manualDate || getISOPart(formData.departure_time, 'date');
+                                                setFormData({ ...formData, departure_time: `${date}T${val}:00.000Z` });
+                                            }
                                         }}
                                     />
                                 </div>
@@ -720,18 +945,22 @@ export default function AdminFlightsPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Time</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Arrival Time (HH:mm - 24h)</label>
                                     <input
-                                        type="time"
+                                        type="text"
                                         required
+                                        placeholder="HH:mm"
                                         className="text-slate-700 w-full px-3 py-2 border border-slate-300 rounded-lg"
-                                        value={getISOPart(formData.arrival_time, 'time')}
+                                        value={modalTimeStrings.arrival}
                                         onChange={e => {
-                                            const val = e.target.value || '00:00';
-                                            // Prefer the date from the text input if it's already valid, otherwise use from formData
-                                            const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.arrival);
-                                            const date = manualDate || getISOPart(formData.arrival_time, 'date');
-                                            setFormData({ ...formData, arrival_time: `${date}T${val}:00.000Z` });
+                                            const val = e.target.value;
+                                            setModalTimeStrings({ ...modalTimeStrings, arrival: val });
+                                            
+                                            if (/^\d{2}:\d{2}$/.test(val)) {
+                                                const manualDate = parseDDMMYYYYToYYYYMMDD(modalDateStrings.arrival);
+                                                const date = manualDate || getISOPart(formData.arrival_time, 'date');
+                                                setFormData({ ...formData, arrival_time: `${date}T${val}:00.000Z` });
+                                            }
                                         }}
                                     />
                                 </div>
@@ -916,6 +1145,201 @@ export default function AdminFlightsPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Stop Details Modal */}
+            {isStopModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl border border-white/20 overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+                        <div className="bg-gradient-to-r from-green-600 to-emerald-800 p-6 text-white flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-bold">Configure Detailed Itinerary</h3>
+                                    <p className="text-green-50 text-xs mt-1">Define details for each leg of the journey</p>
+                                </div>
+                                <button onClick={() => setIsStopModalOpen(false)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto space-y-8 bg-slate-50/50">
+                            {legInputs.map((leg, idx) => (
+                                <div key={idx} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 relative group">
+                                    <div className="absolute -top-3 left-6 px-3 bg-green-600 text-white text-[10px] font-bold rounded-full py-0.5 shadow-sm">
+                                        LEG #{idx + 1}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
+                                        <div className="md:col-span-1">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Airline</label>
+                                            <input 
+                                                type="text" 
+                                                list={`airline-options-${idx}`}
+                                                className="text-slate-800 w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-all"
+                                                placeholder="e.g. Air India" 
+                                                value={leg.airline} 
+                                                onChange={e => updateLegInput(idx, 'airline', e.target.value)} 
+                                            />
+                                            <datalist id={`airline-options-${idx}`}>
+                                                {PREDEFINED_AIRLINES.map(a => <option key={a} value={a} />)}
+                                            </datalist>
+                                        </div>
+                                        <div className="md:col-span-1">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Flight Number</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx === 0}
+                                                className={`text-slate-800 w-full px-3 py-2 border rounded-lg outline-none font-semibold uppercase transition-all ${
+                                                    idx === 0 
+                                                    ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                    : 'bg-white border-slate-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm'
+                                                }`}
+                                                placeholder="e.g. 6E 123"
+                                                value={leg.flight_number}
+                                                onChange={e => updateLegInput(idx, 'flight_number', e.target.value.toUpperCase())}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Origin</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx >= 0} // Always readonly as it's either master start or previous leg's destination
+                                                className="text-slate-800 w-full px-3 py-2 border border-slate-300 rounded-lg outline-none font-semibold uppercase transition-all bg-slate-200/60 cursor-not-allowed text-slate-500 shadow-inner"
+                                                placeholder="Airport Code"
+                                                value={leg.origin}
+                                                tabIndex={-1}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Destination</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx === legInputs.length - 1}
+                                                className={`text-slate-800 w-full px-3 py-2 border rounded-lg outline-none font-semibold uppercase transition-all ${
+                                                    idx === legInputs.length - 1 
+                                                    ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                    : 'bg-white border-slate-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm'
+                                                }`}
+                                                placeholder="Airport Code"
+                                                value={leg.destination}
+                                                onChange={e => updateLegInput(idx, 'destination', e.target.value.toUpperCase())}
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Dep. Tml</label>
+                                                <input 
+                                                    type="text" 
+                                                    className={`w-full px-2 py-2 border rounded-lg text-sm transition-all focus:outline-none ${
+                                                        idx > 0 || idx === 0 // All origins are either master or synced
+                                                        ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                        : 'bg-white border-slate-200 text-slate-700 focus:ring-2 focus:ring-green-500 shadow-sm'
+                                                    }`} 
+                                                    placeholder="T3" 
+                                                    value={leg.departure_terminal} 
+                                                    readOnly={idx >= 0}
+                                                    tabIndex={-1}
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Arr. Tml</label>
+                                                <input 
+                                                    type="text" 
+                                                    readOnly={idx === legInputs.length - 1}
+                                                    className={`w-full px-2 py-2 border rounded-lg text-sm transition-all focus:outline-none ${
+                                                        idx === legInputs.length - 1 
+                                                        ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                        : 'bg-white border-slate-200 text-slate-700 focus:ring-2 focus:ring-green-500 shadow-sm'
+                                                    }`} 
+                                                    placeholder="T1" 
+                                                    value={leg.arrival_terminal} 
+                                                    onChange={e => updateLegInput(idx, 'arrival_terminal', e.target.value)} 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Dep. Date</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx >= 0}
+                                                className="text-slate-800 w-full px-3 py-2 border border-slate-300 rounded-lg outline-none transition-all bg-slate-200/60 cursor-not-allowed text-slate-500 shadow-inner"
+                                                placeholder="DD/MM/YYYY"
+                                                value={leg.date_departure}
+                                                tabIndex={-1}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Dep. Time</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx >= 0}
+                                                className="text-slate-800 w-full px-3 py-2 border border-slate-300 rounded-lg outline-none transition-all bg-slate-200/60 cursor-not-allowed text-slate-500 shadow-inner"
+                                                placeholder="HH:mm"
+                                                value={leg.time_departure}
+                                                tabIndex={-1}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Arr. Date</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx === legInputs.length - 1}
+                                                className={`text-slate-800 w-full px-3 py-2 border rounded-lg outline-none transition-all ${
+                                                    idx === legInputs.length - 1 
+                                                    ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                    : 'bg-white border-slate-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm'
+                                                }`}
+                                                placeholder="DD/MM/YYYY"
+                                                value={leg.date_arrival}
+                                                onChange={e => updateLegInput(idx, 'date_arrival', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Arr. Time</label>
+                                            <input
+                                                type="text"
+                                                readOnly={idx === legInputs.length - 1}
+                                                className={`text-slate-800 w-full px-3 py-2 border rounded-lg outline-none transition-all ${
+                                                    idx === legInputs.length - 1 
+                                                    ? 'bg-slate-200/60 border-slate-300 cursor-not-allowed text-slate-500 shadow-inner' 
+                                                    : 'bg-white border-slate-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm'
+                                                }`}
+                                                placeholder="HH:mm"
+                                                value={leg.time_arrival}
+                                                onChange={e => updateLegInput(idx, 'time_arrival', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {idx < legInputs.length - 1 && (
+                                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
+                                            <div className="w-[1px] h-8 bg-dashed bg-slate-300 border-l border-dashed"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="p-6 bg-white border-t border-slate-100 flex gap-4 shrink-0">
+                            <button 
+                                onClick={() => setIsStopModalOpen(false)}
+                                className="px-6 py-3 border border-slate-200 text-slate-500 font-semibold rounded-xl hover:bg-slate-50 transition"
+                            >
+                                Back
+                            </button>
+                            <button 
+                                onClick={handleSaveStops}
+                                className="flex-1 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 transition transform active:scale-95"
+                            >
+                                Save Complete Itinerary
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

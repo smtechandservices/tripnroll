@@ -1,4 +1,6 @@
 from django.http import HttpResponse, Http404
+from django.db.models import Q
+
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -335,6 +337,56 @@ class BookingCreateView(generics.CreateAPIView):
             is_infant=is_infant_passenger,
             charged_price=passenger_charged_price
         )
+
+class CheckDuplicateBookingView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        flight_id = request.data.get('flight')
+        passengers = request.data.get('passengers', [])
+        
+        if not flight_id or not passengers:
+            return Response({'error': 'Flight ID and passengers are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        duplicates = []
+        for p in passengers:
+            first_name = p.get('first_name', '').strip()
+            last_name = p.get('last_name', '').strip()
+            passport_number = p.get('passport_number', '').strip()
+            passenger_email = p.get('passenger_email', '').strip()
+            passenger_phone = p.get('passenger_phone', '').strip()
+
+            if not first_name or not last_name:
+                continue
+
+            # Check for name match
+            name_query = Q(first_name__iexact=first_name, last_name__iexact=last_name)
+            
+            # OR passport match (if provided)
+            passport_query = Q(passport_number=passport_number) if passport_number else Q(pk=None)
+            
+            # OR email match (if provided)
+            email_query = Q(passenger_email__iexact=passenger_email) if passenger_email else Q(pk=None)
+            
+            # OR phone match (if provided)
+            phone_query = Q(passenger_phone=passenger_phone) if passenger_phone else Q(pk=None)
+            
+            duplicate_exists = Booking.objects.filter(
+                Q(flight_id=flight_id) & (name_query | passport_query | email_query | phone_query)
+            ).exclude(status__in=['CANCELLED', 'REJECTED']).exists()
+
+            if duplicate_exists:
+                duplicates.append({
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'reason': 'Matching details found in an existing booking for this flight.'
+                })
+
+        return Response({
+            'has_duplicates': len(duplicates) > 0,
+            'duplicates': duplicates
+        })
+
 
 class BookingHistoryView(generics.ListAPIView):
     serializer_class = BookingSerializer

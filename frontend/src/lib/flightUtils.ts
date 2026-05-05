@@ -15,3 +15,31 @@ export function isInternationalFlight(origin: string, destination: string): bool
     // If any is not Indian, it's international
     return !originIsIndian || !destinationIsIndian;
 }
+
+export interface FlightLeg {
+    flight_number: string;
+    origin: string;
+    destination: string;
+    departure_time: string;
+    arrival_time: string;
+    departure_terminal?: string;
+    arrival_terminal?: string;
+    airline?: string;
+    duration?: string;
+}
+
+export function parseFlightLegs(stop_info: string | undefined, stop_details: string | undefined): FlightLeg[] | null {
+    const data = stop_info || stop_details;
+    if (!data) return null;
+    try {
+        if (data.trim().startsWith('[')) {
+            const legs = JSON.parse(data);
+            if (Array.isArray(legs) && legs.length > 0) {
+                return legs;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to parse flight legs", e);
+    }
+    return null;
+}

@@ -194,6 +194,40 @@ class FlightSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"arrival_time": "Arrival time must be strictly after departure time."})
             attrs['duration'] = diff
 
+        # Sync stop_info (itinerary) if it exists to maintain data consistency
+        stop_info = attrs.get('stop_info') or (self.instance.stop_info if self.instance else None)
+        if stop_info:
+            try:
+                import json
+                legs = json.loads(stop_info)
+                if isinstance(legs, list) and len(legs) > 0:
+                    # Sync Leg 1 (Departure)
+                    legs[0]['airline'] = attrs.get('airline') or (self.instance.airline if self.instance else legs[0].get('airline'))
+                    legs[0]['flight_number'] = attrs.get('flight_number') or (self.instance.flight_number if self.instance else legs[0].get('flight_number'))
+                    legs[0]['origin'] = attrs.get('origin') or (self.instance.origin if self.instance else legs[0].get('origin'))
+                    legs[0]['departure_terminal'] = attrs.get('departure_terminal') or (self.instance.departure_terminal if self.instance else legs[0].get('departure_terminal'))
+                    
+                    dep_dt = attrs.get('departure_time') or (self.instance.departure_time if self.instance else None)
+                    if dep_dt:
+                        legs[0]['departure_time'] = dep_dt.isoformat().replace('+00:00', 'Z')
+                        legs[0]['date_departure'] = dep_dt.strftime('%d/%m/%Y')
+                        legs[0]['time_departure'] = dep_dt.strftime('%H:%M')
+
+                    # Sync Last Leg (Arrival)
+                    last_idx = len(legs) - 1
+                    legs[last_idx]['destination'] = attrs.get('destination') or (self.instance.destination if self.instance else legs[last_idx].get('destination'))
+                    legs[last_idx]['arrival_terminal'] = attrs.get('arrival_terminal') or (self.instance.arrival_terminal if self.instance else legs[last_idx].get('arrival_terminal'))
+                    
+                    arr_dt = attrs.get('arrival_time') or (self.instance.arrival_time if self.instance else None)
+                    if arr_dt:
+                        legs[last_idx]['arrival_time'] = arr_dt.isoformat().replace('+00:00', 'Z')
+                        legs[last_idx]['date_arrival'] = arr_dt.strftime('%d/%m/%Y')
+                        legs[last_idx]['time_arrival'] = arr_dt.strftime('%H:%M')
+
+                    attrs['stop_info'] = json.dumps(legs)
+            except Exception:
+                pass
+
         if not self.instance:
             flight_number = attrs.get('flight_number')
             departure_time = attrs.get('departure_time')
@@ -278,8 +312,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'profile', 'is_staff', 'is_superuser', 'date_joined')
+        fields = ('id', 'username', 'email', 'password', 'profile', 'is_staff', 'is_superuser', 'date_joined')
         read_only_fields = ('id', 'date_joined')
+        extra_kwargs = {'password': {'write_only': True, 'required': False}}
 
     def create(self, validated_data):
         profile_data = validated_data.pop('profile', {})
@@ -300,11 +335,16 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
+        password = validated_data.pop('password', None)
         
         for attr, value in validated_data.items():
             if attr == 'username':
                 value = value.lower()
             setattr(instance, attr, value)
+        
+        if password:
+            instance.set_password(password)
+            
         instance.save()
 
         if profile_data:

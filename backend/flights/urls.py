@@ -11,7 +11,7 @@ from .views import (
     RefundRequestView, RefundProcessView, AdminCancelRefundView, AdminBookingRejectView,
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView,
-    ServeKYCDocumentView
+    ServeKYCDocumentView, CheckDuplicateBookingView
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -21,6 +21,7 @@ urlpatterns = [
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('flights/', FlightListView.as_view(), name='flight-list'),
     path('bookings/', BookingCreateView.as_view(), name='booking-create'),
+    path('bookings/check-duplicate/', CheckDuplicateBookingView.as_view(), name='check-duplicate-booking'),
     path('bookings/history/', BookingHistoryView.as_view(), name='booking-history'),
     path('bookings/refund/', RefundRequestView.as_view(), name='refund-request'),
     path('contact/', ContactCreateView.as_view(), name='contact-create'),
