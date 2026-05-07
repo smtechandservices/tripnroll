@@ -21,7 +21,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
 import uuid
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import razorpay
+from django.conf import settings
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -788,6 +790,122 @@ class WalletTopUpView(generics.CreateAPIView):
             'amount': topup_request.amount,
             'status': topup_request.status
         }, status=status.HTTP_201_CREATED)
+
+class RazorpayOrderView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        amount = request.data.get('amount')
+        try:
+            amount_decimal = Decimal(str(amount))
+            if amount_decimal <= 0:
+                raise ValueError
+        except (TypeError, ValueError, InvalidOperation):
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        
+        # Razorpay amount is in paise
+        razorpay_amount = int(amount_decimal * 100)
+        
+        try:
+            razorpay_order = client.order.create({
+                "amount": razorpay_amount,
+                "currency": "INR",
+                "payment_capture": "1",
+                "notes": {
+                    "description": f"TripNRoll Wallet Top up : {request.user.username}"
+                }
+            })
+            
+            topup_request = TopUpRequest.objects.create(
+                user=request.user,
+                amount=amount_decimal,
+                method='RAZORPAY',
+                status='PENDING',
+                razorpay_order_id=razorpay_order['id']
+            )
+            
+            return Response({
+                'order_id': razorpay_order['id'],
+                'amount': razorpay_amount,
+                'currency': 'INR',
+                'key': settings.RAZORPAY_KEY_ID
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RazorpayVerifyView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        razorpay_order_id = request.data.get('razorpay_order_id')
+        razorpay_payment_id = request.data.get('razorpay_payment_id')
+        razorpay_signature = request.data.get('razorpay_signature')
+
+        if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
+            return Response({'error': 'Missing payment credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
+
+        try:
+            client.utility.verify_payment_signature(params_dict)
+            
+            topup_request = get_object_or_404(TopUpRequest, razorpay_order_id=razorpay_order_id)
+            if topup_request.status != 'PENDING':
+                 return Response({'error': 'Request already processed'}, status=status.HTTP_400_BAD_REQUEST)
+
+            topup_request.status = 'APPROVED'
+            topup_request.razorpay_payment_id = razorpay_payment_id
+            topup_request.razorpay_signature = razorpay_signature
+            topup_request.save()
+
+            # Credit Wallet
+            user = topup_request.user
+            profile = user.profile
+            amount = topup_request.amount
+
+            # Logic: Clear dues first
+            dues_cleared = Decimal('0.00')
+            wallet_added = Decimal('0.00')
+
+            if profile.total_dues > 0:
+                if amount >= profile.total_dues:
+                    dues_cleared = profile.total_dues
+                    remaining_amount = amount - profile.total_dues
+                    profile.total_dues = Decimal('0.00')
+                    profile.wallet_balance += remaining_amount
+                    wallet_added = remaining_amount
+                else:
+                    dues_cleared = amount
+                    profile.total_dues -= amount
+                    wallet_added = Decimal('0.00')
+            else:
+                profile.wallet_balance += amount
+                wallet_added = amount
+
+            profile.save()
+
+            # Create Transaction Record
+            WalletTransaction.objects.create(
+                user=user,
+                amount=amount,
+                transaction_type='CREDIT',
+                description=f"Top-up of {amount}. Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+                transaction_id=razorpay_payment_id,
+                balance_after=profile.wallet_balance,
+                dues_after=profile.total_dues
+            )
+
+            return Response({'message': 'Payment verified and wallet credited', 'balance': profile.wallet_balance})
+        except Exception as e:
+            return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
 
 class AdminTopUpRequestListView(generics.ListAPIView):
     queryset = TopUpRequest.objects.all().order_by('-created_at')

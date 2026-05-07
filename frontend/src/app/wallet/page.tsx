@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getWalletBalance, topUpWallet, WalletData, getTopUpRequests, TopUpRequest } from '@/lib/api';
+import { getWalletBalance, topUpWallet, WalletData, getTopUpRequests, TopUpRequest, createRazorpayOrder, verifyRazorpayPayment } from '@/lib/api';
+import Script from 'next/script';
 import { Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, AlertCircle, History, RotateCcw, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -12,7 +13,8 @@ export default function WalletPage() {
     const [topUpRequests, setTopUpRequests] = useState<TopUpRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [topUpAmount, setTopUpAmount] = useState('');
-    const [processingTopUp, setProcessingTopUp] = useState(false);
+    const [isProcessingManual, setIsProcessingManual] = useState(false);
+    const [isProcessingRazorpay, setIsProcessingRazorpay] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -68,7 +70,7 @@ export default function WalletPage() {
             return;
         }
 
-        setProcessingTopUp(true);
+        setIsProcessingManual(true);
         try {
             const result = await topUpWallet(amount);
             Swal.fire({
@@ -82,7 +84,79 @@ export default function WalletPage() {
         } catch (error: any) {
             Swal.fire('Error', error.message || 'Top-up failed', 'error');
         } finally {
-            setProcessingTopUp(false);
+            setIsProcessingManual(false);
+        }
+    };
+
+    const handleRazorpayTopUp = async () => {
+        const amount = parseFloat(topUpAmount);
+        if (isNaN(amount) || amount <= 0) {
+            Swal.fire('Error', 'Please enter a valid amount', 'error');
+            return;
+        }
+
+        setIsProcessingRazorpay(true);
+        try {
+            // 1. Create Razorpay Order on Backend
+            const orderData = await createRazorpayOrder(amount);
+
+            // 2. Open Razorpay Checkout
+            const options = {
+                key: orderData.key,
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "TripNRoll",
+                description: "Wallet Top-up",
+                order_id: orderData.order_id,
+                handler: async function (response: any) {
+                    try {
+                        setIsProcessingRazorpay(true);
+                        // 3. Verify Payment on Backend
+                        await verifyRazorpayPayment({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Top-up Successful',
+                            text: `₹${amount.toLocaleString('en-IN')} has been added to your wallet instantly.`,
+                            confirmButtonColor: '#16a34a',
+                        });
+                        
+                        setTopUpAmount('');
+                        fetchData(); // Refresh everything
+                    } catch (error: any) {
+                        Swal.fire('Error', 'Payment verification failed', 'error');
+                    } finally {
+                        setIsProcessingRazorpay(false);
+                    }
+                },
+                prefill: {
+                    name: user?.username,
+                    email: user?.email,
+                    contact: user?.profile?.phone_number
+                },
+                theme: {
+                    color: "#16a34a"
+                },
+                modal: {
+                    ondismiss: function() {
+                        setIsProcessingRazorpay(false);
+                    }
+                }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', function (response: any) {
+                Swal.fire('Payment Failed', response.error.description, 'error');
+                setIsProcessingRazorpay(false);
+            });
+            rzp.open();
+        } catch (error: any) {
+            Swal.fire('Error', error.message || 'Failed to initiate payment', 'error');
+            setIsProcessingRazorpay(false);
         }
     };
 
@@ -99,6 +173,7 @@ export default function WalletPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" />
 
             {/* Hero Section */}
             <div className="bg-slate-900 py-10 px-4 text-center">
@@ -193,9 +268,16 @@ export default function WalletPage() {
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="font-medium text-gray-900 text-sm md:text-base truncate">{tx.description}</p>
-                                                        <p className="text-[10px] md:text-sm text-gray-500 mt-1">
-                                                            {new Date(tx.timestamp).toLocaleString()}
-                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <p className="text-[10px] md:text-sm text-gray-500">
+                                                                {new Date(tx.timestamp).toLocaleString()}
+                                                            </p>
+                                                            {tx.transaction_id && (
+                                                                <p className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-mono">
+                                                                    ID: {tx.transaction_id}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="text-right shrink-0">
@@ -250,18 +332,42 @@ export default function WalletPage() {
                                     </div>
 
                                     <button
-                                        type="submit"
-                                        disabled={processingTopUp || !topUpAmount}
-                                        className="cursor-pointer w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-green-200 flex justify-center items-center gap-2"
+                                        type="button"
+                                        onClick={handleRazorpayTopUp}
+                                        disabled={isProcessingRazorpay || isProcessingManual || !topUpAmount}
+                                        className="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-blue-200 flex justify-center items-center gap-2"
                                     >
-                                        {processingTopUp ? (
+                                        {isProcessingRazorpay ? (
                                             <>
                                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                                 Processing...
                                             </>
                                         ) : (
                                             <>
-                                                Proceed to Payment
+                                                {/* <CreditCard className="w-4 h-4" /> */}
+                                                Instant Top Up
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <div className="relative flex items-center justify-center py-2">
+                                        <div className="border-t border-gray-200 w-full"></div>
+                                        <span className="absolute bg-white px-3 text-xs text-gray-400 font-medium">OR</span>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isProcessingManual || isProcessingRazorpay || !topUpAmount}
+                                        className="cursor-pointer w-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-slate-200 flex justify-center items-center gap-2"
+                                    >
+                                        {isProcessingManual ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Request Manual Top Up
                                                 <ArrowUpRight className="w-4 h-4" />
                                             </>
                                         )}
@@ -307,9 +413,17 @@ export default function WalletPage() {
                                                     <div>
                                                         <p className="font-bold text-gray-900">₹{parseFloat(req.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                                                         <p className="text-xs text-gray-500">{new Date(req.created_at).toLocaleString()}</p>
+                                                        {req.razorpay_payment_id && (
+                                                            <p className="text-[10px] text-blue-600 font-mono mt-0.5">ID: {req.razorpay_payment_id}</p>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
+                                                <div className="text-right flex flex-col items-end gap-1">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                        req.method === 'RAZORPAY' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-600 border border-gray-100'
+                                                    }`}>
+                                                        {req.method}
+                                                    </span>
                                                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
                                                         req.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                                                         req.status === 'APPROVED' ? 'bg-green-100 text-green-700 border border-green-200' :

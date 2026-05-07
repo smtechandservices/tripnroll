@@ -110,6 +110,7 @@ export interface WalletTransaction {
     amount: string;
     transaction_type: 'CREDIT' | 'DEBIT';
     description: string;
+    transaction_id?: string;
     timestamp: string;
     balance_after: string;
     dues_after: string;
@@ -119,8 +120,17 @@ export interface TopUpRequest {
     id: number;
     amount: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    method: 'MANUAL' | 'RAZORPAY';
+    razorpay_payment_id?: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface RazorpayOrderResponse {
+    order_id: string;
+    amount: number;
+    currency: string;
+    key: string;
 }
 
 export async function getWalletBalance(): Promise<WalletData> {
@@ -150,6 +160,30 @@ export async function getTopUpRequests(): Promise<TopUpRequest[]> {
     if (!res.ok) throw new Error('Failed to fetch top-up requests');
     const data: PaginatedResponse<TopUpRequest> = await res.json();
     return data.results;
+}
+
+export async function createRazorpayOrder(amount: number): Promise<RazorpayOrderResponse> {
+    const res = await fetch(`${API_BASE_URL}/wallet/razorpay/order/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount })
+    });
+    if (!res.ok) throw new Error('Failed to create Razorpay order');
+    return res.json();
+}
+
+export async function verifyRazorpayPayment(data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+}): Promise<{ message: string, balance: number }> {
+    const res = await fetch(`${API_BASE_URL}/wallet/razorpay/verify/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Payment verification failed');
+    return res.json();
 }
 
 
