@@ -68,7 +68,30 @@ export interface TopUpRequest {
     updated_at: string;
 }
 
-// ... existing code ...
+export interface WalletTransaction {
+    id: number;
+    user: number;
+    amount: string;
+    transaction_type: 'CREDIT' | 'DEBIT';
+    description: string;
+    transaction_id?: string;
+    timestamp: string;
+    balance_after: string;
+    dues_after: string;
+}
+
+export async function getAdminTransactions(userId?: string, search?: string, page: number = 1): Promise<PaginatedResponse<WalletTransaction>> {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    if (search) params.append('search', search);
+    params.append('page', page.toString());
+
+    const res = await fetch(`${API_BASE_URL}/admin/transactions/?${params.toString()}`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch transactions');
+    return res.json();
+}
 
 export async function updateBooking(bookingId: string, data: Partial<Booking>): Promise<Booking> {
     const res = await fetch(`${API_BASE_URL}/admin/bookings/${bookingId}/`, {

@@ -193,7 +193,15 @@ export default function SignupPage() {
                     <p className="text-slate-600 mb-8 text-center">
                         {step === 'details' 
                             ? 'Join TripnRoll for exclusive deals' 
-                            : `We've sent a 6-digit code to ${email}`}
+                            : (
+                                <>
+                                    We&apos;ve sent a 6-digit code to <span className="font-semibold text-slate-800">{email}</span>.
+                                    <br />
+                                    <span className="text-xs mt-2 block text-slate-500 italic">
+                                        Didn&apos;t receive it? Check your <span className="font-bold text-green-600">spam folder</span>.
+                                    </span>
+                                </>
+                            )}
                     </p>
 
                     {error && (

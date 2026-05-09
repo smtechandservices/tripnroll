@@ -8,11 +8,13 @@ from .views import (
     AdminUserListView, AdminUserDetailView, LoginView,
     WalletBalanceView, WalletTopUpView, AdminWalletUpdateView,
     UserTopUpRequestListView, AdminTopUpRequestListView, AdminTopUpRequestActionView,
+    AdminWalletTransactionListView,
     RefundRequestView, RefundProcessView, AdminCancelRefundView, AdminBookingRejectView,
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView,
     ServeKYCDocumentView, CheckDuplicateBookingView,
     RazorpayOrderView, RazorpayVerifyView,
+    FlightRazorpayOrderView, FlightRazorpayVerifyView,
     check_email, reset_password
 )
 from rest_framework.authtoken.views import obtain_auth_token
@@ -37,6 +39,8 @@ urlpatterns = [
     path('wallet/top-up-requests/', UserTopUpRequestListView.as_view(), name='user-topup-requests'),
     path('wallet/razorpay/order/', RazorpayOrderView.as_view(), name='razorpay-order'),
     path('wallet/razorpay/verify/', RazorpayVerifyView.as_view(), name='razorpay-verify'),
+    path('bookings/razorpay/order/', FlightRazorpayOrderView.as_view(), name='flight-razorpay-order'),
+    path('bookings/razorpay/verify/', FlightRazorpayVerifyView.as_view(), name='flight-razorpay-verify'),
 
     # Admin Routes
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
@@ -54,6 +58,7 @@ urlpatterns = [
     path('admin/messages/', AdminContactMessageListView.as_view(), name='admin-message-list'),
     path('admin/topups/', AdminTopUpRequestListView.as_view(), name='admin-topup-list'),
     path('admin/topups/action/', AdminTopUpRequestActionView.as_view(), name='admin-topup-action'),
+    path('admin/transactions/', AdminWalletTransactionListView.as_view(), name='admin-transaction-list'),
     
     # KYC Routes
     path('kyc/submit/', SubmitKYCView.as_view(), name='kyc-submit'),

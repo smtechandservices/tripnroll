@@ -3,17 +3,17 @@ import { sendBookingTicketEmail } from '@/lib/mail';
 
 export async function POST(req: NextRequest) {
     try {
-        const { bookings, user, includePrice } = await req.json();
-
+        const { bookings, user, includePrice, email: overrideEmail } = await req.json();
+        
         if (!bookings || !bookings.length) {
             return NextResponse.json({ error: 'Bookings are required' }, { status: 400 });
         }
 
-        const primaryPassenger = bookings[0];
-        const email = primaryPassenger.passenger_email;
+        const primaryPassenger = bookings.find((b: any) => b.passenger_email) || bookings[0];
+        const email = overrideEmail || primaryPassenger.passenger_email;
 
         if (!email) {
-            return NextResponse.json({ error: 'Primary passenger email is missing' }, { status: 400 });
+            return NextResponse.json({ error: 'No passenger email found for booking confirmation' }, { status: 400 });
         }
 
         const bookingId = primaryPassenger.booking_group || primaryPassenger.booking_id;

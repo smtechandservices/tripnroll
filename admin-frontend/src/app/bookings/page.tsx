@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { getAdminBookings, updateBooking, rejectBooking, Booking } from '@/lib/api';
 import { Search, X } from 'lucide-react';
-// import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 
 const calculateAge = (dateString?: string | null): number | null => {

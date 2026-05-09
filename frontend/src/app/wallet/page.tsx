@@ -252,14 +252,19 @@ export default function WalletPage() {
                                         walletData.recent_transactions.map((tx) => (
                                             <div key={tx.id} className="p-6 hover:bg-gray-50 transition-colors flex items-center justify-between group">
                                                 <div className="flex items-start gap-3 md:gap-4 overflow-hidden">
-                                                    <div className={`p-2.5 md:p-3 rounded-full shrink-0 ${tx.description.toLowerCase().includes('refund')
-                                                        ? 'bg-blue-100 text-blue-600'
-                                                        : tx.transaction_type === 'CREDIT'
-                                                            ? 'bg-green-100 text-green-600'
-                                                            : 'bg-red-100 text-red-600'
+                                                    <div className={`p-2.5 md:p-3 rounded-full shrink-0 ${
+                                                        tx.description.toLowerCase().includes('refund')
+                                                            ? 'bg-blue-100 text-blue-600'
+                                                            : tx.description.toLowerCase().includes('razorpay')
+                                                                ? 'bg-indigo-100 text-indigo-600'
+                                                                : tx.transaction_type === 'CREDIT'
+                                                                    ? 'bg-green-100 text-green-600'
+                                                                    : 'bg-red-100 text-red-600'
                                                         }`}>
                                                         {tx.description.toLowerCase().includes('refund') ? (
                                                             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+                                                        ) : tx.description.toLowerCase().includes('razorpay') ? (
+                                                            <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
                                                         ) : tx.transaction_type === 'CREDIT' ? (
                                                             <ArrowDownLeft className="w-4 h-4 md:w-5 md:h-5" />
                                                         ) : (

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAdminTopUpRequests, processTopUpRequest, TopUpRequest, PaginatedResponse } from '@/lib/api';
-import { Wallet, Search, CheckCircle, XCircle, Clock, Filter, User as UserIcon } from 'lucide-react';
+import { getAdminTopUpRequests, processTopUpRequest, TopUpRequest, PaginatedResponse, getAdminUsers, getAdminTransactions, User as ApiUser, WalletTransaction } from '@/lib/api';
+import { Wallet, Search, CheckCircle, XCircle, Clock, Filter, User as UserIcon, History, ArrowUpRight, ArrowDownLeft, RotateCcw, CreditCard } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function TopUpRequestsPage() {
@@ -13,10 +13,50 @@ export default function TopUpRequestsPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [activeTab, setActiveTab] = useState<'TOPUPS' | 'TRANSACTIONS'>('TOPUPS');
+
+    // New states for Transactions
+    const [users, setUsers] = useState<ApiUser[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
+    const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+    const [loadingTransactions, setLoadingTransactions] = useState(false);
+    const [transactionSearch, setTransactionSearch] = useState('');
+    const [transactionPage, setTransactionPage] = useState(1);
+    const [totalTransactionPages, setTotalTransactionPages] = useState(1);
 
     useEffect(() => {
         fetchRequests();
     }, [page, statusFilter, search]);
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    useEffect(() => {
+        fetchTransactions();
+    }, [selectedUserId, transactionSearch, transactionPage]);
+
+    const fetchUsers = async () => {
+        try {
+            const data = await getAdminUsers(1, '');
+            setUsers(data.results);
+        } catch (error) {
+            console.error('Failed to fetch users', error);
+        }
+    };
+
+    const fetchTransactions = async () => {
+        setLoadingTransactions(true);
+        try {
+            const data = await getAdminTransactions(selectedUserId, transactionSearch, transactionPage);
+            setTransactions(data.results);
+            setTotalTransactionPages(Math.ceil(data.count / 10)); // Assuming 10 per page
+        } catch (error) {
+            console.error('Failed to fetch transactions', error);
+        } finally {
+            setLoadingTransactions(false);
+        }
+    };
 
     const fetchRequests = async () => {
         setLoading(true);
@@ -69,13 +109,38 @@ export default function TopUpRequestsPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
                         <Wallet className="text-green-600" size={32} />
-                        Top-up Requests
+                        Transactions & Top-ups
                     </h1>
-                    <p className="text-slate-500 mt-1">Review and process user wallet top-up requests.</p>
+                    <p className="text-slate-500 mt-1">Manage top-up requests and audit all wallet transactions.</p>
+                </div>
+
+                <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1">
+                    <button
+                        onClick={() => setActiveTab('TOPUPS')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                            activeTab === 'TOPUPS' 
+                            ? 'bg-white text-green-600 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Top-up Requests
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('TRANSACTIONS')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                            activeTab === 'TRANSACTIONS' 
+                            ? 'bg-white text-indigo-600 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Wallet Transactions
+                    </button>
                 </div>
             </div>
 
-            {/* Filters and search */}
+            {activeTab === 'TOPUPS' ? (
+                <>
+                    {/* Filters and search */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row gap-4 items-center">
                 <div className="relative flex-1 w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -230,6 +295,161 @@ export default function TopUpRequestsPage() {
                     </div>
                 )}
             </div>
+            </>
+            ) : (
+            <>
+            {/* Recent Transactions Section */}
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                            <History size={20} />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-800">Transaction Audit Log</h2>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <UserIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <select
+                                value={selectedUserId}
+                                onChange={(e) => { setSelectedUserId(e.target.value); setTransactionPage(1); }}
+                                className="pl-10 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                            >
+                                <option value="">All Users</option>
+                                {users.map(u => (
+                                    <option key={u.id} value={u.id}>{u.username} ({u.email})</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search transactions..."
+                                value={transactionSearch}
+                                onChange={(e) => { setTransactionSearch(e.target.value); setTransactionPage(1); }}
+                                className="pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto no-scrollbar">
+                        <table className="w-full text-left text-sm whitespace-nowrap">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th className="px-6 py-4 font-medium text-slate-500">Transaction Info</th>
+                                    <th className="px-6 py-4 font-medium text-slate-500">Date & Time</th>
+                                    <th className="px-6 py-4 font-medium text-slate-500">Type</th>
+                                    <th className="px-6 py-4 font-medium text-slate-500">Amount</th>
+                                    <th className="px-6 py-4 font-medium text-slate-500">Reference</th>
+                                    <th className="px-6 py-4 font-medium text-slate-500 text-right">Balances</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {loadingTransactions ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Fetching transactions...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : transactions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                            No transactions found for the selected criteria.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    transactions.map((tx) => (
+                                        <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-lg ${
+                                                        tx.description.toLowerCase().includes('refund')
+                                                            ? 'bg-blue-100 text-blue-600'
+                                                            : tx.description.toLowerCase().includes('razorpay')
+                                                                ? 'bg-indigo-100 text-indigo-600'
+                                                                : tx.transaction_type === 'CREDIT'
+                                                                    ? 'bg-green-100 text-green-600'
+                                                                    : 'bg-red-100 text-red-600'
+                                                    }`}>
+                                                        {tx.description.toLowerCase().includes('refund') ? (
+                                                            <RotateCcw size={16} />
+                                                        ) : tx.description.toLowerCase().includes('razorpay') ? (
+                                                            <CreditCard size={16} />
+                                                        ) : tx.transaction_type === 'CREDIT' ? (
+                                                            <ArrowDownLeft size={16} />
+                                                        ) : (
+                                                            <ArrowUpRight size={16} />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-slate-800">{tx.description}</div>
+                                                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">User ID: {tx.user}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {new Date(tx.timestamp).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                    tx.transaction_type === 'CREDIT' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                }`}>
+                                                    {tx.transaction_type}
+                                                </span>
+                                            </td>
+                                            <td className={`px-6 py-4 font-bold ${tx.transaction_type === 'CREDIT' ? 'text-green-600' : 'text-slate-900'}`}>
+                                                {tx.transaction_type === 'CREDIT' ? '+' : '-'} ₹{parseFloat(tx.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                                                {tx.transaction_id || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="text-xs font-bold text-slate-700">Bal: ₹{parseFloat(tx.balance_after).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                                <div className="text-[10px] text-slate-400">Dues: ₹{parseFloat(tx.dues_after).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Transaction Pagination */}
+                {totalTransactionPages > 1 && (
+                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                        <p className="text-sm text-slate-500 font-medium">
+                            Page {transactionPage} of {totalTransactionPages}
+                        </p>
+                        <div className="flex gap-2 font-bold text-xs">
+                            <button
+                                onClick={() => setTransactionPage(p => Math.max(1, p - 1))}
+                                disabled={transactionPage === 1}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setTransactionPage(p => Math.min(totalTransactionPages, p + 1))}
+                                disabled={transactionPage === totalTransactionPages}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+            </>
+            )}
         </div>
     );
 }

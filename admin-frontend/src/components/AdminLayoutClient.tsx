@@ -60,7 +60,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
     { name: 'Flights', href: '/flights', icon: Plane },
     { name: 'Bookings', href: '/bookings', icon: Calendar },
     { name: 'Refunds', href: '/refunds', icon: RotateCcw },
-    { name: 'Top-up Requests', href: '/topups', icon: Wallet },
+    { name: 'Transactions', href: '/topups', icon: Wallet },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'KYC', href: '/kyc', icon: Shield },

@@ -192,7 +192,15 @@ export default function ForgotPasswordPage() {
                         {step === 'email' 
                             ? 'Enter your email to receive a reset code' 
                             : step === 'otp' 
-                                ? `Enter the 6-digit code sent to ${email}` 
+                                ? (
+                                    <>
+                                        Enter the 6-digit code sent to <span className="font-semibold text-slate-800">{email}</span>.
+                                        <br />
+                                        <span className="text-xs mt-2 block text-slate-500 italic">
+                                            Didn&apos;t receive it? Check your <span className="font-bold text-green-600">spam folder</span>.
+                                        </span>
+                                    </>
+                                )
                                 : 'Choose a strong new password'}
                     </p>
 

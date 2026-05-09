@@ -43,7 +43,7 @@ export interface Booking {
     flight_status: 'PENDING' | 'CONFIRMED';
     created_at: string;
     pnr?: string | null;
-    payment_mode?: 'WALLET';
+    payment_mode?: 'WALLET' | 'RAZORPAY';
     is_infant: boolean;
     charged_price: string;
 }
@@ -60,7 +60,7 @@ export interface CreateBookingData {
     passport_expiry_date?: string;
     frequent_flyer_number?: string;
     travel_date: string;
-    payment_mode?: 'WALLET';
+    payment_mode?: 'WALLET' | 'RAZORPAY';
 }
 
 export interface CreateMultiBookingData {
@@ -183,6 +183,36 @@ export async function verifyRazorpayPayment(data: {
         body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error('Payment verification failed');
+    return res.json();
+}
+
+export async function createFlightRazorpayOrder(data: CreateMultiBookingData): Promise<RazorpayOrderResponse & { booking_group: string }> {
+    const res = await fetch(`${API_BASE_URL}/bookings/razorpay/order/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create Razorpay order for flight');
+    return res.json();
+}
+
+export async function verifyFlightRazorpayPayment(data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    flight: number;
+    passengers: any[];
+    travel_date: string;
+}): Promise<{ message: string, booking_group: string }> {
+    const res = await fetch(`${API_BASE_URL}/bookings/razorpay/verify/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Payment verification failed for flight');
+    }
     return res.json();
 }
 

@@ -365,16 +365,16 @@ class CheckDuplicateBookingView(generics.GenericAPIView):
             match_field = None
             
             # Name check
-            if Booking.objects.filter(flight_id=flight_id, first_name__iexact=first_name, last_name__iexact=last_name).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+            if Booking.objects.filter(booked_by=request.user, flight_id=flight_id, first_name__iexact=first_name, last_name__iexact=last_name).exclude(status__in=['CANCELLED', 'REJECTED', 'PENDING']).exists():
                 match_field = "Name"
             # Passport check
-            elif passport_number and Booking.objects.filter(flight_id=flight_id, passport_number=passport_number).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+            elif passport_number and Booking.objects.filter(booked_by=request.user, flight_id=flight_id, passport_number=passport_number).exclude(status__in=['CANCELLED', 'REJECTED', 'PENDING']).exists():
                 match_field = "Passport Number"
             # Email check
-            elif passenger_email and Booking.objects.filter(flight_id=flight_id, passenger_email__iexact=passenger_email).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+            elif passenger_email and Booking.objects.filter(booked_by=request.user, flight_id=flight_id, passenger_email__iexact=passenger_email).exclude(status__in=['CANCELLED', 'REJECTED', 'PENDING']).exists():
                 match_field = "Email Address"
             # Phone check
-            elif passenger_phone and Booking.objects.filter(flight_id=flight_id, passenger_phone=passenger_phone).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+            elif passenger_phone and Booking.objects.filter(booked_by=request.user, flight_id=flight_id, passenger_phone=passenger_phone).exclude(status__in=['CANCELLED', 'REJECTED', 'PENDING']).exists():
                 match_field = "Phone Number"
 
             if match_field:
@@ -760,6 +760,28 @@ class UserTopUpRequestListView(generics.ListAPIView):
     def get_queryset(self):
         return TopUpRequest.objects.filter(user=self.request.user).order_by('-created_at')
 
+class AdminWalletTransactionListView(generics.ListAPIView):
+    serializer_class = WalletTransactionSerializer
+    permission_classes = [IsAdminType]
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+        search = self.request.query_params.get('search')
+        
+        queryset = WalletTransaction.objects.all().order_by('-timestamp')
+        
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(description__icontains=search) | 
+                Q(user__username__icontains=search) |
+                Q(transaction_id__icontains=search)
+            )
+            
+        return queryset
+
 class WalletTopUpView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TopUpRequestSerializer
@@ -925,6 +947,210 @@ class RazorpayVerifyView(generics.GenericAPIView):
             return Response({'message': 'Payment verified and wallet credited', 'balance': profile.wallet_balance})
         except Exception as e:
             return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
+
+class FlightRazorpayOrderView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        flight_id = request.data.get('flight')
+        passengers = request.data.get('passengers', [])
+        travel_date = request.data.get('travel_date')
+
+        if not flight_id or not passengers:
+            return Response({'error': 'Flight and passengers are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            flight = Flight.objects.get(id=flight_id)
+        except Flight.DoesNotExist:
+            return Response({'error': 'Flight not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # KYC Verification Check
+        from .models import UserKYC
+        kyc, created = UserKYC.objects.get_or_create(user=request.user)
+        if kyc.kyc_status != 'VERIFIED':
+            return Response({
+                'error': 'KYC Verification Required',
+                'details': 'Please complete your KYC verification (Aadhar and PAN) to book flights.',
+                'kyc_status': kyc.kyc_status
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Calculate total cost
+        total_cost = Decimal('0.00')
+        for p in passengers:
+            dob_str = p.get('date_of_birth')
+            is_infant = False
+            if dob_str:
+                try:
+                    y, m, d = map(int, dob_str.split('-'))
+                    dob = date(y, m, d)
+                    today = date.today()
+                    age = today.year - dob.year - ((today.month, today.day) < (m, d))
+                    if age <= 2:
+                        is_infant = True
+                except (ValueError, TypeError, AttributeError):
+                    pass
+            
+            if is_infant:
+                total_cost += flight.infant_price
+            else:
+                total_cost += flight.price
+
+        total_cost = Decimal(str(total_cost))
+        razorpay_amount = int(total_cost * 100) # In paise
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        
+        try:
+            # Create a unique booking group ID to track this session
+            booking_group = f"GRP-{uuid.uuid4().hex[:8].upper()}"
+            
+            razorpay_order = client.order.create({
+                "amount": razorpay_amount,
+                "currency": "INR",
+                "payment_capture": "1",
+                "notes": {
+                    "description": f"Flight Booking: {flight.flight_number} for {request.user.username}",
+                    "flight_id": flight_id,
+                    "user_id": request.user.id,
+                    "booking_group": booking_group,
+                    "passengers_count": len(passengers)
+                }
+            })
+
+            return Response({
+                'order_id': razorpay_order['id'],
+                'amount': razorpay_amount,
+                'currency': 'INR',
+                'key': settings.RAZORPAY_KEY_ID,
+                'booking_group': booking_group
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class FlightRazorpayVerifyView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        razorpay_order_id = request.data.get('razorpay_order_id')
+        razorpay_payment_id = request.data.get('razorpay_payment_id')
+        razorpay_signature = request.data.get('razorpay_signature')
+        
+        # Original booking data to be processed upon verification
+        flight_id = request.data.get('flight')
+        passengers = request.data.get('passengers', [])
+        travel_date = request.data.get('travel_date')
+
+        if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
+            return Response({'error': 'Missing payment credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not flight_id or not passengers:
+            return Response({'error': 'Booking data is missing'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
+
+        try:
+            # 1. Verify Signature
+            client.utility.verify_payment_signature(params_dict)
+            
+            # 2. Re-verify the order details for security
+            razorpay_order = client.order.fetch(razorpay_order_id)
+            notes = razorpay_order.get('notes', {})
+            
+            if str(notes.get('flight_id')) != str(flight_id):
+                return Response({'error': 'Flight mismatch in payment'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 3. Create Bookings
+            try:
+                flight = Flight.objects.get(id=flight_id)
+            except Flight.DoesNotExist:
+                return Response({'error': 'Flight not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            booking_group = notes.get('booking_group') or f"GRP-{uuid.uuid4().hex[:8].upper()}"
+            pnr = flight.pnr
+            
+            from django.db import transaction
+            with transaction.atomic():
+                created_bookings = []
+                for p_data in passengers:
+                    booking_id = f"TNR-{uuid.uuid4().hex[:8].upper()}"
+                    dob_str = p_data.get('date_of_birth')
+                    is_infant_passenger = False
+                    passenger_charged_price = flight.price
+                    
+                    if dob_str:
+                        try:
+                            # Handle both date objects and strings
+                            if isinstance(dob_str, date):
+                                dob = dob_str
+                            else:
+                                y, m, d = map(int, str(dob_str).split('-'))
+                                dob = date(y, m, d)
+                            
+                            today = date.today()
+                            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                            if age <= 2:
+                                is_infant_passenger = True
+                                passenger_charged_price = flight.infant_price
+                        except:
+                            pass
+
+                    booking = Booking.objects.create(
+                        flight=flight,
+                        first_name=p_data.get('first_name', ''),
+                        last_name=p_data.get('last_name', ''),
+                        passenger_email=p_data.get('passenger_email'),
+                        passenger_phone=p_data.get('passenger_phone'),
+                        date_of_birth=p_data.get('date_of_birth'),
+                        passport_number=p_data.get('passport_number'),
+                        passport_issue_date=p_data.get('passport_issue_date'),
+                        passport_expiry_date=p_data.get('passport_expiry_date'),
+                        frequent_flyer_number=p_data.get('frequent_flyer_number'),
+                        travel_date=travel_date,
+                        booking_id=booking_id,
+                        booked_by=request.user,
+                        booking_group=booking_group,
+                        pnr=pnr,
+                        payment_mode='RAZORPAY',
+                        is_infant=is_infant_passenger,
+                        charged_price=passenger_charged_price,
+                        status='CONFIRMED',
+                        razorpay_order_id=razorpay_order_id,
+                        razorpay_payment_id=razorpay_payment_id,
+                        razorpay_signature=razorpay_signature
+                    )
+                    created_bookings.append(booking)
+
+            # 4. Create WalletTransaction for bookkeeping
+            try:
+                from .models import WalletTransaction, UserProfile
+                profile = UserProfile.objects.get(user=request.user)
+                total_paid = Decimal(str(razorpay_order.get('amount', 0) / 100))
+                
+                WalletTransaction.objects.create(
+                    user=request.user,
+                    amount=total_paid,
+                    transaction_type='DEBIT',
+                    description=f"Instant Flight Booking (Razorpay): {flight.flight_number} for {len(passengers)} passenger(s)",
+                    transaction_id=razorpay_payment_id,
+                    balance_after=profile.wallet_balance,
+                    dues_after=profile.total_dues
+                )
+            except Exception as tx_err:
+                # Log error but don't fail the response since booking is already confirmed
+                print(f"Failed to create WalletTransaction for Razorpay booking: {tx_err}")
+
+            return Response({
+                'message': 'Payment verified and booking confirmed',
+                'booking_group': booking_group
+            })
+        except Exception as e:
+            return Response({'error': f'Payment verification or booking creation failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 class AdminTopUpRequestListView(generics.ListAPIView):
     queryset = TopUpRequest.objects.all().order_by('-created_at')

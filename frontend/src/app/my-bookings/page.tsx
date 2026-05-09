@@ -313,13 +313,13 @@ export default function MyBookingsPage() {
                                                                     <Wallet size={14} className="text-blue-500" />
                                                                     <span>Wallet</span>
                                                                 </>
-                                                            ) : firstPassenger.payment_mode === 'DIRECT' ? (
+                                                            ) : firstPassenger.payment_mode === 'RAZORPAY' ? (
                                                                 <>
-                                                                    <CreditCard size={14} className="text-purple-500" />
-                                                                    <span>Direct</span>
+                                                                    <CreditCard size={14} className="text-green-500" />
+                                                                    <span>Razorpay</span>
                                                                 </>
                                                             ) : (
-                                                                <span className="text-slate-400 text-xs">Wallet</span>
+                                                                <span className="text-slate-400 text-xs">{firstPassenger.payment_mode || 'N/A'}</span>
                                                             )}
                                                         </div>
                                                     </div>

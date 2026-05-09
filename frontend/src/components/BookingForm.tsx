@@ -1,10 +1,21 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CreateBookingData, createBooking, getWalletBalance, WalletData, checkDuplicateBooking } from '@/lib/api';
-import { Loader2, Wallet, Info } from 'lucide-react';
+import { 
+    CreateBookingData, createBooking, getWalletBalance, WalletData, 
+    checkDuplicateBooking, createFlightRazorpayOrder, verifyFlightRazorpayPayment 
+} from '@/lib/api';
+import { Loader2, Wallet, Info, CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Swal from 'sweetalert2';
+import Script from 'next/script';
+import DatePicker from 'react-datepicker';
+
+const safeDate = (dateStr: string | null | undefined): Date | null => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+};
 
 const calculateAge = (dateString: string): number | null => {
     if (!dateString) return null;
@@ -32,7 +43,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [paymentMode, setPaymentMode] = useState<'WALLET'>('WALLET');
+    const [paymentMode, setPaymentMode] = useState<'WALLET' | 'RAZORPAY'>('WALLET');
     const [walletData, setWalletData] = useState<WalletData | null>(null);
 
     // Fetch wallet data for accurate spending power
@@ -183,6 +194,19 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
         setPassengers(newPassengers);
     };
 
+    const handleDateChange = (index: number, name: string, date: Date | null) => {
+        const newPassengers = [...passengers];
+        if (date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            (newPassengers[index] as any)[name] = `${year}-${month}-${day}`;
+        } else {
+            (newPassengers[index] as any)[name] = '';
+        }
+        setPassengers(newPassengers);
+    };
+
     const validatePhoneNumber = (phoneNumber: string): boolean => {
         if (!phoneNumber) return false; // Phone is required in booking
 
@@ -290,8 +314,8 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                     <p>Are you sure you want to book for <strong>${passengers.length} passenger(s)</strong>?</p>
                     <div class="bg-blue-50 border border-green-200 rounded-2xl p-5 mt-4">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="bg-blue-600 text-white p-1 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                            <div class="bg-blue-600 text-white p-1 rounded-md flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                             </div>
                             <p class="text-sm font-bold text-blue-900">Contact Email Confirmation</p>
                         </div>
@@ -421,8 +445,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
         setError(null);
 
         try {
-            const primaryPassenger = passengers[primaryPassengerIndex] || passengers[0];
-            const data = {
+            const bookingData = {
                 flight: flightId,
                 travel_date: formattedDate,
                 payment_mode: paymentMode,
@@ -442,7 +465,86 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                     };
                 })
             };
-            const response = await createBooking(data);
+
+            if (paymentMode === 'RAZORPAY') {
+                try {
+                    // 1. Create Razorpay Order
+                    const orderData = await createFlightRazorpayOrder(bookingData);
+
+                    // 2. Open Razorpay Checkout
+                    const options = {
+                        key: orderData.key,
+                        amount: orderData.amount,
+                        currency: orderData.currency,
+                        name: "TripNRoll",
+                        description: `Flight Booking: ${flightId}`,
+                        order_id: orderData.order_id,
+                        handler: async function (response: any) {
+                            try {
+                                setLoading(true);
+                                // 3. Verify Payment
+                                const verifyResponse = await verifyFlightRazorpayPayment({
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    ...bookingData
+                                });
+
+                                // Trigger automated email (background)
+                                fetch('/api/booking/email', {
+                                    method: 'POST',
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Token ${localStorage.getItem('token')}`
+                                    },
+                                    body: JSON.stringify({
+                                        bookings: bookingData.passengers.map((p, i) => ({
+                                            ...p,
+                                            booking_group: i === 0 ? verifyResponse.booking_group : undefined
+                                        })),
+                                        user: user,
+                                        email: bookingData.passengers[primaryPassengerIndex]?.passenger_email,
+                                        includePrice: true
+                                    })
+                                }).catch(e => console.error('Automated email dispatch failed:', e));
+
+                                onSuccess(verifyResponse.booking_group);
+                            } catch (error: any) {
+                                await Swal.fire('Error', 'Payment verification failed', 'error');
+                            } finally {
+                                setLoading(false);
+                            }
+                        },
+                        prefill: {
+                            name: user?.username,
+                            email: user?.email,
+                            contact: user?.profile?.phone_number
+                        },
+                        theme: {
+                            color: "#2563eb"
+                        },
+                        modal: {
+                            ondismiss: function() {
+                                setLoading(false);
+                            }
+                        }
+                    };
+
+                    const rzp = new (window as any).Razorpay(options);
+                    rzp.on('payment.failed', function (response: any) {
+                        Swal.fire('Payment Failed', response.error.description, 'error');
+                        setLoading(false);
+                    });
+                    rzp.open();
+                } catch (err: any) {
+                    setError(err.message || 'Failed to initiate Razorpay payment');
+                    setLoading(false);
+                }
+                return;
+            }
+
+            // Wallet Payment Flow
+            const response = await createBooking(bookingData);
             
             // Send automated email
             try {
@@ -456,6 +558,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                     body: JSON.stringify({
                         bookings: Array.isArray(response) ? response : [response],
                         user: user,
+                        email: passengers[primaryPassengerIndex]?.passenger_email,
                         includePrice: true
                     })
                 }).catch(e => console.error('Automated email dispatch failed:', e));
@@ -496,6 +599,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" />
             {error && (
                 <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
                     {error}
@@ -570,22 +674,30 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <FormInput
-                                label="Date of Birth"
-                                name="date_of_birth"
-                                type="date"
-                                value={passenger.date_of_birth}
-                                onChange={(e) => handlePassengerChange(index, e)}
-                                required
-                            />
-                            <FormInput
-                                label="Travel Date"
-                                name="travel_date"
-                                type="date"
-                                value={formattedDate}
-                                readOnly
-                                required
-                            />
+                            <div className="flex flex-col">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    Date of Birth <span className="text-red-500 ml-0.5">*</span>
+                                </label>
+                                <DatePicker
+                                    selected={safeDate(passenger.date_of_birth)}
+                                    onChange={(date) => handleDateChange(index, 'date_of_birth', date)}
+                                    dateFormat="dd/MM/yyyy"
+                                    placeholderText="dd/mm/yyyy"
+                                    showYearDropdown
+                                    dropdownMode="select"
+                                    maxDate={new Date()}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-slate-800 bg-slate-50"
+                                    required
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    Travel Date <span className="text-red-500 ml-0.5">*</span>
+                                </label>
+                                <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 cursor-not-allowed">
+                                    {new Date(departureDate).toLocaleDateString('en-GB')}
+                                </div>
+                            </div>
                         </div>
 
                         {!isInfant && (
@@ -627,22 +739,38 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                                    <FormInput
-                                        label={isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"}
-                                        name="passport_issue_date"
-                                        type="date"
-                                        value={passenger.passport_issue_date}
-                                        onChange={(e) => handlePassengerChange(index, e)}
-                                        required={isInternational}
-                                    />
-                                    <FormInput
-                                        label={isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"}
-                                        name="passport_expiry_date"
-                                        type="date"
-                                        value={passenger.passport_expiry_date}
-                                        onChange={(e) => handlePassengerChange(index, e)}
-                                        required={isInternational}
-                                    />
+                                    <div className="flex flex-col">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                            {isInternational ? "Passport Issue Date" : "Passport Issue Date (Optional)"} {isInternational && <span className="text-red-500 ml-0.5">*</span>}
+                                        </label>
+                                        <DatePicker
+                                            selected={safeDate(passenger.passport_issue_date)}
+                                            onChange={(date) => handleDateChange(index, 'passport_issue_date', date)}
+                                            dateFormat="dd/MM/yyyy"
+                                            placeholderText="dd/mm/yyyy"
+                                            showYearDropdown
+                                            dropdownMode="select"
+                                            maxDate={new Date()}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-slate-800 bg-slate-50"
+                                            required={isInternational}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                            {isInternational ? "Passport Expiry Date" : "Passport Expiry Date (Optional)"} {isInternational && <span className="text-red-500 ml-0.5">*</span>}
+                                        </label>
+                                        <DatePicker
+                                            selected={safeDate(passenger.passport_expiry_date)}
+                                            onChange={(date) => handleDateChange(index, 'passport_expiry_date', date)}
+                                            dateFormat="dd/MM/yyyy"
+                                            placeholderText="dd/mm/yyyy"
+                                            showYearDropdown
+                                            dropdownMode="select"
+                                            minDate={new Date()}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-slate-800 bg-slate-50"
+                                            required={isInternational}
+                                        />
+                                    </div>
                                 </div>
                             </>
                         )}
@@ -657,9 +785,10 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
                     <div
-                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left border-blue-500 bg-blue-50/50 ring-1 ring-blue-500`}
+                        onClick={() => setPaymentMode('WALLET')}
+                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left cursor-pointer ${paymentMode === 'WALLET' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
                     >
-                        <div className={`p-3 rounded-full bg-blue-100 text-blue-600`}>
+                        <div className={`p-3 rounded-full ${paymentMode === 'WALLET' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                             <Wallet size={24} />
                         </div>
                         <div>
@@ -683,7 +812,23 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                 )}
                             </div>
                         </div>
-                        <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />
+                        {paymentMode === 'WALLET' && <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />}
+                    </div>
+
+                    <div
+                        onClick={() => setPaymentMode('RAZORPAY')}
+                        className={`relative p-4 rounded-xl border-2 flex items-start gap-4 transition-all text-left cursor-pointer ${paymentMode === 'RAZORPAY' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
+                    >
+                        <div className={`p-3 rounded-full ${paymentMode === 'RAZORPAY' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                            <CreditCard size={24} />
+                        </div>
+                        <div>
+                            <div className="font-bold text-slate-800">Instant Booking</div>
+                            <div className="text-sm text-slate-500 mt-1">
+                                Pay directly using Cards, UPI, NetBanking.
+                            </div>
+                        </div>
+                        {paymentMode === 'RAZORPAY' && <div className="absolute top-4 right-4 w-4 h-4 rounded-full bg-blue-500 ring-2 ring-white" />}
                     </div>
                 </div>
             </div>

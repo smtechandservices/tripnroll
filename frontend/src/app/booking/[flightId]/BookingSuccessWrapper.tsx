@@ -50,7 +50,7 @@ export function BookingSuccessWrapper({
                                     <div class="h-2 w-2 rounded-full bg-green-500"></div>
                                     <strong class="font-bold">Status: Confirmed</strong>
                                 </div>
-                                <p class="opacity-80 mt-1">Your flight has been successfully booked. You can view your ticket details in your history.</p>
+                                <p class="opacity-80 mt-1">Your flight has been successfully booked. A confirmation email has been sent. You can also view and download your ticket in the <strong>"Bookings"</strong> tab. <br/><br/><span class="text-xs italic opacity-70 block mt-2 font-medium">Didn't receive the email? Check your <b>spam folder</b>.</span></p>
                             </div>
                         </div>
                     `,
