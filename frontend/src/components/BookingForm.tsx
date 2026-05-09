@@ -680,7 +680,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                 </label>
                                 <DatePicker
                                     selected={safeDate(passenger.date_of_birth)}
-                                    onChange={(date) => handleDateChange(index, 'date_of_birth', date)}
+                                    onChange={(date: Date | null) => handleDateChange(index, 'date_of_birth', date)}
                                     dateFormat="dd/MM/yyyy"
                                     placeholderText="dd/mm/yyyy"
                                     showYearDropdown
@@ -745,7 +745,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                         </label>
                                         <DatePicker
                                             selected={safeDate(passenger.passport_issue_date)}
-                                            onChange={(date) => handleDateChange(index, 'passport_issue_date', date)}
+                                            onChange={(date: Date | null) => handleDateChange(index, 'passport_issue_date', date)}
                                             dateFormat="dd/MM/yyyy"
                                             placeholderText="dd/mm/yyyy"
                                             showYearDropdown
@@ -761,7 +761,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                                         </label>
                                         <DatePicker
                                             selected={safeDate(passenger.passport_expiry_date)}
-                                            onChange={(date) => handleDateChange(index, 'passport_expiry_date', date)}
+                                            onChange={(date: Date | null) => handleDateChange(index, 'passport_expiry_date', date)}
                                             dateFormat="dd/MM/yyyy"
                                             placeholderText="dd/mm/yyyy"
                                             showYearDropdown
