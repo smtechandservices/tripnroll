@@ -10,7 +10,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     // Hide header and footer on auth pages
-    const isAuthPage = pathname === '/login' || pathname === '/signup';
+    const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password';
 
     return (
         <>

@@ -304,75 +304,119 @@ export default function WalletPage() {
                                     Top Up Wallet
                                 </h3>
 
-                                <form onSubmit={handleTopUp} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Amount to Add / Pay Dues
-                                        </label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-bold">₹</span>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                step="0.01"
-                                                required
-                                                value={topUpAmount}
-                                                onChange={(e) => setTopUpAmount(e.target.value)}
-                                                placeholder="0.00"
-                                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-lg font-medium text-gray-900"
-                                            />
+                                {user?.profile?.kyc_status === 'SUBMITTED' ? (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                                        <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Clock className="w-6 h-6 text-blue-600" />
                                         </div>
-                                    </div>
-
-                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
-                                        <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                        <h4 className="font-bold text-blue-900 mb-2">KYC Under Review</h4>
                                         <p className="text-sm text-blue-700">
-                                            Top-ups will first clear any outstanding dues before adding to your wallet balance.
+                                            Your documents have been submitted and are currently being reviewed by our team. You'll be able to top up once verified.
                                         </p>
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleRazorpayTopUp}
-                                        disabled={isProcessingRazorpay || isProcessingManual || !topUpAmount}
-                                        className="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-blue-200 flex justify-center items-center gap-2"
-                                    >
-                                        {isProcessingRazorpay ? (
-                                            <>
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                Processing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                {/* <CreditCard className="w-4 h-4" /> */}
-                                                Instant Top Up
-                                            </>
-                                        )}
-                                    </button>
-
-                                    <div className="relative flex items-center justify-center py-2">
-                                        <div className="border-t border-gray-200 w-full"></div>
-                                        <span className="absolute bg-white px-3 text-xs text-gray-400 font-medium">OR</span>
+                                ) : user?.profile?.kyc_status === 'REJECTED' ? (
+                                    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+                                        <div className="bg-red-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <AlertCircle className="w-6 h-6 text-red-600" />
+                                        </div>
+                                        <h4 className="font-bold text-red-900 mb-2">KYC Rejected</h4>
+                                        <p className="text-sm text-red-700 mb-6">
+                                            Your KYC verification was rejected. Please re-submit your documents.
+                                        </p>
+                                        <button 
+                                            onClick={() => window.dispatchEvent(new CustomEvent('open-kyc-modal'))}
+                                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors text-sm"
+                                        >
+                                            Re-submit KYC
+                                        </button>
                                     </div>
+                                ) : user?.profile?.kyc_status !== 'VERIFIED' ? (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                                        <div className="bg-amber-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <AlertCircle className="w-6 h-6 text-amber-600" />
+                                        </div>
+                                        <h4 className="font-bold text-amber-900 mb-2">KYC Verification Required</h4>
+                                        <p className="text-sm text-amber-700 mb-6">
+                                            You must verify your KYC documents before you can top up your wallet.
+                                        </p>
+                                        <button 
+                                            onClick={() => window.dispatchEvent(new CustomEvent('open-kyc-modal'))}
+                                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors text-sm"
+                                        >
+                                            Complete KYC Now
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleTopUp} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Amount to Add / Pay Dues
+                                            </label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-bold">₹</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="0.01"
+                                                    required
+                                                    value={topUpAmount}
+                                                    onChange={(e) => setTopUpAmount(e.target.value)}
+                                                    placeholder="0.00"
+                                                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-lg font-medium text-gray-900"
+                                                />
+                                            </div>
+                                        </div>
 
-                                    <button
-                                        type="submit"
-                                        disabled={isProcessingManual || isProcessingRazorpay || !topUpAmount}
-                                        className="cursor-pointer w-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-slate-200 flex justify-center items-center gap-2"
-                                    >
-                                        {isProcessingManual ? (
-                                            <>
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                Processing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Request Manual Top Up
-                                                <ArrowUpRight className="w-4 h-4" />
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                                            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                            <p className="text-sm text-blue-700">
+                                                Top-ups will first clear any outstanding dues before adding to your wallet balance.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleRazorpayTopUp}
+                                            disabled={isProcessingRazorpay || isProcessingManual || !topUpAmount}
+                                            className="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-blue-200 flex justify-center items-center gap-2"
+                                        >
+                                            {isProcessingRazorpay ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* <CreditCard className="w-4 h-4" /> */}
+                                                    Instant Top Up
+                                                </>
+                                            )}
+                                        </button>
+
+                                        <div className="relative flex items-center justify-center py-2">
+                                            <div className="border-t border-gray-200 w-full"></div>
+                                            <span className="absolute bg-white px-3 text-xs text-gray-400 font-medium">OR</span>
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            disabled={isProcessingManual || isProcessingRazorpay || !topUpAmount}
+                                            className="cursor-pointer w-full bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-slate-200 flex justify-center items-center gap-2"
+                                        >
+                                            {isProcessingManual ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Request Manual Top Up
+                                                    <ArrowUpRight className="w-4 h-4" />
+                                                </>
+                                            )}
+                                        </button>
+                                    </form>
+                                )}
                             </div>
 
                             <div className="bg-gray-100 rounded-2xl p-6 text-center">

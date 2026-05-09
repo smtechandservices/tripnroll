@@ -62,6 +62,8 @@ export interface TopUpRequest {
     user_email: string;
     amount: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    method: 'MANUAL' | 'RAZORPAY';
+    razorpay_payment_id?: string;
     created_at: string;
     updated_at: string;
 }

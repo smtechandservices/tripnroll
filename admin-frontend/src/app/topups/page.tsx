@@ -111,6 +111,7 @@ export default function TopUpRequestsPage() {
                             <tr className="bg-slate-50/50 border-b border-slate-200">
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User Details</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Method</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Requested At</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
@@ -120,12 +121,12 @@ export default function TopUpRequestsPage() {
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={5} className="px-6 py-6"><div className="h-4 bg-slate-100 rounded w-full"></div></td>
+                                        <td colSpan={6} className="px-6 py-6"><div className="h-4 bg-slate-100 rounded w-full"></div></td>
                                     </tr>
                                 ))
                             ) : requests.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
                                         No top-up requests found matching your criteria.
                                     </td>
                                 </tr>
@@ -147,6 +148,16 @@ export default function TopUpRequestsPage() {
                                             <p className="text-lg font-extrabold text-slate-800">
                                                 ₹{parseFloat(request.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                             </p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                                request.method === 'RAZORPAY' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-100 text-slate-700 border-slate-200'
+                                            }`}>
+                                                {request.method}
+                                            </span>
+                                            {request.razorpay_payment_id && (
+                                                <p className="text-[10px] text-slate-400 mt-1 font-mono">ID: {request.razorpay_payment_id}</p>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${

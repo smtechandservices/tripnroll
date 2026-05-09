@@ -282,15 +282,34 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
             }
         }
 
+        const primaryPassenger = passengers[primaryPassengerIndex] || passengers[0];
         const result = await Swal.fire({
             title: 'Complete Your Booking',
-            text: `Are you sure you want to book for ${passengers.length} passenger(s)?`,
+            html: `
+                <div class="text-left space-y-4">
+                    <p>Are you sure you want to book for <strong>${passengers.length} passenger(s)</strong>?</p>
+                    <div class="bg-blue-50 border border-green-200 rounded-2xl p-5 mt-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="bg-blue-600 text-white p-1 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                            </div>
+                            <p class="text-sm font-bold text-blue-900">Contact Email Confirmation</p>
+                        </div>
+                        <p class="text-sm text-blue-700 leading-relaxed mb-3">
+                            A booking confirmation will be sent to the primary passenger's email address. You can download your E-Ticket anytime from the <strong>"My Bookings"</strong> tab.
+                        </p>
+                        <div class="bg-white border border-blue-100 rounded-xl px-4 py-3 font-bold text-blue-600 text-center shadow-sm">
+                            ${primaryPassenger.passenger_email}
+                        </div>
+                    </div>
+                </div>
+            `,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Yes, Book Now',
             cancelButtonText: 'No, Cancel',
-            confirmButtonColor: '#2563eb', // blue-600
-            cancelButtonColor: '#64748b', // slate-500
+            confirmButtonColor: '#2563eb', 
+            cancelButtonColor: '#64748b',
             customClass: {
                 popup: 'rounded-3xl',
                 confirmButton: 'rounded-xl px-6 py-3 font-bold',
@@ -364,15 +383,26 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
             
             const duplicateCheck = await checkDuplicateBooking(bookingData);
             if (duplicateCheck.has_duplicates) {
-                const duplicateList = duplicateCheck.duplicates.map(d => `${d.first_name} ${d.last_name}`).join(', ');
+                const duplicateDetails = duplicateCheck.duplicates.map(d => 
+                    `<li class="mb-1 text-sm text-amber-800"><strong>${d.first_name} ${d.last_name}:</strong> ${d.reason}</li>`
+                ).join('');
+
                 const confirmResult = await Swal.fire({
                     icon: 'warning',
                     title: 'Existing Booking Detected',
-                    text: `A booking for ${duplicateList} already exists for this flight. Do you want to proceed with another booking?`,
+                    html: `
+                        <div class="text-left space-y-4">
+                            <p class="text-sm text-gray-600">Existing bookings were found for the following passenger(s) on this flight:</p>
+                            <ul class="list-disc pl-5 bg-amber-50 border border-amber-100 rounded-xl p-4">
+                                ${duplicateDetails}
+                            </ul>
+                            <p class="text-sm font-semibold">Do you want to proceed with another booking anyway?</p>
+                        </div>
+                    `,
                     showCancelButton: true,
                     confirmButtonText: 'Proceed Anyway',
                     cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#f59e0b', // orange-500
+                    confirmButtonColor: '#f59e0b', 
                     cancelButtonColor: '#64748b',
                     customClass: {
                         popup: 'rounded-3xl',
@@ -413,6 +443,26 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 })
             };
             const response = await createBooking(data);
+            
+            // Send automated email
+            try {
+                // We run this in the background, don't wait for it to finish before showing success UI
+                fetch('/api/booking/email', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Token ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        bookings: Array.isArray(response) ? response : [response],
+                        user: user,
+                        includePrice: true
+                    })
+                }).catch(e => console.error('Automated email dispatch failed:', e));
+            } catch (e) {
+                console.error('Failed to trigger automated email:', e);
+            }
+
             // If response is an array (multiple bookings), use the first one's group or ID for success message
             const firstBooking = Array.isArray(response) ? response[0] : response;
             onSuccess(firstBooking.booking_group || firstBooking.booking_id);

@@ -12,7 +12,8 @@ from .views import (
     AdminContactMessageListView,
     SubmitKYCView, AdminKYCListView, AdminKYCActionView,
     ServeKYCDocumentView, CheckDuplicateBookingView,
-    RazorpayOrderView, RazorpayVerifyView
+    RazorpayOrderView, RazorpayVerifyView,
+    check_email, reset_password
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -59,4 +60,6 @@ urlpatterns = [
     path('admin/kyc/', AdminKYCListView.as_view(), name='admin-kyc-list'),
     path('admin/kyc/action/', AdminKYCActionView.as_view(), name='admin-kyc-action'),
     path('kyc/document/<str:doc_type>/<int:user_id>/', ServeKYCDocumentView.as_view(), name='serve-kyc-doc'),
+    path('auth/check-email/', check_email, name='check-email'),
+    path('auth/reset-password/', reset_password, name='reset-password'),
 ]

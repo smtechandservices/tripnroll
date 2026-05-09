@@ -361,27 +361,27 @@ class CheckDuplicateBookingView(generics.GenericAPIView):
             if not first_name or not last_name:
                 continue
 
-            # Check for name match
-            name_query = Q(first_name__iexact=first_name, last_name__iexact=last_name)
+            # Check each field individually to provide specific feedback
+            match_field = None
             
-            # OR passport match (if provided)
-            passport_query = Q(passport_number=passport_number) if passport_number else Q(pk=None)
-            
-            # OR email match (if provided)
-            email_query = Q(passenger_email__iexact=passenger_email) if passenger_email else Q(pk=None)
-            
-            # OR phone match (if provided)
-            phone_query = Q(passenger_phone=passenger_phone) if passenger_phone else Q(pk=None)
-            
-            duplicate_exists = Booking.objects.filter(
-                Q(flight_id=flight_id) & (name_query | passport_query | email_query | phone_query)
-            ).exclude(status__in=['CANCELLED', 'REJECTED']).exists()
+            # Name check
+            if Booking.objects.filter(flight_id=flight_id, first_name__iexact=first_name, last_name__iexact=last_name).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+                match_field = "Name"
+            # Passport check
+            elif passport_number and Booking.objects.filter(flight_id=flight_id, passport_number=passport_number).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+                match_field = "Passport Number"
+            # Email check
+            elif passenger_email and Booking.objects.filter(flight_id=flight_id, passenger_email__iexact=passenger_email).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+                match_field = "Email Address"
+            # Phone check
+            elif passenger_phone and Booking.objects.filter(flight_id=flight_id, passenger_phone=passenger_phone).exclude(status__in=['CANCELLED', 'REJECTED']).exists():
+                match_field = "Phone Number"
 
-            if duplicate_exists:
+            if match_field:
                 duplicates.append({
                     'first_name': first_name,
                     'last_name': last_name,
-                    'reason': 'Matching details found in an existing booking for this flight.'
+                    'reason': f"Duplicate found by {match_field}."
                 })
 
         return Response({
@@ -777,6 +777,15 @@ class WalletTopUpView(generics.CreateAPIView):
         amount = Decimal(str(amount))
         user = request.user
         
+        # Check KYC status
+        from .models import UserKYC
+        try:
+            kyc = user.kyc
+            if kyc.kyc_status != 'VERIFIED':
+                return Response({'error': 'KYC verification is required to top up your wallet.'}, status=status.HTTP_403_FORBIDDEN)
+        except UserKYC.DoesNotExist:
+            return Response({'error': 'KYC verification is required to top up your wallet.'}, status=status.HTTP_403_FORBIDDEN)
+        
         # Create a Top-up Request instead of immediate top-up
         topup_request = TopUpRequest.objects.create(
             user=user,
@@ -802,6 +811,16 @@ class RazorpayOrderView(generics.CreateAPIView):
                 raise ValueError
         except (TypeError, ValueError, InvalidOperation):
             return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        # Check KYC status
+        from .models import UserKYC
+        try:
+            kyc = user.kyc
+            if kyc.kyc_status != 'VERIFIED':
+                return Response({'error': 'KYC verification is required to top up your wallet.'}, status=status.HTTP_403_FORBIDDEN)
+        except UserKYC.DoesNotExist:
+            return Response({'error': 'KYC verification is required to top up your wallet.'}, status=status.HTTP_403_FORBIDDEN)
 
         client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
         
@@ -1490,3 +1509,49 @@ class ServeKYCDocumentView(generics.GenericAPIView):
         # Suggest filename for browser
         response['Content-Disposition'] = f'inline; filename="{name or (doc_type + ".png")}"'
         return response
+        
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def check_email(request):
+    email = request.data.get('email')
+    username = request.data.get('username')
+    
+    if not email and not username:
+        return Response({'error': 'Email or username is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    response_data = {
+        'exists': False,
+        'email_exists': False,
+        'username_exists': False
+    }
+    
+    if email:
+        email_exists = User.objects.filter(email=email).exists()
+        response_data['email_exists'] = email_exists
+        response_data['exists'] = email_exists
+        
+    if username:
+        username_exists = User.objects.filter(username=username).exists()
+        response_data['username_exists'] = username_exists
+        # If only username is provided, 'exists' reflects username availability
+        if not email:
+            response_data['exists'] = username_exists
+            
+    return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    email = request.data.get('email')
+    new_password = request.data.get('password')
+    
+    if not email or not new_password:
+        return Response({'error': 'Email and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': 'Password reset successfully'}, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
