@@ -1,5 +1,6 @@
 import { SearchForm } from '@/components/SearchForm';
 import { RipplesBackground } from '@/components/RipplesBackground';
+import FlyerSection from '@/components/FlyerSection';
 
 export default function Home() {
   return (
@@ -26,6 +27,8 @@ export default function Home() {
 
       <div className="w-full max-w-9xl px-4 md:px-12 mx-auto pb-20 bg-white">
         <SearchForm />
+
+        <FlyerSection />
 
         <br /><br />
         {/* <div className="mt-12 md:mt-20">

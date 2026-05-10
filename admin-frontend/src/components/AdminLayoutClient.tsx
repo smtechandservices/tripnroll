@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getUserProfile } from '@/lib/api';
 import Link from 'next/link';
 import Image from 'next/image';
-import { LayoutDashboard, Plane, Calendar, Users, LogOut, RotateCcw, MessageSquare, Shield, Wallet } from 'lucide-react';
+import { LayoutDashboard, Plane, Calendar, Users, LogOut, RotateCcw, MessageSquare, Shield, Wallet, Image as ImageIcon } from 'lucide-react';
 
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -64,6 +64,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'KYC', href: '/kyc', icon: Shield },
+    { name: 'Flyers', href: '/flyers', icon: ImageIcon },
   ];
 
   return (

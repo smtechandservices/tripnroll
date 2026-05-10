@@ -80,6 +80,14 @@ export interface WalletTransaction {
     dues_after: string;
 }
 
+export interface Flyer {
+    id: number;
+    description: string;
+    image_url: string;
+    is_active: boolean;
+    created_at: string;
+}
+
 export async function getAdminTransactions(userId?: string, search?: string, page: number = 1): Promise<PaginatedResponse<WalletTransaction>> {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId);
@@ -317,10 +325,17 @@ export interface AdminStats {
     total_revenue: number;
     total_bookings: number;
     active_bookings: number;
+    total_users: number;
     total_flights: number;
     pending_topups: number;
     pending_refunds: number;
     recent_bookings: Booking[];
+    revenue_chart: {
+        labels: string[];
+        values: number[];
+    };
+    booking_distribution: Record<string, number>;
+    new_users_30d: number;
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
@@ -575,4 +590,45 @@ export async function processTopUpRequest(requestId: number, action: 'APPROVE' |
         throw new Error(errorData.error || 'Failed to process top-up request');
     }
     return res.json();
+}
+
+export async function getAdminFlyers(): Promise<Flyer[]> {
+    const res = await fetch(`${API_BASE_URL}/admin/flyers/`, {
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch flyers');
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.results;
+}
+
+export async function createFlyer(formData: FormData): Promise<Flyer> {
+    const res = await fetch(`${API_BASE_URL}/admin/flyers/`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Token ${typeof window !== 'undefined' ? localStorage.getItem('token') : ''}`
+        },
+        body: formData
+    });
+    if (!res.ok) throw new Error('Failed to create flyer');
+    return res.json();
+}
+
+export async function updateFlyer(id: number, formData: FormData): Promise<Flyer> {
+    const res = await fetch(`${API_BASE_URL}/admin/flyers/${id}/`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Token ${typeof window !== 'undefined' ? localStorage.getItem('token') : ''}`
+        },
+        body: formData
+    });
+    if (!res.ok) throw new Error('Failed to update flyer');
+    return res.json();
+}
+
+export async function deleteFlyer(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/admin/flyers/${id}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete flyer');
 }

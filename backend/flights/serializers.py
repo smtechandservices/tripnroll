@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest, UserKYC
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest, UserKYC, Flyer
 
 class UserKYCSerializer(serializers.ModelSerializer):
     brand_logo = serializers.SerializerMethodField()
@@ -371,3 +371,26 @@ class TopUpRequestSerializer(serializers.ModelSerializer):
         model = TopUpRequest
         fields = '__all__'
         read_only_fields = ('user', 'status', 'created_at', 'updated_at')
+
+class FlyerSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Flyer
+        fields = ('id', 'description', 'image_url', 'is_active', 'created_at')
+
+    def get_image_url(self, obj):
+        if not obj.image_data:
+            return None
+        
+        request = self.context.get('request')
+        from django.urls import reverse
+        url = reverse('serve-flyer-image', kwargs={'pk': obj.pk})
+        
+        if request:
+            absolute_uri = request.build_absolute_uri(url)
+            # Ensure HTTPS for production-like environments
+            if request.is_secure() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' or 'tripnrolltravel.com' in request.get_host():
+                return absolute_uri.replace('http://', 'https://')
+            return absolute_uri
+        return url

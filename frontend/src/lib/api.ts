@@ -126,6 +126,14 @@ export interface TopUpRequest {
     updated_at: string;
 }
 
+export interface Flyer {
+    id: number;
+    description: string;
+    image_url: string;
+    is_active: boolean;
+    created_at: string;
+}
+
 export interface RazorpayOrderResponse {
     order_id: string;
     amount: number;
@@ -437,4 +445,11 @@ export async function submitKYC(formData: FormData): Promise<{ message: string, 
         throw new Error(errorData.error || 'Failed to submit KYC');
     }
     return res.json();
+}
+
+export async function getFlyers(): Promise<Flyer[]> {
+    const res = await fetch(`${API_BASE_URL}/flyers/`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch flyers');
+    const data: PaginatedResponse<Flyer> = await res.json();
+    return data.results;
 }

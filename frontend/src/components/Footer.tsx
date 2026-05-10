@@ -4,7 +4,7 @@ import { Github, X as XIcon, Facebook, Instagram, Mail, Phone, MapPin, Youtube, 
 export function Footer() {
     return (
         <footer className="bg-slate-900 border-t border-slate-800 pt-16 pb-8 z-10">
-            <div className="mx-auto px-12">
+            <div className="mx-auto px-4 md:px-12">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
                     <div className="col-span-1 md:col-span-2">
                         <h3 className="text-xl font-bold text-white mb-2 underline decoration-green-500 underline-offset-8">TripNRoll</h3>

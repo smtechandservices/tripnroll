@@ -7,12 +7,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, TopUpRequest, Flyer
 from .serializers import (
     UserSerializer, RegisterSerializer, FlightSerializer, 
     BookingSerializer, AdminBookingSerializer, ContactMessageSerializer,
     UserProfileSerializer, AdminUserSerializer, WalletTransactionSerializer,
-    TopUpRequestSerializer
+    TopUpRequestSerializer, FlyerSerializer
 )
 from .permissions import IsAdminType
 from rest_framework import filters
@@ -648,15 +648,14 @@ class AdminDashboardView(generics.GenericAPIView):
     def get(self, request):
         from django.db.models import Sum, Count, Q
         from django.utils import timezone
+        from datetime import timedelta
         from decimal import Decimal
         
         # Calculate net revenue (price - refunded_amount) for CONFIRMED, REFUNDED, and REFUND_REQUESTED bookings
-        # Revenue should arguably include past flights too, so we keep this as is for total lifetime revenue
         confirmed_bookings = Booking.objects.filter(status__in=['CONFIRMED', 'REFUNDED', 'REFUND_REQUESTED'])
         total_revenue = Decimal('0.00')
         
         for booking in confirmed_bookings:
-            # Fallback for old bookings that don't have charged_price set
             price_to_use = booking.charged_price if (booking.charged_price > 0 or booking.is_infant) else booking.flight.price
             net_amount = price_to_use - booking.refunded_amount
             total_revenue += net_amount
@@ -677,15 +676,48 @@ class AdminDashboardView(generics.GenericAPIView):
 
         pending_topups = TopUpRequest.objects.filter(status='PENDING').count()
         pending_refunds = Booking.objects.filter(status='REFUND_REQUESTED').count()
+        
+        # New Metrics for Analysis
+        # 1. Revenue last 7 days (Daily)
+        revenue_labels = []
+        revenue_values = []
+        today = timezone.now().date()
+        for i in range(6, -1, -1):
+            target_date = today - timedelta(days=i)
+            day_bookings = Booking.objects.filter(
+                status__in=['CONFIRMED', 'REFUNDED', 'REFUND_REQUESTED'],
+                created_at__date=target_date
+            )
+            day_revenue = Decimal('0.00')
+            for b in day_bookings:
+                price = b.charged_price if (b.charged_price > 0 or b.is_infant) else b.flight.price
+                day_revenue += (price - b.refunded_amount)
+            
+            revenue_labels.append(target_date.strftime('%b %d'))
+            revenue_values.append(float(day_revenue))
+
+        # 2. Booking Distribution
+        status_counts = Booking.objects.values('status').annotate(count=Count('id'))
+        
+        # 3. User Stats
+        total_users = User.objects.count()
+        new_users_30d = User.objects.filter(date_joined__gte=timezone.now() - timedelta(days=30)).count()
 
         return Response({
             'total_revenue': total_revenue,
             'total_bookings': total_bookings,
             'active_bookings': active_bookings,
+            'total_users': total_users - 1, # 1 is admin itself
             'total_flights': total_flights,
             'pending_topups': pending_topups,
             'pending_refunds': pending_refunds,
-            'recent_bookings': recent_bookings_data
+            'recent_bookings': recent_bookings_data,
+            'revenue_chart': {
+                'labels': revenue_labels,
+                'values': revenue_values
+            },
+            'booking_distribution': {s['status']: s['count'] for s in status_counts},
+            'new_users_30d': new_users_30d
         })
 
 class AdminUserListView(generics.ListCreateAPIView):
@@ -766,6 +798,7 @@ class AdminWalletTransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         user_id = self.request.query_params.get('user_id')
+
         search = self.request.query_params.get('search')
         
         queryset = WalletTransaction.objects.all().order_by('-timestamp')
@@ -1781,3 +1814,48 @@ def reset_password(request):
         return Response({'message': 'Password reset successfully'}, status=status.HTTP_200_OK)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+from rest_framework import viewsets
+
+class FlyerViewSet(viewsets.ModelViewSet):
+    queryset = Flyer.objects.all().order_by('-created_at')
+    serializer_class = FlyerSerializer
+    permission_classes = [IsAdminType]
+
+    def perform_create(self, serializer):
+        image_file = self.request.FILES.get('image')
+        if image_file:
+            serializer.save(
+                image_data=image_file.read(),
+                image_name=image_file.name,
+                image_mimetype=image_file.content_type
+            )
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        image_file = self.request.FILES.get('image')
+        if image_file:
+            serializer.save(
+                image_data=image_file.read(),
+                image_name=image_file.name,
+                image_mimetype=image_file.content_type
+            )
+        else:
+            serializer.save()
+
+class PublicFlyerListView(generics.ListAPIView):
+    queryset = Flyer.objects.filter(is_active=True).order_by('-created_at')
+    serializer_class = FlyerSerializer
+    permission_classes = [AllowAny]
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_flyer_image(request, pk):
+    flyer = get_object_or_404(Flyer, pk=pk)
+    if not flyer.image_data:
+        raise Http404('Image not found')
+    
+    response = HttpResponse(flyer.image_data, content_type=flyer.image_mimetype or 'image/jpeg')
+    response['Cache-Control'] = 'public, max-age=86400'
+    return response

@@ -15,7 +15,8 @@ from .views import (
     ServeKYCDocumentView, CheckDuplicateBookingView,
     RazorpayOrderView, RazorpayVerifyView,
     FlightRazorpayOrderView, FlightRazorpayVerifyView,
-    check_email, reset_password
+    check_email, reset_password,
+    FlyerViewSet, PublicFlyerListView, serve_flyer_image
 )
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -67,4 +68,12 @@ urlpatterns = [
     path('kyc/document/<str:doc_type>/<int:user_id>/', ServeKYCDocumentView.as_view(), name='serve-kyc-doc'),
     path('auth/check-email/', check_email, name='check-email'),
     path('auth/reset-password/', reset_password, name='reset-password'),
+    
+    # Flyer Routes
+    path('flyers/', PublicFlyerListView.as_view(), name='flyer-list'),
+    path('flyers/<int:pk>/image/', serve_flyer_image, name='serve-flyer-image'),
+    
+    # Admin Flyer Routes
+    path('admin/flyers/', FlyerViewSet.as_view({'get': 'list', 'post': 'create'}), name='admin-flyer-list'),
+    path('admin/flyers/<int:pk>/', FlyerViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='admin-flyer-detail'),
 ]

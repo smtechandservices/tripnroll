@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, UserKYC
+from .models import Flight, Booking, ContactMessage, UserProfile, WalletTransaction, UserKYC, Flyer
 
 @admin.register(Flight)
 class FlightAdmin(admin.ModelAdmin):
@@ -156,3 +156,20 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     ordering = ('-timestamp',)
     date_hierarchy = 'timestamp'
     readonly_fields = ('timestamp',)
+
+@admin.register(Flyer)
+class FlyerAdmin(admin.ModelAdmin):
+    list_display = ('id', 'description_preview', 'is_active', 'created_at', 'image_preview')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('description',)
+    
+    def description_preview(self, obj):
+        return obj.description[:50] + '...' if obj.description and len(obj.description) > 50 else obj.description
+    description_preview.short_description = 'Description'
+
+    def image_preview(self, obj):
+        if obj.image_data:
+            url = reverse('serve-flyer-image', kwargs={'pk': obj.pk})
+            return format_html('<a href="{}" target="_blank">View Image</a>', url)
+        return "No Image"
+    image_preview.short_description = 'Image'
