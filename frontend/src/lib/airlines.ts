@@ -31,6 +31,7 @@ const DEFAULT_BRANDING: AirlineBranding = {
 const AIRLINE_BRANDING: Record<string, AirlineBranding> = {
     SPICEJET:          { primaryColor: [214, 40, 40],   accentColor: [255, 193, 7],  headerTextColor: [255, 255, 255], tagline: 'Red. Hot. Spicy.' },
     INDIGO:            { primaryColor: [26, 31, 113],   accentColor: [0, 174, 239],  headerTextColor: [255, 255, 255], tagline: 'On Time, Every Time' },
+    'AIR INDIA EXPRESS': { primaryColor: [220, 40, 40], accentColor: [255, 153, 0],  headerTextColor: [255, 255, 255], tagline: 'Express Yourself' },
     'AIR INDIA':       { primaryColor: [166, 24, 24],   accentColor: [255, 153, 0],  headerTextColor: [255, 255, 255], tagline: 'The Maharaja Way' },
     VISTARA:           { primaryColor: [106, 33, 168],  accentColor: [218, 165, 32], headerTextColor: [255, 255, 255], tagline: 'Fly The New Feeling' },
     'AKASA AIR':       { primaryColor: [251, 113, 0],   accentColor: [253, 224, 71], headerTextColor: [255, 255, 255], tagline: 'A Kinder Way To Fly' },
