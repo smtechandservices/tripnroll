@@ -33,7 +33,8 @@ export default function UserManagementPage() {
     const [walletData, setWalletData] = useState({
         credit_limit: '',
         wallet_balance: '',
-        total_dues: ''
+        total_dues: '',
+        remarks: ''
     });
 
     useEffect(() => {
@@ -97,7 +98,8 @@ export default function UserManagementPage() {
         setWalletData({
             credit_limit: user.profile?.credit_limit?.toString() || '0',
             wallet_balance: user.profile?.wallet_balance?.toString() || '0',
-            total_dues: user.profile?.total_dues?.toString() || '0'
+            total_dues: user.profile?.total_dues?.toString() || '0',
+            remarks: ''
         });
         setIsWalletModalOpen(true);
     };
@@ -109,10 +111,9 @@ export default function UserManagementPage() {
         try {
             await updateAdminUserWallet(editingUser.id, {
                 credit_limit: parseFloat(walletData.credit_limit),
-                // We typically only update credit limit, but let's send others if changed or just ignore for now
-                // Requirement mainly focuses on Credit Limit. But let's support all since backend does.
                 wallet_balance: parseFloat(walletData.wallet_balance),
-                total_dues: parseFloat(walletData.total_dues)
+                total_dues: parseFloat(walletData.total_dues),
+                remarks: walletData.remarks.trim() || undefined
             });
             Swal.fire({
                 icon: 'success',
@@ -492,6 +493,18 @@ export default function UserManagementPage() {
                                         className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
                                     />
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Remarks <span className="text-slate-400 font-normal">(optional)</span></label>
+                                <textarea
+                                    value={walletData.remarks}
+                                    onChange={(e) => setWalletData({ ...walletData, remarks: e.target.value })}
+                                    placeholder="Add a note for this adjustment..."
+                                    rows={3}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 resize-none text-sm"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">This note will be visible to the user in their transaction history.</p>
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3">

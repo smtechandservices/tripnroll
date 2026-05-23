@@ -53,6 +53,8 @@ export interface Booking {
     refunded_amount?: string;
     is_infant: boolean;
     charged_price: string;
+    user_refund_remarks?: string | null;
+    admin_refund_remarks?: string | null;
 }
 
 export interface TopUpRequest {
@@ -64,6 +66,7 @@ export interface TopUpRequest {
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     method: 'MANUAL' | 'RAZORPAY';
     razorpay_payment_id?: string;
+    remarks?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -75,6 +78,7 @@ export interface WalletTransaction {
     transaction_type: 'CREDIT' | 'DEBIT';
     description: string;
     transaction_id?: string;
+    remarks?: string | null;
     timestamp: string;
     balance_after: string;
     dues_after: string;
@@ -431,11 +435,11 @@ export async function getAdminBookings(page: number = 1, search: string = '', st
     return res.json();
 }
 
-export async function processRefund(bookingId?: string, bookingGroup?: string, amount?: number): Promise<{ message: string; total_refunded: number; processed_count: number }> {
+export async function processRefund(bookingId?: string, bookingGroup?: string, amount?: number, adminRemarks?: string): Promise<{ message: string; total_refunded: number; processed_count: number }> {
     const res = await fetch(`${API_BASE_URL}/admin/refund/process/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup, amount })
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup, amount, admin_remarks: adminRemarks })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -457,11 +461,11 @@ export async function rejectBooking(bookingId?: string, bookingGroup?: string): 
     return res.json();
 }
 
-export async function cancelRefundRequest(bookingId?: string, bookingGroup?: string): Promise<{ message: string; count: number }> {
+export async function cancelRefundRequest(bookingId?: string, bookingGroup?: string, adminRemarks?: string): Promise<{ message: string; count: number }> {
     const res = await fetch(`${API_BASE_URL}/admin/refund/cancel/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup })
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup, admin_remarks: adminRemarks })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -512,7 +516,7 @@ export async function updateAdminUser(id: number, data: any): Promise<User> {
     return res.json();
 }
 
-export async function updateAdminUserWallet(id: number, data: { credit_limit?: number; wallet_balance?: number; total_dues?: number }): Promise<void> {
+export async function updateAdminUserWallet(id: number, data: { credit_limit?: number; wallet_balance?: number; total_dues?: number; remarks?: string }): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/admin/users/${id}/wallet/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
@@ -579,11 +583,11 @@ export async function getAdminTopUpRequests(page: number = 1, search: string = '
     return res.json();
 }
 
-export async function processTopUpRequest(requestId: number, action: 'APPROVE' | 'REJECT'): Promise<{ message: string; status: string; wallet_balance?: number }> {
+export async function processTopUpRequest(requestId: number, action: 'APPROVE' | 'REJECT', remarks?: string): Promise<{ message: string; status: string; wallet_balance?: number }> {
     const res = await fetch(`${API_BASE_URL}/admin/topups/action/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ request_id: requestId, action })
+        body: JSON.stringify({ request_id: requestId, action, remarks: remarks || '' })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

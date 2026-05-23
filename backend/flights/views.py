@@ -1212,7 +1212,8 @@ class AdminTopUpRequestActionView(generics.GenericAPIView):
     def post(self, request):
         request_id = request.data.get('request_id')
         action = request.data.get('action') # 'APPROVE' or 'REJECT'
-        
+        remarks = request.data.get('remarks', '').strip()
+
         if not request_id or not action:
             return Response({'error': 'Request ID and action are required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1267,6 +1268,8 @@ class AdminTopUpRequestActionView(generics.GenericAPIView):
         else:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if remarks:
+            topup_request.remarks = remarks
         topup_request.save()
 
         return Response({
@@ -1295,6 +1298,7 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
         curr_dues = old_dues
         
         any_change = False
+        admin_remarks = request.data.get('remarks', '').strip() or None
 
         # 1. Credit Limit
         credit_limit = request.data.get('credit_limit')
@@ -1308,11 +1312,12 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
                     amount=abs(diff),
                     transaction_type='CREDIT' if diff >= 0 else 'DEBIT',
                     description=f"Admin Adjustment: Credit limit from {old_limit} to {new_limit}",
+                    remarks=admin_remarks,
                     balance_after=curr_balance,
                     dues_after=curr_dues
                 )
                 any_change = True
-        
+
         # 2. Wallet Balance
         wallet_balance = request.data.get('wallet_balance')
         if wallet_balance is not None:
@@ -1325,11 +1330,12 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
                     amount=abs(diff),
                     transaction_type='CREDIT' if diff >= 0 else 'DEBIT',
                     description=f"Admin Adjustment: Wallet balance from {old_balance} to {new_balance}",
+                    remarks=admin_remarks,
                     balance_after=curr_balance,
                     dues_after=curr_dues
                 )
                 any_change = True
-            
+
         # 3. Total Dues
         total_dues = request.data.get('total_dues')
         if total_dues is not None:
@@ -1343,6 +1349,7 @@ class AdminWalletUpdateView(generics.UpdateAPIView):
                     amount=abs(diff),
                     transaction_type='DEBIT' if diff >= 0 else 'CREDIT',
                     description=f"Admin Adjustment: Total dues from {old_dues} to {new_dues}",
+                    remarks=admin_remarks,
                     balance_after=curr_balance,
                     dues_after=curr_dues
                 )
@@ -1367,27 +1374,39 @@ class RefundRequestView(generics.GenericAPIView):
     def post(self, request):
         booking_id = request.data.get('booking_id')
         booking_group = request.data.get('booking_group')
-        
-        if not booking_id and not booking_group:
-            return Response({'error': 'Booking ID or Booking Group required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        if booking_group:
+        booking_ids = request.data.get('booking_ids')  # list of specific passenger booking IDs
+
+        if not booking_id and not booking_group and not booking_ids:
+            return Response({'error': 'Booking ID, Booking Group, or Booking IDs list required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if booking_ids:
+            if not isinstance(booking_ids, list) or len(booking_ids) == 0:
+                return Response({'error': 'booking_ids must be a non-empty list'}, status=status.HTTP_400_BAD_REQUEST)
+            bookings = Booking.objects.filter(booking_id__in=booking_ids, booked_by=request.user)
+        elif booking_group:
             bookings = Booking.objects.filter(booking_group=booking_group, booked_by=request.user)
         else:
             bookings = Booking.objects.filter(booking_id=booking_id, booked_by=request.user)
-            
+
         if not bookings.exists():
             return Response({'error': 'No matching bookings found'}, status=status.HTTP_404_NOT_FOUND)
-            
+
         eligible_bookings = bookings.filter(status='CONFIRMED')
         if not eligible_bookings.exists():
             # Check if they are already requested
             if bookings.filter(status='REFUND_REQUESTED').exists():
                  return Response({'error': 'Refund already requested for this group/booking'}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'error': 'No confirmed bookings found to refund'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        count = eligible_bookings.update(status='REFUND_REQUESTED')
-        
+
+        user_remarks = request.data.get('remarks', '').strip()
+        for b in eligible_bookings:
+            b.status = 'REFUND_REQUESTED'
+            b.user_refund_remarks = user_remarks or None
+            b.admin_refund_remarks = None  # clear any previous admin remark
+            b.save(update_fields=['status', 'user_refund_remarks', 'admin_refund_remarks'])
+
+        count = eligible_bookings.count()
+
         return Response({
             'message': f'Refund requested successfully for {count} passenger(s)',
             'count': count
@@ -1395,26 +1414,32 @@ class RefundRequestView(generics.GenericAPIView):
 
 class AdminCancelRefundView(generics.GenericAPIView):
     permission_classes = [IsAdminType]
-    
+
     def post(self, request):
         booking_id = request.data.get('booking_id')
         booking_group = request.data.get('booking_group')
-        
+        admin_remarks = request.data.get('admin_remarks', '').strip()
+
         if not booking_id and not booking_group:
             return Response({'error': 'Booking ID or Booking Group required'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         if booking_group:
             bookings = Booking.objects.filter(booking_group=booking_group, status='REFUND_REQUESTED')
         else:
             bookings = Booking.objects.filter(booking_id=booking_id, status='REFUND_REQUESTED')
-            
+
         if not bookings.exists():
             return Response({'error': 'No active refund requests found'}, status=status.HTTP_404_NOT_FOUND)
-            
-        count = bookings.update(status='CONFIRMED')
-        
+
+        for b in bookings:
+            b.status = 'CONFIRMED'
+            b.admin_refund_remarks = admin_remarks or None
+            b.save(update_fields=['status', 'admin_refund_remarks'])
+
+        count = bookings.count()
+
         return Response({
-            'message': f'Refund request(s) cancelled successfully for {count} passenger(s)',
+            'message': f'Refund request(s) denied successfully for {count} passenger(s)',
             'count': count
         })
 
@@ -1425,7 +1450,8 @@ class RefundProcessView(generics.GenericAPIView):
         booking_id = request.data.get('booking_id')
         booking_group = request.data.get('booking_group')
         total_refund_amount = request.data.get('amount')
-        
+        admin_remarks = request.data.get('admin_remarks', '').strip()
+
         if (not booking_id and not booking_group) or total_refund_amount is None:
             return Response({'error': 'Booking ID/Group and amount required'}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -1511,6 +1537,7 @@ class RefundProcessView(generics.GenericAPIView):
 
                 b.refunded_amount = p_refund
                 b.status = 'REFUNDED'
+                b.admin_refund_remarks = admin_remarks or None
                 b.save()
             
             # Create a single transaction log for auditing
@@ -1519,7 +1546,7 @@ class RefundProcessView(generics.GenericAPIView):
                 user=user,
                 amount=total_refund_amount,
                 transaction_type='CREDIT',
-                description=f"Group Refund for {bookings.count()} booking(s). Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
+                description=f"Refunded {bookings.count()} booking(s). Cleared dues: {dues_cleared}. Added to wallet: {wallet_added}.",
                 balance_after=profile.wallet_balance,
                 dues_after=profile.total_dues
             )

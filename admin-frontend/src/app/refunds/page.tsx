@@ -28,10 +28,19 @@ export default function RefundPage() {
         fetchRefundRequests(activeTab);
     }, [activeTab]);
 
+    const adminRemarksField = `
+        <div class="mt-3">
+            <label class="block text-xs font-medium text-slate-600 mb-1 text-left">Admin Remarks <span class="text-slate-400 font-normal">(optional)</span></label>
+            <textarea id="admin-remarks" rows="2" placeholder="Internal note visible to user…"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+        </div>`;
+
+    const getAdminRemarks = () =>
+        (document.getElementById('admin-remarks') as HTMLTextAreaElement)?.value?.trim() || '';
+
     const handleProcessRefund = async (groupKey: string, groupBookings: Booking[]) => {
         const isGroup = !groupKey.startsWith('IND-');
-        
-        // Calculate Total Max Refund for the Group
+
         let totalMaxRefund = 0;
         groupBookings.forEach(booking => {
             const cp = parseFloat(booking.charged_price);
@@ -39,48 +48,51 @@ export default function RefundPage() {
             totalMaxRefund += (cp > 0 || booking.is_infant) ? cp : fp;
         });
 
-        // Custom Swal with input for refund amount
+        const userRemarksHtml = groupBookings.some(b => b.user_refund_remarks)
+            ? `<div class="mb-3 p-2 bg-orange-50 border border-orange-100 rounded-lg text-left">
+                <p class="text-[10px] text-orange-500 font-bold uppercase tracking-wide mb-1">User Remarks</p>
+                ${groupBookings.filter(b => b.user_refund_remarks).map(b =>
+                    `<p class="text-xs text-slate-700"><span class="font-medium">${b.first_name}:</span> ${b.user_refund_remarks}</p>`
+                ).join('')}
+               </div>`
+            : '';
+
         const result = await Swal.fire({
-            title: isGroup ? 'Process Group Refund' : 'Process Refund',
+            title: isGroup ? 'Approve All — Group Refund' : 'Approve Refund',
             html: `
                 <div class="text-left">
                     <p class="mb-2 text-sm text-slate-500">${isGroup ? 'Group ID' : 'Booking ID'}: <strong class="text-slate-900">${groupKey}</strong></p>
-                    <p class="mb-2 text-sm text-slate-500">Passengers: <strong class="text-slate-900">${groupBookings.length}</strong></p>
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+                    <p class="mb-3 text-sm text-slate-500">Passengers: <strong class="text-slate-900">${groupBookings.length}</strong></p>
+                    ${userRemarksHtml}
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-3">
                         <p class="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Total Group Cost</p>
                         <p class="text-xl font-bold text-blue-800">₹${totalMaxRefund.toLocaleString('en-IN')}</p>
                     </div>
-                    <p class="text-xs text-slate-400">Total refund amount will be distributed proportionally across all passengers in this group.</p>
+                    <p class="text-xs text-slate-400 mb-1">Refund will be distributed proportionally across all passengers.</p>
+                    ${adminRemarksField}
                 </div>
             `,
             input: 'number',
             inputLabel: 'Total Refund Amount (₹)',
             inputValue: totalMaxRefund,
-            inputAttributes: {
-                min: '0',
-                max: totalMaxRefund.toString(),
-                step: '0.01'
-            },
+            inputAttributes: { min: '0', max: totalMaxRefund.toString(), step: '0.01' },
             showCancelButton: true,
-            confirmButtonText: 'Process Group Refund',
+            confirmButtonText: 'Approve Group Refund',
             confirmButtonColor: '#2563eb',
             cancelButtonColor: '#64748b',
             showLoaderOnConfirm: true,
             preConfirm: async (amount) => {
-                if (!amount) {
-                    Swal.showValidationMessage('Please enter an amount');
-                    return false;
-                }
+                if (!amount) { Swal.showValidationMessage('Please enter an amount'); return false; }
                 const numAmount = parseFloat(amount);
                 if (numAmount < 0 || numAmount > totalMaxRefund) {
                     Swal.showValidationMessage(`Amount must be between 0 and ${totalMaxRefund}`);
                     return false;
                 }
-
+                const remarks = getAdminRemarks();
                 try {
-                    const res = isGroup 
-                        ? await processRefund(undefined, groupKey, numAmount)
-                        : await processRefund(groupBookings[0].booking_id, undefined, numAmount);
+                    const res = isGroup
+                        ? await processRefund(undefined, groupKey, numAmount, remarks)
+                        : await processRefund(groupBookings[0].booking_id, undefined, numAmount, remarks);
                     return res;
                 } catch (error: any) {
                     Swal.showValidationMessage(`Request failed: ${error.message}`);
@@ -92,7 +104,7 @@ export default function RefundPage() {
 
         if (result.isConfirmed && result.value) {
             Swal.fire({
-                title: 'Refund Processed!',
+                title: 'Refund Approved!',
                 text: `Successfully refunded ₹${parseFloat(result.value.total_refunded as any).toLocaleString('en-IN')} for ${result.value.processed_count} passenger(s).`,
                 icon: 'success'
             });
@@ -102,29 +114,150 @@ export default function RefundPage() {
 
     const handleCancelRefund = async (groupKey: string, groupBookings: Booking[]) => {
         const isGroup = !groupKey.startsWith('IND-');
+
+        const userRemarksHtml = groupBookings.some(b => b.user_refund_remarks)
+            ? `<div class="mb-3 p-2 bg-orange-50 border border-orange-100 rounded-lg">
+                <p class="text-[10px] text-orange-500 font-bold uppercase tracking-wide mb-1">User Remarks</p>
+                ${groupBookings.filter(b => b.user_refund_remarks).map(b =>
+                    `<p class="text-xs text-slate-700"><span class="font-medium">${b.first_name}:</span> ${b.user_refund_remarks}</p>`
+                ).join('')}
+               </div>`
+            : '';
+
         const result = await Swal.fire({
-            title: isGroup ? 'Reject Group Refund?' : 'Reject Refund?',
-            text: isGroup 
-                ? `Are you sure you want to reject and cancel the refund requests for all ${groupBookings.length} passengers in this group?`
-                : `Are you sure you want to reject the refund request for ${groupBookings[0].first_name} ${groupBookings[0].last_name}?`,
-            icon: 'warning',
+            title: isGroup ? 'Deny All — Group Refund?' : 'Deny Refund?',
+            html: `
+                <div class="text-left">
+                    <p class="text-sm text-slate-500 mb-3">${isGroup
+                        ? `Deny refund for all <strong>${groupBookings.length}</strong> passengers in group <strong>${groupKey}</strong>?`
+                        : `Deny refund for <strong>${groupBookings[0].first_name} ${groupBookings[0].last_name}</strong>?`}
+                    </p>
+                    ${userRemarksHtml}
+                    ${adminRemarksField}
+                </div>`,
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#64748b',
-            confirmButtonText: 'Yes, reject group!'
+            confirmButtonText: 'Yes, deny',
+            preConfirm: () => getAdminRemarks()
         });
 
         if (result.isConfirmed) {
             try {
+                const remarks = result.value as string;
                 if (isGroup) {
-                    await cancelRefundRequest(undefined, groupKey);
+                    await cancelRefundRequest(undefined, groupKey, remarks);
                 } else {
-                    await cancelRefundRequest(groupBookings[0].booking_id);
+                    await cancelRefundRequest(groupBookings[0].booking_id, undefined, remarks);
                 }
-                Swal.fire('Rejected!', 'The refund request(s) have been rejected.', 'success');
+                Swal.fire('Denied!', 'The refund request(s) have been denied.', 'success');
                 fetchRefundRequests();
             } catch (error: any) {
-                Swal.fire('Error!', error.message || 'Failed to cancel refund.', 'error');
+                Swal.fire('Error!', error.message || 'Failed to deny refund.', 'error');
+            }
+        }
+    };
+
+    const handleApprovePassenger = async (booking: Booking) => {
+        const maxRefund = parseFloat((parseFloat(booking.charged_price) > 0 || booking.is_infant) ? booking.charged_price : booking.flight_details.price);
+
+        const userRemarksHtml = booking.user_refund_remarks
+            ? `<div class="mb-3 p-2 bg-orange-50 border border-orange-100 rounded-lg">
+                <p class="text-[10px] text-orange-500 font-bold uppercase tracking-wide mb-1">User's Reason</p>
+                <p class="text-xs text-slate-700">${booking.user_refund_remarks}</p>
+               </div>`
+            : '';
+
+        const result = await Swal.fire({
+            title: 'Approve Refund',
+            html: `
+                <div class="text-left">
+                    <div class="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100 mb-3">
+                        <div>
+                            <div class="font-bold text-slate-800">${booking.first_name} ${booking.last_name}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${booking.booking_id}</div>
+                        </div>
+                    </div>
+                    ${userRemarksHtml}
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2">
+                        <div class="text-xs text-slate-500 mb-1">Amount Paid</div>
+                        <div class="text-lg font-bold text-slate-800">₹${maxRefund.toLocaleString('en-IN')}</div>
+                    </div>
+                    ${adminRemarksField}
+                </div>
+            `,
+            input: 'number',
+            inputLabel: 'Refund Amount (₹)',
+            inputValue: maxRefund,
+            inputAttributes: { min: '0', max: maxRefund.toString(), step: '0.01' },
+            showCancelButton: true,
+            confirmButtonText: 'Approve Refund',
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#64748b',
+            showLoaderOnConfirm: true,
+            preConfirm: async (amount) => {
+                if (!amount) { Swal.showValidationMessage('Please enter an amount'); return false; }
+                const num = parseFloat(amount);
+                if (num < 0 || num > maxRefund) {
+                    Swal.showValidationMessage(`Amount must be between 0 and ₹${maxRefund.toLocaleString('en-IN')}`);
+                    return false;
+                }
+                const remarks = getAdminRemarks();
+                try {
+                    return await processRefund(booking.booking_id, undefined, num, remarks);
+                } catch (error: any) {
+                    Swal.showValidationMessage(`Failed: ${error.message}`);
+                    return false;
+                }
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        });
+
+        if (result.isConfirmed && result.value) {
+            Swal.fire('Approved!', `Refunded ₹${parseFloat(result.value.total_refunded as any).toLocaleString('en-IN')} to ${booking.first_name} ${booking.last_name}'s wallet.`, 'success');
+            fetchRefundRequests();
+        }
+    };
+
+    const handleDenyPassenger = async (booking: Booking) => {
+        const userRemarksHtml = booking.user_refund_remarks
+            ? `<div class="mb-3 p-2 bg-orange-50 border border-orange-100 rounded-lg">
+                <p class="text-[10px] text-orange-500 font-bold uppercase tracking-wide mb-1">User's Reason</p>
+                <p class="text-xs text-slate-700">${booking.user_refund_remarks}</p>
+               </div>`
+            : '';
+
+        const result = await Swal.fire({
+            title: 'Deny Refund?',
+            html: `
+                <div class="text-left px-1">
+                    <p class="text-sm text-slate-500 mb-3">Deny refund request for:</p>
+                    <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100 mb-3">
+                        <div>
+                            <div class="font-bold text-slate-800">${booking.first_name} ${booking.last_name}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${booking.booking_id}</div>
+                        </div>
+                    </div>
+                    ${userRemarksHtml}
+                    <p class="text-xs text-slate-400 mb-2">Booking will revert to <strong>Confirmed</strong> status.</p>
+                    ${adminRemarksField}
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, deny refund',
+            preConfirm: () => getAdminRemarks()
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const remarks = result.value as string;
+                await cancelRefundRequest(booking.booking_id, undefined, remarks);
+                Swal.fire('Denied', `Refund request for ${booking.first_name} ${booking.last_name} has been denied.`, 'success');
+                fetchRefundRequests();
+            } catch (error: any) {
+                Swal.fire('Error!', error.message || 'Failed to deny refund.', 'error');
             }
         }
     };
@@ -179,6 +312,7 @@ export default function RefundPage() {
                             {activeTab === 'completed' && (
                                 <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Refunded</th>
                             )}
+                            <th className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs">Remarks</th>
                             <th colSpan={2} className="px-6 py-4 font-medium text-slate-500 uppercase tracking-wider text-xs text-right">
                                 {activeTab === 'pending' ? 'Action' : 'Status'}
                             </th>
@@ -187,7 +321,7 @@ export default function RefundPage() {
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan={activeTab === 'completed' ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={activeTab === 'completed' ? 8 : 7} className="px-6 py-12 text-center text-slate-500">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                         <span>Loading {activeTab === 'pending' ? 'requests' : 'refunds'}...</span>
@@ -196,7 +330,7 @@ export default function RefundPage() {
                             </tr>
                         ) : bookings.length === 0 ? (
                             <tr>
-                                <td colSpan={activeTab === 'completed' ? 7 : 6} className="px-6 py-20 text-center">
+                                <td colSpan={activeTab === 'completed' ? 8 : 7} className="px-6 py-20 text-center">
                                     <div className="flex flex-col items-center gap-4">
                                         <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
                                             <CheckCircle className="w-8 h-8 text-green-500" />
@@ -292,11 +426,43 @@ export default function RefundPage() {
                                                                 </span>
                                                             </td>
                                                         )}
+                                                        <td className="px-4 py-4 max-w-[160px]">
+                                                            {booking.user_refund_remarks && (
+                                                                <div className="mb-1">
+                                                                    <div className="text-[9px] text-orange-500 font-bold uppercase tracking-wide leading-none mb-0.5">User</div>
+                                                                    <div className="text-xs text-slate-700 leading-snug line-clamp-2">{booking.user_refund_remarks}</div>
+                                                                </div>
+                                                            )}
+                                                            {booking.admin_refund_remarks && (
+                                                                <div>
+                                                                    <div className="text-[9px] text-blue-500 font-bold uppercase tracking-wide leading-none mb-0.5">Admin</div>
+                                                                    <div className="text-xs text-slate-700 leading-snug line-clamp-2">{booking.admin_refund_remarks}</div>
+                                                                </div>
+                                                            )}
+                                                            {!booking.user_refund_remarks && !booking.admin_refund_remarks && (
+                                                                <span className="text-[10px] text-slate-300 italic">—</span>
+                                                            )}
+                                                        </td>
                                                         <td colSpan={2} className="px-6 py-4 text-right">
-                                                            {activeTab === 'completed' && (
+                                                            {activeTab === 'completed' ? (
                                                                 <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                                                                     ✓ Refunded
                                                                 </span>
+                                                            ) : (
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <button
+                                                                        onClick={() => handleDenyPassenger(booking)}
+                                                                        className="cursor-pointer inline-flex items-center px-3 py-1.5 bg-white text-red-600 border border-red-200 rounded-lg text-[10px] font-bold hover:bg-red-50 transition-colors shadow-sm"
+                                                                    >
+                                                                        Deny
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleApprovePassenger(booking)}
+                                                                        className="cursor-pointer inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-bold hover:bg-green-700 transition-colors shadow-sm"
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                </div>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -332,17 +498,18 @@ export default function RefundPage() {
                                                 <td colSpan={2} className="px-6 py-4 text-right">
                                                     {activeTab === 'pending' ? (
                                                         <div className="flex items-center justify-end gap-2">
+                                                            <span className="text-[10px] text-slate-400 italic mr-1">Bulk:</span>
                                                             <button
                                                                 onClick={() => handleCancelRefund(groupKey, groupBookings)}
-                                                                className="cursor-pointer inline-flex items-center px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg text-[10px] font-bold hover:bg-red-50 transition-colors shadow-sm"
+                                                                className="cursor-pointer inline-flex items-center px-3 py-1.5 bg-white text-red-600 border border-red-200 rounded-lg text-[10px] font-bold hover:bg-red-50 transition-colors shadow-sm"
                                                             >
-                                                                Reject Group
+                                                                Deny All
                                                             </button>
                                                             <button
                                                                 onClick={() => handleProcessRefund(groupKey, groupBookings)}
-                                                                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                                                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
                                                             >
-                                                                Process Group Refund
+                                                                Approve All
                                                             </button>
                                                         </div>
                                                     ) : (

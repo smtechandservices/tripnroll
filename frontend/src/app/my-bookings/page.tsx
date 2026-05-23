@@ -52,42 +52,94 @@ export default function MyBookingsPage() {
     };
 
     const handleRequestRefund = async (groupKey: string, passengers: Booking[]) => {
-        const isGroup = !groupKey.startsWith('IND-');
-        const count = passengers.filter(p => p.status === 'CONFIRMED').length;
+        const confirmable = passengers.filter(p => p.status === 'CONFIRMED');
+        if (confirmable.length === 0) return;
 
-        const result = await Swal.fire({
-            title: isGroup ? 'Request Group Refund?' : 'Request Refund?',
-            text: isGroup 
-                ? `Are you sure you want to request a refund for all ${count} eligible passenger(s) in this group?`
-                : "Are you sure you want to request a refund for this booking?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, request refund!'
-        });
+        const remarksField = `
+            <div class="mt-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1 text-left">Reason for refund <span class="text-gray-400 font-normal">(optional)</span></label>
+                <textarea id="refund-remarks" rows="2" placeholder="e.g. Flight cancelled, plans changed…" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+            </div>`;
 
-        if (result.isConfirmed) {
-            try {
-                if (isGroup) {
-                    await requestRefund(undefined, groupKey);
-                } else {
-                    await requestRefund(passengers[0].booking_id);
+        let selectedIds: string[] = [];
+        let remarks = '';
+
+        if (confirmable.length === 1) {
+            const p = confirmable[0];
+            const result = await Swal.fire({
+                title: 'Request Refund?',
+                html: `<div class="text-left px-2">
+                    <p class="text-sm text-gray-500 mb-3">Requesting refund for:</p>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                            <div class="font-semibold text-gray-800">${p.first_name} ${p.last_name}</div>
+                            <div class="text-xs text-gray-500 mt-0.5">₹${parseFloat(p.charged_price).toLocaleString('en-IN')}</div>
+                        </div>
+                    </div>
+                    ${remarksField}
+                </div>`,
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, request refund!',
+                preConfirm: () => {
+                    return (document.getElementById('refund-remarks') as HTMLTextAreaElement)?.value?.trim() || '';
                 }
-
-                Swal.fire(
-                    'Requested!',
-                    'Your refund request has been submitted for the entire group.',
-                    'success'
-                );
-                fetchBookings(); // Refresh list
-            } catch (error: any) {
-                Swal.fire(
-                    'Error!',
-                    error.message || 'Failed to request refund.',
-                    'error'
-                );
+            });
+            if (result.isConfirmed) {
+                selectedIds = [p.booking_id];
+                remarks = result.value as string;
             }
+        } else {
+            const passengerItems = confirmable.map((p) => `
+                <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 cursor-pointer border border-transparent hover:border-blue-200 transition-colors">
+                    <input type="checkbox" class="passenger-checkbox w-4 h-4 accent-blue-600 flex-shrink-0" value="${p.booking_id}" />
+                    <div class="text-left min-w-0">
+                        <div class="font-medium text-sm text-gray-800">${p.first_name} ${p.last_name}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">₹${parseFloat(p.charged_price).toLocaleString('en-IN')}</div>
+                    </div>
+                </label>
+            `).join('');
+
+            const result = await Swal.fire({
+                title: 'Select Passengers for Refund',
+                html: `
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-2">Choose the passengers you want to refund:</p>
+                        <div class="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1 mb-1">${passengerItems}</div>
+                        ${remarksField}
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Request Refund',
+                preConfirm: () => {
+                    const checked = Array.from(document.querySelectorAll<HTMLInputElement>('.passenger-checkbox:checked'));
+                    const ids = checked.map(el => el.value);
+                    if (!ids.length) {
+                        Swal.showValidationMessage('Please select at least one passenger');
+                        return false;
+                    }
+                    const r = (document.getElementById('refund-remarks') as HTMLTextAreaElement)?.value?.trim() || '';
+                    return { ids, remarks: r };
+                }
+            });
+
+            if (result.isConfirmed && result.value) {
+                selectedIds = result.value.ids;
+                remarks = result.value.remarks;
+            }
+        }
+
+        if (selectedIds.length === 0) return;
+
+        try {
+            await requestRefund(undefined, undefined, selectedIds, remarks);
+            Swal.fire('Requested!', `Refund requested for ${selectedIds.length} passenger(s).`, 'success');
+            fetchBookings();
+        } catch (error: any) {
+            Swal.fire('Error!', error.message || 'Failed to request refund.', 'error');
         }
     };
 
@@ -176,8 +228,8 @@ export default function MyBookingsPage() {
 
                         // Check if flight has expired (departure time has passed)
                         const isExpired = new Date(firstPassenger.flight_details.departure_time) < new Date();
-                        const paymentStatus = isExpired ? 'EXPIRED' : firstPassenger.payment_status;
-                        const flightStatus = isExpired ? 'EXPIRED' : firstPassenger.flight_status;
+                        const paymentStatus = firstPassenger.payment_status;
+                        const flightStatus = firstPassenger.flight_status;
 
                         return (
                             <div
@@ -435,6 +487,29 @@ export default function MyBookingsPage() {
                                                                         Infant
                                                                     </span>
                                                                 )}
+                                                                {!passenger.is_infant && (() => {
+                                                                    const age = calculateAge(passenger.date_of_birth);
+                                                                    return age !== null && age > 2 && age <= 18;
+                                                                })() && (
+                                                                    <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-green-200">
+                                                                        Child
+                                                                    </span>
+                                                                )}
+                                                                {passenger.status === 'REFUND_REQUESTED' && (
+                                                                    <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                        Refund Pending
+                                                                    </span>
+                                                                )}
+                                                                {passenger.status === 'REFUNDED' && (
+                                                                    <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                        Refunded
+                                                                    </span>
+                                                                )}
+                                                                {passenger.status === 'REJECTED' && (
+                                                                    <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                        Rejected
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="mt-1 flex flex-wrap gap-2 items-center">
                                                                 <div className="text-xs font-mono bg-slate-100 px-3 py-1 rounded text-slate-600 font-bold border border-slate-200 inline-block">
@@ -493,6 +568,18 @@ export default function MyBookingsPage() {
                                                                         <span>Expires: {new Date(passenger.passport_expiry_date).toLocaleDateString()}</span>
                                                                     </div>
                                                                 )}
+                                                            </div>
+                                                        )}
+                                                        {passenger.user_refund_remarks && (
+                                                            <div className="mt-1 p-2 bg-orange-50 border border-orange-100 rounded-lg">
+                                                                <div className="text-[10px] text-orange-500 uppercase font-bold tracking-wide mb-0.5">Your Refund Reason</div>
+                                                                <div className="text-xs text-slate-700">{passenger.user_refund_remarks}</div>
+                                                            </div>
+                                                        )}
+                                                        {passenger.admin_refund_remarks && (
+                                                            <div className="mt-1 p-2 bg-blue-50 border border-blue-100 rounded-lg">
+                                                                <div className="text-[10px] text-blue-500 uppercase font-bold tracking-wide mb-0.5">Admin Remarks</div>
+                                                                <div className="text-xs text-slate-700">{passenger.admin_refund_remarks}</div>
                                                             </div>
                                                         )}
                                                     </div>

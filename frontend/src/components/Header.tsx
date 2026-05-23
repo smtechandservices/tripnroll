@@ -84,14 +84,40 @@ export function Header() {
                                     )}
                                 </button>
                             </div>
-                            {user?.profile?.wallet_balance !== undefined && (
-                                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-emerald-500 hover:bg-emerald-500/20 transition-all duration-300 group cursor-default">
-                                    <Wallet size={16} className="text-white group-hover:scale-110 transition-transform" />
-                                    <span className="text-white font-semibold text-sm">
-                                        ₹{Number(user.profile.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            )}
+                            {user?.profile?.wallet_balance !== undefined && (() => {
+                                const balance = Number(user.profile.wallet_balance);
+                                const credit = Number(user.profile.credit_limit ?? 0);
+                                const dues = Number(user.profile.total_dues ?? 0);
+                                const spendingPower = balance + credit - dues;
+                                const fmt = (n: number) => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return (
+                                    <Link href="/wallet" className="group relative flex items-center gap-3 px-4 py-2 rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900/80 border border-emerald-500/40 hover:border-emerald-400/70 transition-all duration-300 shadow-lg shadow-emerald-900/30 backdrop-blur-sm overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                        {/* Spending power */}
+                                        <div className="relative flex flex-col">
+                                            <span className="text-emerald-400/80 text-[8px] uppercase tracking-[0.15em] font-bold flex items-center gap-1"><Wallet size={9} />Power</span>
+                                            <span className="text-white font-black text-base leading-tight tracking-tight whitespace-nowrap">{fmt(spendingPower)}</span>
+                                        </div>
+                                        {/* Divider */}
+                                        <div className="relative w-px self-stretch bg-white/10" />
+                                        {/* Stats */}
+                                        <div className="relative flex items-center gap-3 text-[10px]">
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-400 text-[8px] uppercase tracking-wider">Bal</span>
+                                                <span className="text-blue-300 font-bold whitespace-nowrap">{fmt(balance)}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-400 text-[8px] uppercase tracking-wider">Credit</span>
+                                                <span className="text-emerald-300 font-bold whitespace-nowrap">{fmt(credit)}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-400 text-[8px] uppercase tracking-wider">Dues</span>
+                                                <span className="text-red-400 font-bold whitespace-nowrap">{fmt(dues)}</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })()}
                             <button
                                 onClick={logout}
                                 className="cursor-pointer bg-white/10 hover:bg-white/20 text-white p-2 border border-emerald-500 rounded-full transition-colors"
@@ -173,19 +199,38 @@ export function Header() {
                                 </button>
                             </div>
 
-                            {user?.profile?.wallet_balance !== undefined && (
-                                <div className="flex items-center justify-between p-5 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-green-600/10 border border-emerald-500/30">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-500/20 rounded-lg">
-                                            <Wallet size={20} className="text-emerald-400" />
+                            {user?.profile?.wallet_balance !== undefined && (() => {
+                                const balance = Number(user.profile.wallet_balance);
+                                const credit = Number(user.profile.credit_limit ?? 0);
+                                const dues = Number(user.profile.total_dues ?? 0);
+                                const spendingPower = balance + credit - dues;
+                                const fmt = (n: number) => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return (
+                                    <Link href="/wallet" className="p-4 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-green-600/10 border border-emerald-500/30 block">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                                                <Wallet size={14} className="text-emerald-400" />
+                                            </div>
+                                            <span className="text-emerald-300 text-[10px] uppercase tracking-widest font-bold">Spending Power</span>
                                         </div>
-                                        <span className="text-gray-300">Wallet Balance</span>
-                                    </div>
-                                    <span className="text-white font-bold text-xl">
-                                        ₹{Number(user.profile.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            )}
+                                        <p className="text-white font-extrabold text-2xl mb-3 truncate">{fmt(spendingPower)}</p>
+                                        <div className="grid grid-cols-3 gap-1.5 pt-3 border-t border-white/10">
+                                            <div className="bg-white/5 rounded-xl p-2 text-center">
+                                                <p className="text-blue-300 text-[9px] uppercase tracking-wider font-bold mb-0.5">Balance</p>
+                                                <p className="text-white font-bold text-[11px] truncate">{fmt(balance)}</p>
+                                            </div>
+                                            <div className="bg-white/5 rounded-xl p-2 text-center">
+                                                <p className="text-emerald-300 text-[9px] uppercase tracking-wider font-bold mb-0.5">Credit</p>
+                                                <p className="text-white font-bold text-[11px] truncate">{fmt(credit)}</p>
+                                            </div>
+                                            <div className="bg-white/5 rounded-xl p-2 text-center">
+                                                <p className="text-red-300 text-[9px] uppercase tracking-wider font-bold mb-0.5">Dues</p>
+                                                <p className="text-white font-bold text-[11px] truncate">{fmt(dues)}</p>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })()}
                         </div>
                     ) : (
                             <div className="flex flex-col gap-4">

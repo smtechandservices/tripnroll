@@ -610,7 +610,7 @@ export function BookingForm({ flightId, departureDate, isInternational, infantPr
                 {passengers.map((passenger, index) => {
                     const age = calculateAge(passenger.date_of_birth);
                     const isInfant = age !== null && age <= 2;
-                    const isChild = age !== null && age > 2 && age < 12;
+                    const isChild = age !== null && age > 2 && age <= 18;
 
                     return (
                         <div key={index} className="relative p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-2">

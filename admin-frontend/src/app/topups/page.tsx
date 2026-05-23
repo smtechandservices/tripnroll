@@ -80,19 +80,28 @@ export default function TopUpRequestsPage() {
     const handleAction = async (requestId: number, action: 'APPROVE' | 'REJECT') => {
         const result = await Swal.fire({
             title: action === 'APPROVE' ? 'Approve Top-up' : 'Reject Top-up',
-            text: `Are you sure you want to ${action.toLowerCase()} this top-up request?`,
+            html: `
+                <p class="text-sm text-slate-600 mb-4">Are you sure you want to ${action.toLowerCase()} this top-up request?</p>
+                <textarea id="swal-remarks" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" rows="3" placeholder="Remarks (optional)..."></textarea>
+            `,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: action === 'APPROVE' ? '#16a34a' : '#dc2626',
             confirmButtonText: action === 'APPROVE' ? 'Yes, Approve' : 'Yes, Reject',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                const el = document.getElementById('swal-remarks') as HTMLTextAreaElement;
+                return el?.value?.trim() || '';
+            }
         });
 
         if (!result.isConfirmed) return;
 
+        const remarks = result.value as string;
+
         setProcessingId(requestId);
         try {
-            await processTopUpRequest(requestId, action);
+            await processTopUpRequest(requestId, action, remarks);
             Swal.fire('Success', `Request ${action.toLowerCase()}d successfully`, 'success');
             fetchRequests(); // Refresh
         } catch (error: any) {
@@ -235,6 +244,11 @@ export default function TopUpRequestsPage() {
                                                 {request.status === 'REJECTED' && <XCircle size={12} />}
                                                 {request.status}
                                             </span>
+                                            {request.remarks && (
+                                                <p className="text-[11px] text-slate-500 italic mt-1.5 max-w-[180px] truncate" title={request.remarks}>
+                                                    {request.remarks}
+                                                </p>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
                                             {new Date(request.created_at).toLocaleString()}

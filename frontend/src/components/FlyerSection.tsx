@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { getFlyers, Flyer, submitContactMessage, getUserProfile, User } from '@/lib/api';
-import { MessageCircle, Download, X, ChevronLeft, ChevronRight, Eye, Send, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowRight, Download, X, ChevronLeft, ChevronRight, Eye, Send, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function FlyerSection() {
@@ -56,6 +56,13 @@ export default function FlyerSection() {
                 email: user.email,
                 message: messageText
             });
+
+            fetch('/api/contact/email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: user.username, email: user.email, message: messageText }),
+            }).catch(e => console.error('Enquiry email dispatch failed:', e));
+
             setEnquiryStatus('SUCCESS');
             setTimeout(() => {
                 setEnquiryStatus('IDLE');
@@ -143,9 +150,9 @@ export default function FlyerSection() {
                 {flyers.map((flyer) => (
                     <div 
                         key={flyer.id} 
-                        className="min-w-[280px] md:min-w-[380px] flex flex-col gap-4 md:gap-6 snap-center md:snap-start"
+                        className="min-w-[280px] md:min-w-[380px] flex flex-col gap-4 snap-center md:snap-start"
                     >
-                        <div className="relative h-[350px] md:h-[550px] rounded-md overflow-hidden shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-500 hover:scale-[1.02]">
+                        <div className="relative h-[350px] md:h-[550px] rounded-md overflow-hidden shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-500">
                             <img 
                                 src={flyer.image_url} 
                                 alt="Promotion" 
@@ -155,10 +162,10 @@ export default function FlyerSection() {
 
                         <button 
                             onClick={() => setSelectedFlyer(flyer)}
-                            className="cursor-pointer w-full flex items-center justify-center gap-2 md:gap-3 bg-slate-900 hover:bg-green-600 text-white font-bold py-4 md:py-5 rounded-2xl md:rounded-[2rem] transition-all active:scale-95 text-base md:text-lg shadow-lg"
+                            className="underline underline-offset-4 cursor-pointer w-full flex items-center justify-center text-slate-600 text-md hover:text-green-600 transition-all duration-300"
                         >
-                            <Eye className="w-5 h-5 md:w-6 md:h-6" />
                             VIEW DETAILS
+                            {/* <ArrowRight className="w-3 h-3 ml-2" /> */}
                         </button>
                     </div>
                 ))}

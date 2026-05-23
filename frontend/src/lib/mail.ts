@@ -121,6 +121,7 @@ export async function sendBookingTicketEmail(email: string, bookingId: string) {
     const mailOptions = {
         from: process.env.SMTP_FROM,
         to: email,
+        cc: 'info@tripnrolltravel.com',
         subject: `Booking Confirmed - ${bookingId} | Trip N Roll Travel`,
         text: `Thank you for booking with Trip N Roll Travel. Your booking ${bookingId} has been successfully confirmed.`,
         html: `
@@ -174,9 +175,53 @@ export async function sendBookingTicketEmail(email: string, bookingId: string) {
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log(`[Email] Ticket sent successfully to ${email}`);
+        console.log(`[Email] sent successfully to ${email}`);
     } catch (error) {
         console.error('[Email] Failed to send ticket email:', error);
         throw new Error('Failed to send ticket email.');
+    }
+}
+
+export async function sendEnquiryNotificationEmail(name: string, email: string, message: string) {
+    const mailOptions = {
+        from: process.env.SMTP_FROM,
+        to: 'info@tripnrolltravel.com',
+        subject: `New Flyer Enquiry from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+        html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #059669; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Trip n Roll Travels</h1>
+                </div>
+                <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                    <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 700;">New Flyer Enquiry</h2>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #475569; width: 80px;">Name:</td>
+                            <td style="padding: 8px 0; font-size: 14px; color: #1e293b;">${name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #475569;">Email:</td>
+                            <td style="padding: 8px 0; font-size: 14px; color: #1e293b;">${email}</td>
+                        </tr>
+                    </table>
+                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0;">
+                        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Message:</p>
+                        <p style="margin: 0; font-size: 14px; color: #1e293b; white-space: pre-line;">${message}</p>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <p style="font-size: 12px; color: #94a3b8; margin: 0;">&copy; ${new Date().getFullYear()} Trip N Roll Travel. All rights reserved.</p>
+                </div>
+            </div>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`[Email] Enquiry notification sent from ${email}`);
+    } catch (error) {
+        console.error('[Email] Failed to send enquiry notification:', error);
+        throw new Error('Failed to send enquiry notification.');
     }
 }

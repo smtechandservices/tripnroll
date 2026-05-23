@@ -283,6 +283,11 @@ export default function WalletPage() {
                                                                 </p>
                                                             )}
                                                         </div>
+                                                        {tx.remarks && (
+                                                            <p className="text-[10px] md:text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-1 mt-1.5 italic">
+                                                                Admin Note: {tx.remarks}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="text-right shrink-0">
@@ -464,6 +469,11 @@ export default function WalletPage() {
                                                         <p className="text-xs text-gray-500">{new Date(req.created_at).toLocaleString()}</p>
                                                         {req.razorpay_payment_id && (
                                                             <p className="text-[10px] text-blue-600 font-mono mt-0.5">ID: {req.razorpay_payment_id}</p>
+                                                        )}
+                                                        {req.remarks && (
+                                                            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-1 mt-1 italic">
+                                                                {req.remarks}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </div>

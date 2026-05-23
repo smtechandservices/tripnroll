@@ -126,6 +126,7 @@ export function KYCModal() {
                                     onChange={(e) => handleFileChange(e, 'aadhar_card_doc')}
                                     className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                 />
+                                <p className="text-[9px] text-slate-400 ml-1">Only .pdf and .jpeg files are allowed.</p>
                             </div>
                         </div>
 
@@ -150,6 +151,7 @@ export function KYCModal() {
                                     onChange={(e) => handleFileChange(e, 'pan_card_doc')}
                                     className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                 />
+                                <p className="text-[9px] text-slate-400 ml-1">Only .pdf and .jpeg files are allowed.</p>
                             </div>
                         </div>
 
@@ -179,7 +181,7 @@ export function KYCModal() {
                                     onChange={(e) => handleFileChange(e, 'brand_logo')}
                                     className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                 />
-                                <p className="text-[9px] text-slate-400">Used for profile identity and bookings.</p>
+                                <p className="text-[9px] text-slate-400 ml-1">Only .jpeg files are allowed.</p>
                             </div>
                         </div>
                     </div>

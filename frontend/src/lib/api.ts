@@ -46,6 +46,9 @@ export interface Booking {
     payment_mode?: 'WALLET' | 'RAZORPAY';
     is_infant: boolean;
     charged_price: string;
+    refunded_amount?: string;
+    user_refund_remarks?: string | null;
+    admin_refund_remarks?: string | null;
 }
 
 export interface CreateBookingData {
@@ -111,6 +114,7 @@ export interface WalletTransaction {
     transaction_type: 'CREDIT' | 'DEBIT';
     description: string;
     transaction_id?: string;
+    remarks?: string | null;
     timestamp: string;
     balance_after: string;
     dues_after: string;
@@ -122,6 +126,7 @@ export interface TopUpRequest {
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     method: 'MANUAL' | 'RAZORPAY';
     razorpay_payment_id?: string;
+    remarks?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -420,11 +425,11 @@ export async function submitContactMessage(data: ContactMessage): Promise<void> 
     if (!res.ok) throw new Error('Failed to submit message');
 }
 
-export async function requestRefund(bookingId?: string, bookingGroup?: string): Promise<void> {
+export async function requestRefund(bookingId?: string, bookingGroup?: string, bookingIds?: string[], remarks?: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/bookings/refund/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup })
+        body: JSON.stringify({ booking_id: bookingId, booking_group: bookingGroup, booking_ids: bookingIds, remarks })
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
