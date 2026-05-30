@@ -727,8 +727,8 @@ class AdminUserListView(generics.ListCreateAPIView):
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'first_name', 'last_name']
 
-class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = User.objects.all() # Allow managing any user if known by ID, but typically called for listed users
+class AdminUserDetailView(generics.RetrieveUpdateAPIView):
+    queryset = User.objects.all()
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminType]
 

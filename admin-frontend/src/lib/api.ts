@@ -526,14 +526,6 @@ export async function updateAdminUserWallet(id: number, data: { credit_limit?: n
     if (!res.ok) throw new Error('Failed to update user wallet');
 }
 
-export async function deleteAdminUser(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/admin/users/${id}/`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-    });
-    if (!res.ok) throw new Error('Failed to delete user');
-}
-
 export async function getAdminContactMessages(page: number = 1, search: string = ''): Promise<PaginatedResponse<ContactMessage>> {
     const params = new URLSearchParams();
     params.append('page', page.toString());

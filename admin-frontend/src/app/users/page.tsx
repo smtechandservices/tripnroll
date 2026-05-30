@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, updateAdminUserWallet, User } from '@/lib/api';
-import { UserPlus, Edit2, Trash2, Search, X, Eye, EyeOff } from 'lucide-react';
+import { getAdminUsers, createAdminUser, updateAdminUser, updateAdminUserWallet, User } from '@/lib/api';
+import { UserPlus, Edit2, Search, X, Eye, EyeOff } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function UserManagementPage() {
@@ -176,28 +176,6 @@ export default function UserManagementPage() {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        const result = await Swal.fire({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: 'Yes, delete it!'
-        });
-
-        if (result.isConfirmed) {
-            try {
-                await deleteAdminUser(id);
-                Swal.fire('Deleted!', 'User has been deleted.', 'success');
-                fetchUsers(currentPage, debouncedSearch);
-            } catch (error: any) {
-                Swal.fire('Error', error.message || 'Delete failed', 'error');
-            }
-        }
-    };
-
     const totalPages = Math.ceil(totalCount / pageSize);
 
     return (
@@ -288,12 +266,6 @@ export default function UserManagementPage() {
                                                 className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
                                             >
                                                 <Edit2 className="w-4 h-4 cursor-pointer" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(user.id)}
-                                                className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
-                                            >
-                                                <Trash2 className="w-4 h-4 cursor-pointer" />
                                             </button>
                                         </div>
                                     </td>
