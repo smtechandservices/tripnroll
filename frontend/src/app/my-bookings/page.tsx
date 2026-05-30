@@ -138,6 +138,19 @@ export default function MyBookingsPage() {
             await requestRefund(undefined, undefined, selectedIds, remarks);
             Swal.fire('Requested!', `Refund requested for ${selectedIds.length} passenger(s).`, 'success');
             fetchBookings();
+            // Notify admin
+            fetch('/api/admin/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'refund_request',
+                    userName: user?.username,
+                    userEmail: user?.email,
+                    bookingRef: groupKey,
+                    passengerCount: selectedIds.length,
+                    remarks: remarks || undefined,
+                }),
+            }).catch(() => {});
         } catch (error: any) {
             Swal.fire('Error!', error.message || 'Failed to request refund.', 'error');
         }

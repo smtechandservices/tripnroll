@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendBookingTicketEmail } from '@/lib/mail';
+import { generateTicketPDFBuffer } from '@/lib/serverTicketGenerator';
 
 export async function POST(req: NextRequest) {
     try {
         const { bookings, user, includePrice, email: overrideEmail } = await req.json();
-        
+
         if (!bookings || !bookings.length) {
             return NextResponse.json({ error: 'Bookings are required' }, { status: 400 });
         }
@@ -19,8 +20,15 @@ export async function POST(req: NextRequest) {
         const bookingId = primaryPassenger.booking_group || primaryPassenger.booking_id;
         const authToken = req.headers.get('Authorization');
 
+        let pdfBuffer: Buffer | undefined;
+        try {
+            pdfBuffer = await generateTicketPDFBuffer(bookings, user, includePrice ?? true, authToken);
+        } catch (pdfErr) {
+            console.error('[Email API] PDF generation failed, sending email without attachment:', pdfErr);
+        }
+
         console.log(`[Email API] Sending confirmation email to ${email} for booking ${bookingId}...`);
-        await sendBookingTicketEmail(email, bookingId);
+        await sendBookingTicketEmail(email, bookingId, pdfBuffer);
 
         return NextResponse.json({ message: 'Ticket email sent successfully' });
     } catch (error: any) {

@@ -459,10 +459,10 @@ export default function AdminFlightsPage() {
                 origin: 'DEL',
                 destination: 'BOM',
                 departure_date: '25/10/2026',
-                departure_time: '14:30:00',
+                departure_time: '14:30',
                 arrival_date: '25/10/2026',
-                arrival_time: '16:45:00',
-                duration: '02:15:00',
+                arrival_time: '16:45',
+                duration: '02:15',
                 price: 5500,
                 infant_price: 500,
                 stops: 0,
@@ -480,10 +480,10 @@ export default function AdminFlightsPage() {
                 origin: 'BOM',
                 destination: 'LHR',
                 departure_date: '26/10/2026',
-                departure_time: '02:00:00',
+                departure_time: '02:00',
                 arrival_date: '26/10/2026',
-                arrival_time: '07:30:00',
-                duration: '09:00:00',
+                arrival_time: '07:30',
+                duration: '09:00',
                 price: 45000,
                 infant_price: 4500,
                 stops: 1,
@@ -511,40 +511,84 @@ export default function AdminFlightsPage() {
         reader.onload = async (evt) => {
             try {
                 const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws);
+                const data = XLSX.utils.sheet_to_json(ws, { raw: false });
 
                 if (data.length === 0) {
                     throw new Error('Excel file is empty');
                 }
 
-                // Helper to parse dd/mm/yyyy to yyyy-mm-dd
-                const parseDateStr = (dateStr: any) => {
-                    if (!dateStr) return '';
-                    if (typeof dateStr === 'string' && dateStr.includes('/')) {
-                        const parts = dateStr.split('/');
-                        if (parts.length === 3) {
-                            const [d, m, y] = parts;
-                            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                        }
+                // Parse any date value (Excel serial, Date object, or string) to yyyy-mm-dd
+                const parseDate = (val: any): string => {
+                    if (!val) return '';
+                    if (val instanceof Date) {
+                        const y = val.getFullYear();
+                        const m = String(val.getMonth() + 1).padStart(2, '0');
+                        const d = String(val.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
                     }
-                    return dateStr;
+                    if (typeof val === 'number') {
+                        // Excel serial date
+                        const d = XLSX.SSF.parse_date_code(val);
+                        if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+                    }
+                    const str = String(val).trim();
+                    // dd/mm/yyyy or dd-mm-yyyy
+                    const dmy = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+                    if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+                    // yyyy-mm-dd
+                    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+                    // mm/dd/yyyy (US fallback)
+                    const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    if (mdy && parseInt(mdy[1]) > 12) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+                    const parsed = new Date(str);
+                    if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+                    return str;
+                };
+
+                // Parse any time value (fraction, Date object, or string) to HH:mm:ss
+                const parseTime = (val: any): string => {
+                    if (!val) return '';
+                    if (val instanceof Date) return val.toTimeString().slice(0, 8);
+                    if (typeof val === 'number' && val < 1) {
+                        const total = Math.round(val * 86400);
+                        const h = Math.floor(total / 3600);
+                        const m = Math.floor((total % 3600) / 60);
+                        const s = total % 60;
+                        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+                    }
+                    const str = String(val).trim();
+                    // HH:mm or HH:mm:ss
+                    const hms = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                    if (hms) return `${hms[1].padStart(2,'0')}:${hms[2]}:${hms[3] || '00'}`;
+                    // HH:mm AM/PM
+                    const ampm = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+                    if (ampm) {
+                        let h = parseInt(ampm[1]);
+                        const period = ampm[3].toUpperCase();
+                        if (period === 'AM' && h === 12) h = 0;
+                        if (period === 'PM' && h !== 12) h += 12;
+                        return `${String(h).padStart(2,'0')}:${ampm[2]}:00`;
+                    }
+                    return str;
                 };
 
                 // Map Excel data to Flight fields
                 const flightsToCreate = data.map((item: any) => {
-                    const depDate = parseDateStr(item.departure_date);
-                    const arrDate = parseDateStr(item.arrival_date);
+                    const depDate = parseDate(item.departure_date);
+                    const depTime = parseTime(item.departure_time);
+                    const arrDate = parseDate(item.arrival_date);
+                    const arrTime = parseTime(item.arrival_time);
 
                     return {
-                        airline: item.airline || '',
-                        flight_number: item.flight_number || '',
-                        origin: item.origin || '',
-                        destination: item.destination || '',
-                        departure_time: (depDate && item.departure_time) ? `${depDate}T${item.departure_time}Z` : item.departure_time || '',
-                        arrival_time: (arrDate && item.arrival_time) ? `${arrDate}T${item.arrival_time}Z` : item.arrival_time || '',
+                        airline: (item.airline || '').toString().trim().toUpperCase(),
+                        flight_number: (item.flight_number || '').toString().replace(/[\s\-]/g, '').toUpperCase(),
+                        origin: (item.origin || '').toString().trim().toUpperCase(),
+                        destination: (item.destination || '').toString().trim().toUpperCase(),
+                        departure_time: (depDate && depTime) ? `${depDate}T${depTime}Z` : '',
+                        arrival_time: (arrDate && arrTime) ? `${arrDate}T${arrTime}Z` : '',
                         duration: item.duration || '',
                         price: item.price || 0,
                         infant_price: item.infant_price ?? 0,

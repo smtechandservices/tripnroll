@@ -841,11 +841,14 @@ class WalletTopUpView(generics.CreateAPIView):
         except UserKYC.DoesNotExist:
             return Response({'error': 'KYC verification is required to top up your wallet.'}, status=status.HTTP_403_FORBIDDEN)
         
+        user_remarks = request.data.get('remarks', '').strip() or None
+
         # Create a Top-up Request instead of immediate top-up
         topup_request = TopUpRequest.objects.create(
             user=user,
             amount=amount,
-            status='PENDING'
+            status='PENDING',
+            user_remarks=user_remarks,
         )
 
         return Response({

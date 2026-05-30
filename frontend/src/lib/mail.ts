@@ -10,218 +10,296 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+const FROM = `${process.env.SMTP_FROM}`;
+const YEAR = new Date().getFullYear();
+
+const footer = `
+    <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0;">
+        <p style="font-size:12px;color:#94a3b8;margin:0;line-height:20px;">
+            &copy; ${YEAR} TripnRoll Travel. All rights reserved.<br>
+            You are receiving this email because of activity on your TripnRoll Travel account.<br>
+            <a href="mailto:info@tripnrolltravel.com" style="color:#94a3b8;text-decoration:underline;">info@tripnrolltravel.com</a>
+        </p>
+    </div>
+`;
+
 export async function sendOTPEmail(email: string, otp: string) {
-    const mailOptions = {
-        from: process.env.SMTP_FROM,
+    await transporter.sendMail({
+        from: FROM,
         to: email,
-        subject: `${otp} is your Trip N Roll Travel verification code`,
-        text: `Your Trip N Roll Travel verification code is: ${otp}. This code will expire in 10 minutes.`,
+        subject: `Your Trip N Roll Travel verification code: ${otp}`,
+        text: `Your Trip N Roll Travel verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.\n\n-- Trip N Roll Travel`,
         html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #059669; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Trip N Roll Travel</h1>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
                 </div>
-                
-                <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                    <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 700;">Verify your email</h2>
-                    <p style="font-size: 16px; line-height: 24px; color: #475569; margin-bottom: 24px;">
-                        Hello, thank you for signing up with Trip N Roll Travel. Please use the verification code below to complete your registration.
+
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#1e293b;font-size:20px;font-weight:700;">Verify your email address</h2>
+                    <p style="font-size:15px;line-height:24px;color:#475569;margin-bottom:24px;">
+                        Thank you for signing up. Use the code below to complete your verification. This code expires in <strong>10 minutes</strong>.
                     </p>
-                    
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; text-align: center; border: 1px dashed #cbd5e1; margin-bottom: 24px;">
-                        <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #059669; letter-spacing: 0.25em;">${otp}</span>
+
+                    <div style="background:#f8fafc;border-radius:12px;padding:24px;text-align:center;border:1px solid #e2e8f0;margin-bottom:24px;">
+                        <span style="font-family:ui-monospace,'Courier New',monospace;font-size:38px;font-weight:800;color:#059669;letter-spacing:0.3em;">${otp}</span>
                     </div>
-                    
-                    <p style="font-size: 14px; color: #64748b; margin: 0;">
-                        This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email.
+
+                    <p style="font-size:13px;color:#64748b;margin:0;">
+                        If you did not create an account with Trip N Roll Travel, you can safely ignore this email.
                     </p>
                 </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <p style="font-size: 12px; color: #94a3b8; margin: 0; line-height: 18px;">
-                        &copy; ${new Date().getFullYear()} Trip N Roll Travel. All rights reserved.<br>
-                        Trip N Roll Travel, <br>
-                        You are receiving this because a request was made for your account.
-                    </p>
-                </div>
+
+                ${footer}
             </div>
         `,
-        headers: {
-            'X-Priority': '1 (Highest)',
-            'X-MSMail-Priority': 'High',
-            'Importance': 'high',
-            'Priority': 'urgent',
-            'X-Message-Flag': 'Important'
-        }
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] OTP sent successfully to ${email}`);
-    } catch (error) {
-        console.error('[Email] Failed to send OTP:', error);
-        throw new Error('Failed to send verification email. Please check your SMTP settings.');
-    }
+    });
+    console.log(`[Email] OTP sent to ${email}`);
 }
+
 export async function sendPasswordResetEmail(email: string, otp: string) {
-    const mailOptions = {
-        from: process.env.SMTP_FROM,
+    await transporter.sendMail({
+        from: FROM,
         to: email,
-        subject: `${otp} is your Trip N Roll Travel password reset code`,
-        text: `Your Trip N Roll Travel password reset code is: ${otp}. This code will expire in 10 minutes.`,
+        subject: `Reset your Trip N Roll Travel password`,
+        text: `Your Trip N Roll Travel password reset code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you did not request a password reset, please ignore this email.\n\n-- Trip N Roll Travel`,
         html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #059669; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Trip n Roll Travels</h1>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
                 </div>
-                
-                <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                    <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 700;">Reset your password</h2>
-                    <p style="font-size: 16px; line-height: 24px; color: #475569; margin-bottom: 24px;">
-                        We received a request to reset your Trip N Roll Travel password. Please use the code below to proceed.
+
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#1e293b;font-size:20px;font-weight:700;">Reset your password</h2>
+                    <p style="font-size:15px;line-height:24px;color:#475569;margin-bottom:24px;">
+                        We received a request to reset your password. Use the code below to proceed. This code expires in <strong>10 minutes</strong>.
                     </p>
-                    
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; text-align: center; border: 1px dashed #cbd5e1; margin-bottom: 24px;">
-                        <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #059669; letter-spacing: 0.25em;">${otp}</span>
+
+                    <div style="background:#f8fafc;border-radius:12px;padding:24px;text-align:center;border:1px solid #e2e8f0;margin-bottom:24px;">
+                        <span style="font-family:ui-monospace,'Courier New',monospace;font-size:38px;font-weight:800;color:#059669;letter-spacing:0.3em;">${otp}</span>
                     </div>
-                    
-                    <p style="font-size: 14px; color: #64748b; margin: 0;">
-                        This code will expire in 10 minutes. If you didn't request a password reset, you can safely ignore this email.
+
+                    <p style="font-size:13px;color:#64748b;margin:0;">
+                        If you did not request a password reset, please ignore this email. Your password will not change.
                     </p>
                 </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <p style="font-size: 12px; color: #94a3b8; margin: 0; line-height: 18px;">
-                        &copy; ${new Date().getFullYear()} Trip N Roll Travel. All rights reserved.<br>
-                        Trip N Roll Travel, <br>
-                        You are receiving this because a request was made for your account.
-                    </p>
-                </div>
+
+                ${footer}
             </div>
         `,
-        headers: {
-            'X-Priority': '1 (Highest)',
-            'X-MSMail-Priority': 'High',
-            'Importance': 'high',
-            'Priority': 'urgent',
-            'X-Message-Flag': 'Important'
-        }
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Password reset OTP sent successfully to ${email}`);
-    } catch (error) {
-        console.error('[Email] Failed to send password reset OTP:', error);
-        throw new Error('Failed to send reset email.');
-    }
+    });
+    console.log(`[Email] Password reset sent to ${email}`);
 }
 
-export async function sendBookingTicketEmail(email: string, bookingId: string) {
-    const mailOptions = {
-        from: process.env.SMTP_FROM,
+export async function sendBookingTicketEmail(email: string, bookingId: string, ticketPdfBuffer?: Buffer) {
+    const hasAttachment = !!ticketPdfBuffer;
+
+    const mailOptions: any = {
+        from: FROM,
         to: email,
         cc: 'info@tripnrolltravel.com',
-        subject: `Booking Confirmed - ${bookingId} | Trip N Roll Travel`,
-        text: `Thank you for booking with Trip N Roll Travel. Your booking ${bookingId} has been successfully confirmed.`,
+        subject: `Booking Confirmed — ${bookingId} | Trip N Roll Travel`,
+        text: [
+            `Hi,`,
+            ``,
+            `Your booking with Trip N Roll Travel has been confirmed.`,
+            ``,
+            `Booking Reference: ${bookingId}`,
+            ``,
+            hasAttachment
+                ? `Your E-Ticket is attached to this email as a PDF. Please save it for your journey.`
+                : `You can view and download your E-Ticket from the "My Bookings" section of your account.`,
+            ``,
+            `Next steps:`,
+            `- ${hasAttachment ? 'Save the attached E-Ticket PDF.' : 'Download your ticket from My Bookings.'}`,
+            `- Carry a valid government-issued photo ID while travelling.`,
+            `- Check the reporting time for your flight with the airline.`,
+            ``,
+            `For support, contact us at info@tripnrolltravel.com`,
+            ``,
+            `-- Trip N Roll Travel`,
+        ].join('\n'),
         html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #059669; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Trip n Roll Travels</h1>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
                 </div>
-                
-                <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                    <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 700;">Booking Confirmed!</h2>
-                    <p style="font-size: 16px; line-height: 24px; color: #475569; margin-bottom: 24px;">
+
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#1e293b;font-size:20px;font-weight:700;">Booking Confirmed</h2>
+                    <p style="font-size:15px;line-height:24px;color:#475569;margin-bottom:24px;">
                         Thank you for choosing Trip N Roll Travel. Your booking has been successfully confirmed.
                     </p>
-                    
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-                        <p style="margin: 0; font-size: 14px; color: #64748b;">Booking Reference:</p>
-                        <p style="margin: 4px 0 0; font-family: monospace; font-size: 18px; font-weight: 700; color: #1e293b;">${bookingId}</p>
-                    </div>
-                    
-                    <p style="font-size: 15px; line-height: 22px; color: #475569; margin-bottom: 24px;">
-                        You can view and download your E-Ticket anytime from your account dashboard under the <strong>"Bookings"</strong> tab.
-                    </p>
 
-                    <div style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
-                        <p style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">Next Steps:</p>
-                        <ul style="font-size: 14px; color: #64748b; padding-left: 20px; margin: 0;">
-                            <li>Log in to your dashboard and visit the <strong>"Bookings"</strong> tab to download your ticket.</li>
-                            <li>Ensure you have a valid government-issued ID for travel.</li>
-                            <li>Check the reporting time for your flight.</li>
+                    <div style="background:#f8fafc;border-radius:12px;padding:18px 20px;border:1px solid #e2e8f0;margin-bottom:24px;">
+                        <p style="margin:0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">Booking Reference</p>
+                        <p style="margin:6px 0 0;font-family:ui-monospace,'Courier New',monospace;font-size:20px;font-weight:700;color:#1e293b;">${bookingId}</p>
+                    </div>
+
+                    ${hasAttachment ? `
+                    <div style="background:#f0fdf4;border-radius:12px;padding:16px 20px;border:1px solid #bbf7d0;margin-bottom:24px;">
+                        <p style="margin:0;font-size:14px;font-weight:600;color:#15803d;">E-Ticket attached</p>
+                        <p style="margin:4px 0 0;font-size:13px;color:#166534;">Your E-Ticket PDF is attached to this email. Please save it for your journey.</p>
+                    </div>
+                    ` : `
+                    <p style="font-size:14px;line-height:22px;color:#475569;margin-bottom:24px;">
+                        You can view and download your E-Ticket from the <strong>My Bookings</strong> section of your account.
+                    </p>
+                    `}
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:20px;">
+                        <p style="font-size:13px;font-weight:600;color:#1e293b;margin:0 0 8px;">Next steps</p>
+                        <ul style="font-size:13px;color:#64748b;padding-left:18px;margin:0;line-height:22px;">
+                            <li>${hasAttachment ? 'Save the attached E-Ticket PDF for your journey.' : 'Log in and download your ticket from <strong>My Bookings</strong>.'}</li>
+                            <li>Carry a valid government-issued photo ID while travelling.</li>
+                            <li>Check the reporting time for your flight with the airline.</li>
                         </ul>
                     </div>
                 </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <p style="font-size: 12px; color: #94a3b8; margin: 0; line-height: 18px;">
-                        &copy; ${new Date().getFullYear()} Trip N Roll Travel. All rights reserved.<br>
-                        Trip N Roll Travel, <br>
-                        You are receiving this because you made a booking on our platform.
-                    </p>
-                </div>
+
+                ${footer}
             </div>
         `,
-        headers: {
-            'X-Priority': '1 (Highest)',
-            'X-MSMail-Priority': 'High',
-            'Importance': 'high',
-            'Priority': 'urgent',
-            'X-Message-Flag': 'Important'
-        }
+        ...(hasAttachment && {
+            attachments: [{
+                filename: `E-Ticket-${bookingId}.pdf`,
+                content: ticketPdfBuffer,
+                contentType: 'application/pdf',
+            }]
+        })
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] sent successfully to ${email}`);
-    } catch (error) {
-        console.error('[Email] Failed to send ticket email:', error);
-        throw new Error('Failed to send ticket email.');
-    }
+    await transporter.sendMail(mailOptions);
+    console.log(`[Email] Booking confirmation sent to ${email}${hasAttachment ? ' with attachment' : ''}`);
+}
+
+export async function sendAdminRefundRequestEmail(
+    userName: string,
+    userEmail: string,
+    bookingRef: string,
+    passengerCount: number,
+    remarks?: string,
+) {
+    await transporter.sendMail({
+        from: FROM,
+        to: 'info@tripnrolltravel.com',
+        subject: `[TripNRoll] Refund Request — ${bookingRef}`,
+        text: [
+            `A refund request has been submitted.`,
+            ``,
+            `User: ${userName} (${userEmail})`,
+            `Booking Ref: ${bookingRef}`,
+            `Passengers: ${passengerCount}`,
+            `Remarks: ${remarks || 'None'}`,
+            ``,
+            `Please review and process this refund in the admin panel.`,
+        ].join('\n'),
+        html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
+                </div>
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#dc2626;font-size:18px;font-weight:700;">Refund Request Submitted</h2>
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;">
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;width:130px;">User</td><td style="padding:8px 0;color:#1e293b;">${userName} &lt;${userEmail}&gt;</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;">Booking Ref</td><td style="padding:8px 0;color:#1e293b;font-family:monospace;">${bookingRef}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;">Passengers</td><td style="padding:8px 0;color:#1e293b;">${passengerCount}</td></tr>
+                        ${remarks ? `<tr><td style="padding:8px 0;color:#64748b;font-weight:600;vertical-align:top;">Remarks</td><td style="padding:8px 0;color:#1e293b;">${remarks}</td></tr>` : ''}
+                    </table>
+                    <p style="font-size:13px;color:#64748b;margin:0;">Please log in to the admin panel to review and process this refund.</p>
+                </div>
+                ${footer}
+            </div>
+        `,
+    });
+    console.log(`[Email] Admin refund notification sent for booking ${bookingRef}`);
+}
+
+export async function sendAdminTopUpRequestEmail(
+    userName: string,
+    userEmail: string,
+    amount: number,
+    requestId: number | string,
+    method: 'MANUAL' | 'RAZORPAY',
+    remarks?: string,
+) {
+    const methodLabel = method === 'RAZORPAY' ? 'Razorpay (auto-approved)' : 'Manual (pending approval)';
+    await transporter.sendMail({
+        from: FROM,
+        to: 'info@tripnrolltravel.com',
+        subject: `[TripNRoll] Wallet Top-Up Request — ₹${amount.toLocaleString('en-IN')} from ${userName}`,
+        text: [
+            `A wallet top-up request has been submitted.`,
+            ``,
+            `User: ${userName} (${userEmail})`,
+            `Amount: ₹${amount.toLocaleString('en-IN')}`,
+            `Method: ${methodLabel}`,
+            `Request ID: ${requestId}`,
+            remarks ? `Remarks: ${remarks}` : '',
+            ``,
+            method === 'MANUAL'
+                ? `Please review and approve/reject this request in the admin panel.`
+                : `This top-up was auto-approved after successful Razorpay payment.`,
+        ].filter(Boolean).join('\n'),
+        html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
+                </div>
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#0284c7;font-size:18px;font-weight:700;">Wallet Top-Up Request</h2>
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;">
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;width:130px;">User</td><td style="padding:8px 0;color:#1e293b;">${userName} &lt;${userEmail}&gt;</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;">Amount</td><td style="padding:8px 0;color:#059669;font-weight:700;font-size:16px;">₹${amount.toLocaleString('en-IN')}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;">Method</td><td style="padding:8px 0;color:#1e293b;">${methodLabel}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748b;font-weight:600;">Request ID</td><td style="padding:8px 0;color:#1e293b;font-family:monospace;">${requestId}</td></tr>
+                        ${remarks ? `<tr><td style="padding:8px 0;color:#64748b;font-weight:600;vertical-align:top;">Remarks</td><td style="padding:8px 0;color:#1e293b;">${remarks}</td></tr>` : ''}
+                    </table>
+                    <p style="font-size:13px;color:#64748b;margin:0;">
+                        ${method === 'MANUAL'
+                            ? 'Please log in to the admin panel to review and approve/reject this request.'
+                            : 'This top-up was automatically approved after successful Razorpay payment. No action required.'}
+                    </p>
+                </div>
+                ${footer}
+            </div>
+        `,
+    });
+    console.log(`[Email] Admin top-up notification sent — ₹${amount} (${method}) from ${userEmail}`);
 }
 
 export async function sendEnquiryNotificationEmail(name: string, email: string, message: string) {
-    const mailOptions = {
-        from: process.env.SMTP_FROM,
+    await transporter.sendMail({
+        from: FROM,
         to: 'info@tripnrolltravel.com',
-        subject: `New Flyer Enquiry from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+        replyTo: email,
+        subject: `New enquiry from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\n-- Trip N Roll Travel Contact Form`,
         html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #059669; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">Trip n Roll Travels</h1>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:40px 20px;color:#334155;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <h1 style="color:#059669;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.025em;">Trip N Roll Travel</h1>
                 </div>
-                <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                    <h2 style="margin-top: 0; color: #1e293b; font-size: 20px; font-weight: 700;">New Flyer Enquiry</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <div style="background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
+                    <h2 style="margin-top:0;color:#1e293b;font-size:18px;font-weight:700;">New Enquiry</h2>
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;">
                         <tr>
-                            <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #475569; width: 80px;">Name:</td>
-                            <td style="padding: 8px 0; font-size: 14px; color: #1e293b;">${name}</td>
+                            <td style="padding:8px 0;color:#64748b;font-weight:600;width:70px;">Name</td>
+                            <td style="padding:8px 0;color:#1e293b;">${name}</td>
                         </tr>
                         <tr>
-                            <td style="padding: 8px 0; font-size: 14px; font-weight: 600; color: #475569;">Email:</td>
-                            <td style="padding: 8px 0; font-size: 14px; color: #1e293b;">${email}</td>
+                            <td style="padding:8px 0;color:#64748b;font-weight:600;">Email</td>
+                            <td style="padding:8px 0;color:#1e293b;"><a href="mailto:${email}" style="color:#2563eb;">${email}</a></td>
                         </tr>
                     </table>
-                    <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0;">
-                        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Message:</p>
-                        <p style="margin: 0; font-size: 14px; color: #1e293b; white-space: pre-line;">${message}</p>
+                    <div style="background:#f8fafc;border-radius:10px;padding:18px;border:1px solid #e2e8f0;">
+                        <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#64748b;">Message</p>
+                        <p style="margin:0;font-size:14px;color:#1e293b;white-space:pre-line;">${message}</p>
                     </div>
-                </div>
-                <div style="text-align: center; margin-top: 30px;">
-                    <p style="font-size: 12px; color: #94a3b8; margin: 0;">&copy; ${new Date().getFullYear()} Trip N Roll Travel. All rights reserved.</p>
                 </div>
             </div>
         `,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Enquiry notification sent from ${email}`);
-    } catch (error) {
-        console.error('[Email] Failed to send enquiry notification:', error);
-        throw new Error('Failed to send enquiry notification.');
-    }
+    });
+    console.log(`[Email] Enquiry notification sent from ${email}`);
 }

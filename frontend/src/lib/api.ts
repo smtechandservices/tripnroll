@@ -126,6 +126,7 @@ export interface TopUpRequest {
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     method: 'MANUAL' | 'RAZORPAY';
     razorpay_payment_id?: string;
+    user_remarks?: string | null;
     remarks?: string | null;
     created_at: string;
     updated_at: string;
@@ -155,11 +156,11 @@ export async function getWalletBalance(): Promise<WalletData> {
     return res.json();
 }
 
-export async function topUpWallet(amount: number): Promise<{ message: string, request_id: number, amount: string, status: string }> {
+export async function topUpWallet(amount: number, remarks?: string): Promise<{ message: string, request_id: number, amount: string, status: string }> {
     const res = await fetch(`${API_BASE_URL}/wallet/top-up/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount, remarks })
     });
     if (!res.ok) throw new Error('Failed to top up wallet');
     return res.json();

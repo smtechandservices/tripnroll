@@ -244,9 +244,14 @@ export default function TopUpRequestsPage() {
                                                 {request.status === 'REJECTED' && <XCircle size={12} />}
                                                 {request.status}
                                             </span>
+                                            {request.user_remarks && (
+                                                <p className="text-[11px] text-blue-600 italic mt-1.5 max-w-[180px] truncate" title={`User: ${request.user_remarks}`}>
+                                                    User: {request.user_remarks}
+                                                </p>
+                                            )}
                                             {request.remarks && (
-                                                <p className="text-[11px] text-slate-500 italic mt-1.5 max-w-[180px] truncate" title={request.remarks}>
-                                                    {request.remarks}
+                                                <p className="text-[11px] text-slate-500 italic mt-1 max-w-[180px] truncate" title={`Admin: ${request.remarks}`}>
+                                                    Admin: {request.remarks}
                                                 </p>
                                             )}
                                         </td>

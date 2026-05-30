@@ -57,22 +57,31 @@ export default function WalletPage() {
 
         const result = await Swal.fire({
             title: 'Confirm Top-up',
-            text: `Are you sure you want to add ₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} to your wallet?`,
+            html: `
+                <p style="margin-bottom:12px;color:#475569;">Adding <strong>₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> to your wallet</p>
+                <div style="text-align:left;">
+                    <label style="font-size:13px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;">Remarks <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+                    <textarea id="topup-remarks" rows="2" placeholder="e.g. UTR number, bank reference…" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;color:#1e293b;resize:none;box-sizing:border-box;outline:none;"></textarea>
+                </div>
+            `,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#16a34a',
             cancelButtonColor: '#64748b',
             confirmButtonText: 'Yes, proceed',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
+            preConfirm: () => (document.getElementById('topup-remarks') as HTMLTextAreaElement)?.value?.trim() || '',
         });
 
         if (!result.isConfirmed) {
             return;
         }
 
+        const remarks = result.value as string;
+
         setIsProcessingManual(true);
         try {
-            const result = await topUpWallet(amount);
+            const result = await topUpWallet(amount, remarks || undefined);
             Swal.fire({
                 icon: 'success',
                 title: 'Request Submitted',
@@ -81,6 +90,20 @@ export default function WalletPage() {
             });
             setTopUpAmount('');
             fetchTopUpRequests(); // Refresh requests list
+            // Notify admin
+            fetch('/api/admin/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'topup_request',
+                    userName: user?.username,
+                    userEmail: user?.email,
+                    amount,
+                    requestId: result.request_id,
+                    method: 'MANUAL',
+                    remarks: remarks || undefined,
+                }),
+            }).catch(() => {});
         } catch (error: any) {
             Swal.fire('Error', error.message || 'Top-up failed', 'error');
         } finally {
@@ -124,9 +147,22 @@ export default function WalletPage() {
                             text: `₹${amount.toLocaleString('en-IN')} has been added to your wallet instantly.`,
                             confirmButtonColor: '#16a34a',
                         });
-                        
+
                         setTopUpAmount('');
                         fetchData(); // Refresh everything
+                        // Notify admin
+                        fetch('/api/admin/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: 'topup_request',
+                                userName: user?.username,
+                                userEmail: user?.email,
+                                amount,
+                                requestId: response.razorpay_payment_id,
+                                method: 'RAZORPAY',
+                            }),
+                        }).catch(() => {});
                     } catch (error: any) {
                         Swal.fire('Error', 'Payment verification failed', 'error');
                     } finally {
@@ -470,9 +506,14 @@ export default function WalletPage() {
                                                         {req.razorpay_payment_id && (
                                                             <p className="text-[10px] text-blue-600 font-mono mt-0.5">ID: {req.razorpay_payment_id}</p>
                                                         )}
+                                                        {req.user_remarks && (
+                                                            <p className="text-[11px] text-slate-500 italic mt-1">
+                                                                Your note: {req.user_remarks}
+                                                            </p>
+                                                        )}
                                                         {req.remarks && (
                                                             <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-1 mt-1 italic">
-                                                                {req.remarks}
+                                                                Admin: {req.remarks}
                                                             </p>
                                                         )}
                                                     </div>
